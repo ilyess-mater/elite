@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import "../styles/forms.css";
+import { useAuth } from "../contexts/AuthContext";
 
 function SignInForm({ onSignIn }) {
   const [formData, setFormData] = useState({
@@ -9,6 +10,7 @@ function SignInForm({ onSignIn }) {
 
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
+  const { signIn, error: authError } = useAuth();
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -41,36 +43,42 @@ function SignInForm({ onSignIn }) {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (validateForm()) {
       setIsLoading(true);
 
-      // Simulate API call for login
-      setTimeout(() => {
-        // For demo purposes, let's consider any login valid
-        // In a real app, this would check credentials with the backend
-        const user = {
-          id: 1,
-          name: formData.email.split("@")[0],
-          email: formData.email,
-          isAdmin: Math.random() > 0.7, // 30% chance of being an admin for demo
-        };
+      try {
+        // Use the auth context to sign in
+        const user = await signIn(formData.email, formData.password);
 
-        // Call the onSignIn prop function with the user data
+        // If there's a callback function, call it with the user data
         if (onSignIn) {
           onSignIn(user);
         }
-
+      } catch (error) {
+        console.error("Sign in error:", error);
+        setErrors({
+          ...errors,
+          general: authError || "Invalid email or password",
+        });
+      } finally {
         setIsLoading(false);
-      }, 1000);
+      }
     }
   };
 
   return (
     <form onSubmit={handleSubmit} className="sign-in-form">
       <h2 className="title">Sign in</h2>
+
+      {(errors.general || authError) && (
+        <div className="error-message">
+          <i className="fas fa-exclamation-circle"></i>{" "}
+          {errors.general || authError}
+        </div>
+      )}
 
       <div className={`input-field ${errors.email ? "input-error" : ""}`}>
         <i className="fas fa-user"></i>

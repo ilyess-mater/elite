@@ -14,6 +14,13 @@ function AuthContainerContent() {
     setIsSignUpMode(mode);
   };
 
+  // Handle successful authentication from either form
+  const handleAuthentication = (user) => {
+    // No need to navigate - the component will re-render with the user
+    // and show the MainDashboard component
+    console.log("User authenticated:", user);
+  };
+
   if (loading) {
     return <div className="loading-container">Loading...</div>;
   }
@@ -26,8 +33,8 @@ function AuthContainerContent() {
     <div className={`container ${isSignUpMode ? "sign-up-mode" : ""}`}>
       <div className="forms-container">
         <div className="signin-signup">
-          <SignInForm />
-          <SignUpForm />
+          <SignInForm onSignIn={handleAuthentication} />
+          <SignUpForm onSignUp={handleAuthentication} />
         </div>
       </div>
 

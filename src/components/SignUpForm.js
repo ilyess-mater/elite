@@ -7,6 +7,7 @@ function SignUpForm({ onSignUp }) {
     username: "",
     email: "",
     password: "",
+    confirmPassword: "",
     isAdmin: false,
     adminPassword: "",
   });
@@ -59,6 +60,12 @@ function SignUpForm({ onSignUp }) {
       newErrors.password = "Password must be at least 6 characters";
     }
 
+    if (!formData.confirmPassword.trim()) {
+      newErrors.confirmPassword = "Please confirm your password";
+    } else if (formData.password !== formData.confirmPassword) {
+      newErrors.confirmPassword = "Passwords do not match";
+    }
+
     if (formData.isAdmin && !formData.adminPassword.trim()) {
       newErrors.adminPassword = "Admin password is required";
     }
@@ -90,6 +97,7 @@ function SignUpForm({ onSignUp }) {
             username: "",
             email: "",
             password: "",
+            confirmPassword: "",
             isAdmin: false,
             adminPassword: "",
           });
@@ -166,6 +174,22 @@ function SignUpForm({ onSignUp }) {
       </div>
       {errors.password && (
         <div className="error-message">{errors.password}</div>
+      )}
+
+      <div
+        className={`input-field ${errors.confirmPassword ? "input-error" : ""}`}
+      >
+        <i className="fas fa-lock"></i>
+        <input
+          type="password"
+          name="confirmPassword"
+          value={formData.confirmPassword}
+          onChange={handleChange}
+          placeholder="Confirm Password"
+        />
+      </div>
+      {errors.confirmPassword && (
+        <div className="error-message">{errors.confirmPassword}</div>
       )}
 
       <div className="admin-option">
