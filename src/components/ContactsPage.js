@@ -105,6 +105,25 @@ function ContactsPage({ user }) {
     }
   };
 
+  // Start conversation with a contact
+  const startConversation = (contact) => {
+    // Check if this contact was previously removed from chats
+    const removedChats = JSON.parse(
+      localStorage.getItem("removedChats") || "[]"
+    );
+
+    // If it was removed, re-enable it by removing from the removed chats list
+    if (removedChats.includes(contact.id)) {
+      const updatedRemovedChats = removedChats.filter(
+        (id) => id !== contact.id
+      );
+      localStorage.setItem("removedChats", JSON.stringify(updatedRemovedChats));
+    }
+
+    // Redirect to messaging page
+    window.location.href = "/messaging";
+  };
+
   const filteredContacts = contacts.filter(
     (contact) =>
       contact.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -182,14 +201,21 @@ function ContactsPage({ user }) {
                   <div className="contact-actions">
                     <button
                       className="action-btn message-btn"
-                      onClick={() => (window.location.href = "/messaging")}
+                      onClick={() => startConversation(contact)}
+                      title="Start conversation"
                     >
                       <i className="fas fa-comment"></i>
                     </button>
-                    <button className="action-btn edit-btn">
+                    <button
+                      className="action-btn edit-btn"
+                      title="Edit contact"
+                    >
                       <i className="fas fa-edit"></i>
                     </button>
-                    <button className="action-btn delete-btn">
+                    <button
+                      className="action-btn delete-btn"
+                      title="Delete contact"
+                    >
                       <i className="fas fa-trash"></i>
                     </button>
                   </div>

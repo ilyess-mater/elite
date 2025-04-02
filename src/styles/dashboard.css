@@ -13,15 +13,17 @@
 
 .dashboard-content {
   flex: 1;
-  margin-left: 90px;
+  margin-left: 80px;
   position: relative;
   overflow-y: auto;
   height: 100vh;
   transition: margin-left 0.3s ease;
+  width: calc(100% - 80px);
 }
 
 .sidebar.expanded ~ .dashboard-content {
-  margin-left: 200px;
+  margin-left: 220px;
+  width: calc(100% - 220px);
 }
 
 /* Dark Mode */
@@ -50,11 +52,13 @@
   }
 
   .dashboard-content {
-    margin-left: 75px;
+    margin-left: 70px;
+    width: calc(100% - 70px);
   }
 
   .sidebar.expanded ~ .dashboard-content {
-    margin-left: 180px;
+    margin-left: 200px;
+    width: calc(100% - 200px);
   }
 }
 

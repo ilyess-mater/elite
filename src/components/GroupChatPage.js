@@ -21,6 +21,11 @@ function GroupChatPage({ user, textSize }) {
   const messagesEndRef = useRef(null);
   const { getSocket } = useAuth();
   const socket = getSocket();
+  const [messageIdCounter, setMessageIdCounter] = useState(1000);
+  const fileInputRef = useRef(null);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [filePreview, setFilePreview] = useState(null);
+  const [isUploading, setIsUploading] = useState(false);
 
   // Fetch groups from API
   useEffect(() => {
@@ -57,11 +62,68 @@ function GroupChatPage({ user, textSize }) {
     if (!socket) return;
 
     socket.on("receive_group_message", (newMessage) => {
+      console.log("Received group message:", newMessage); // Debug log
+
       setMessages((prevMessages) => {
         const groupId = newMessage.groupId;
+
+        // Skip if this is our own message that we've already added optimistically
+        if (newMessage.sender === user.id) {
+          const existingMessages = prevMessages[groupId] || [];
+          const messageExists = existingMessages.some(
+            (msg) =>
+              msg.text === newMessage.text &&
+              Math.abs(
+                new Date(msg.timestamp) - new Date(newMessage.timestamp)
+              ) < 5000 &&
+              msg._isOptimistic
+          );
+
+          if (messageExists) {
+            // Replace the optimistic message with the confirmed one
+            return {
+              ...prevMessages,
+              [groupId]: existingMessages.map((msg) =>
+                msg._isOptimistic &&
+                msg.text === newMessage.text &&
+                Math.abs(
+                  new Date(msg.timestamp) - new Date(newMessage.timestamp)
+                ) < 5000
+                  ? { ...newMessage, id: newMessage.id || msg.id }
+                  : msg
+              ),
+            };
+          }
+        }
+
+        // Show notification if message is not from current user
+        if (newMessage.sender !== user.id) {
+          showNotification(newMessage);
+        }
+
+        // Create a new array with the updated messages
+        const updatedMessages = [...(prevMessages[groupId] || [])];
+
+        // Ensure fileData is properly set
+        if (newMessage.fileUrl && !newMessage.fileData) {
+          newMessage.fileData = newMessage.fileUrl;
+        }
+
+        // For debugging
+        if (newMessage.fileUrl || newMessage.fileData) {
+          console.log("Group message contains file:", {
+            groupId: newMessage.groupId,
+            fileUrl: newMessage.fileUrl ? "Yes" : "No",
+            fileData: newMessage.fileData ? "Yes" : "No",
+            fileType: newMessage.fileType,
+          });
+        }
+
+        updatedMessages.push(newMessage);
+
         return {
           ...prevMessages,
-          [groupId]: [...(prevMessages[groupId] || []), newMessage],
+          [groupId]: updatedMessages,
         };
       });
     });
@@ -103,7 +165,58 @@ function GroupChatPage({ user, textSize }) {
       socket.off("group_user_joined");
       socket.off("group_user_left");
     };
-  }, [socket]);
+  }, [socket, user.id]);
+
+  // Show browser notification
+  const showNotification = (message) => {
+    try {
+      if (!("Notification" in window)) {
+        console.log("This browser does not support desktop notification");
+        return;
+      }
+
+      if (Notification.permission === "granted") {
+        // Get group name and sender name
+        const group = groups.find((g) => g.id === message.groupId);
+        const groupName = group ? group.name : "Group";
+        const senderName = message.senderName || "Someone";
+
+        const notification = new Notification(
+          `New message in ${groupName} from ${senderName}`,
+          {
+            body: message.text || "Sent an attachment",
+            icon: "/logo192.png",
+          }
+        );
+
+        notification.onclick = function () {
+          window.focus();
+          if (group) {
+            setSelectedGroup(group);
+          }
+        };
+      } else if (Notification.permission !== "denied") {
+        Notification.requestPermission().then((permission) => {
+          if (permission === "granted") {
+            showNotification(message);
+          }
+        });
+      }
+    } catch (error) {
+      console.error("Error showing notification:", error);
+    }
+  };
+
+  // Request notification permission on component mount
+  useEffect(() => {
+    if (
+      "Notification" in window &&
+      Notification.permission !== "granted" &&
+      Notification.permission !== "denied"
+    ) {
+      Notification.requestPermission();
+    }
+  }, []);
 
   // Generate avatar color based on name
   function generateAvatar(name) {
@@ -193,18 +306,158 @@ function GroupChatPage({ user, textSize }) {
     setShowGroupDetails(false);
   };
 
-  const handleSendMessage = (e) => {
-    e.preventDefault();
-    if (!message.trim() || !selectedGroup || !socket) return;
+  const handleFileSelection = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
 
-    // Send message via Socket.IO
-    socket.emit("send_group_message", {
-      token: localStorage.getItem("token"),
+    setSelectedFile(file);
+
+    // Generate preview for images and videos
+    if (file.type.startsWith("image/") || file.type.startsWith("video/")) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setFilePreview({
+          url: e.target.result,
+          type: file.type,
+          name: file.name,
+        });
+      };
+      reader.readAsDataURL(file);
+    } else {
+      // For other file types, just show the filename
+      setFilePreview({
+        url: null,
+        type: file.type,
+        name: file.name,
+      });
+    }
+  };
+
+  const cancelFileUpload = () => {
+    setSelectedFile(null);
+    setFilePreview(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  // Handle file uploads and conversion
+  const fileToBase64 = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = (error) => reject(error);
+    });
+  };
+
+  const handleSendMessage = async (e) => {
+    e.preventDefault();
+    if (
+      (!message.trim() && !selectedFile) ||
+      !selectedGroup ||
+      !socket ||
+      isUploading
+    )
+      return;
+
+    // Create a temporary ID for optimistic update
+    const tempId = `temp-${messageIdCounter}`;
+    setMessageIdCounter((prev) => prev + 1);
+
+    let fileUrl = null;
+    let fileType = null;
+    let fileName = null;
+    let fileData = null;
+
+    // Handle file upload if a file is selected
+    if (selectedFile) {
+      try {
+        setIsUploading(true);
+
+        // Convert file to base64 for transmission via socket
+        fileData = await fileToBase64(selectedFile);
+
+        if (!fileData) {
+          throw new Error("Failed to convert file to base64");
+        }
+
+        // Show optimistic preview with local URL
+        fileUrl = filePreview.url;
+        fileType = selectedFile.type;
+        fileName = selectedFile.name;
+
+        console.log("Group file prepared for sending:", {
+          fileName,
+          fileType,
+          fileDataLength: fileData ? fileData.length : 0,
+          groupId: selectedGroup.id,
+        });
+
+        // Reset file selection
+        setSelectedFile(null);
+        setFilePreview(null);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
+        }
+      } catch (error) {
+        console.error("Error processing file:", error);
+        alert(
+          "Failed to upload file. Please try again with a smaller file or different format."
+        );
+        setIsUploading(false);
+        return;
+      }
+    }
+
+    // Create optimistic message
+    const optimisticMessage = {
+      id: tempId,
+      sender: user.id,
+      senderName: user.name,
       groupId: selectedGroup.id,
       text: message,
-    });
+      timestamp: new Date().toISOString(),
+      fileUrl: fileUrl,
+      fileType: fileType,
+      fileName: fileName,
+      fileData: fileData,
+      _isOptimistic: true, // Flag to identify optimistic messages
+    };
+
+    // Optimistically add message to UI immediately
+    setMessages((prev) => ({
+      ...prev,
+      [selectedGroup.id]: [
+        ...(prev[selectedGroup.id] || []),
+        optimisticMessage,
+      ],
+    }));
+
+    // Send message via Socket.IO
+    try {
+      socket.emit("send_group_message", {
+        token: localStorage.getItem("token"),
+        groupId: selectedGroup.id,
+        text: message,
+        fileUrl: fileUrl,
+        fileType: fileType,
+        fileName: fileName,
+        fileData: fileData, // Send the base64 data to server
+      });
+
+      console.log("Group message sent successfully:", {
+        hasFile: fileData ? true : false,
+        textLength: message.length,
+        groupId: selectedGroup.id,
+      });
+    } catch (error) {
+      console.error("Error sending group message:", error);
+      alert("Failed to send message. Please try again.");
+    }
 
     setMessage("");
+    setIsUploading(false);
   };
 
   const handleCreateGroup = async () => {
@@ -270,6 +523,10 @@ function GroupChatPage({ user, textSize }) {
     });
   };
 
+  const handleAttachmentClick = () => {
+    fileInputRef.current.click();
+  };
+
   // Filter groups based on search term
   const filteredGroups = groups.filter(
     (group) =>
@@ -284,6 +541,70 @@ function GroupChatPage({ user, textSize }) {
       !selectedMembers.some((m) => m.id === contact.id) &&
       contact.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  // Render file content based on type
+  const renderFileContent = (msg) => {
+    if (!msg.fileUrl && !msg.fileData) return null;
+
+    // Use fileData (base64) if available, otherwise fall back to fileUrl
+    const fileSource = msg.fileData || msg.fileUrl;
+
+    if (!fileSource) {
+      console.error("Missing file source for group message:", msg.id);
+      return <div className="file-error">File could not be displayed</div>;
+    }
+
+    try {
+      if (msg.fileType && msg.fileType.startsWith("image/")) {
+        return (
+          <div className="message-image-container">
+            <img
+              src={fileSource}
+              alt="Sent"
+              className="message-image"
+              onClick={() => window.open(fileSource, "_blank")}
+              onError={(e) => {
+                console.error("Group image failed to load:", e);
+                e.target.src = "/placeholder-image.png"; // Fallback image
+                e.target.alt = "Image failed to load";
+              }}
+            />
+          </div>
+        );
+      } else if (msg.fileType && msg.fileType.startsWith("video/")) {
+        return (
+          <div className="message-video-container">
+            <video
+              src={fileSource}
+              controls
+              className="message-video"
+              onError={(e) => {
+                console.error("Group video failed to load:", e);
+                e.target.parentNode.innerHTML =
+                  '<div class="video-error">Video could not be played</div>';
+              }}
+            />
+          </div>
+        );
+      } else if (fileSource || msg.fileName) {
+        // For other file types
+        return (
+          <div
+            className="message-file-container"
+            onClick={() => fileSource && window.open(fileSource, "_blank")}
+          >
+            <i className="fas fa-file"></i>
+            <span className="file-name">{msg.fileName || "File"}</span>
+          </div>
+        );
+      }
+    } catch (error) {
+      console.error("Error rendering group file:", error);
+      return <div className="file-error">File could not be displayed</div>;
+    }
+
+    return null;
+  };
 
   return (
     <div className="group-chat-container">
@@ -326,7 +647,14 @@ function GroupChatPage({ user, textSize }) {
               <div className="group-info">
                 <div className="group-name">{group.name}</div>
                 <div className="group-last-message">
-                  {group.lastMessage || "No messages yet"}
+                  {messages[group.id]?.length > 0
+                    ? messages[group.id][messages[group.id].length - 1].text ||
+                      (messages[group.id][messages[group.id].length - 1]
+                        .fileUrl ||
+                      messages[group.id][messages[group.id].length - 1].fileData
+                        ? "Sent a file"
+                        : "No messages yet")
+                    : "No messages yet"}
                 </div>
               </div>
               <div className="group-meta">
@@ -372,67 +700,99 @@ function GroupChatPage({ user, textSize }) {
               </div>
             </div>
             <div className="chat-messages">
-              {messages[selectedGroup.id]?.map((msg, index, array) => {
-                const messageDate = new Date(msg.timestamp).toDateString();
-                const prevMessageDate =
-                  index > 0
-                    ? new Date(array[index - 1].timestamp).toDateString()
-                    : null;
-                const showDateDivider =
-                  index === 0 || messageDate !== prevMessageDate;
-
-                if (msg.isSystem) {
-                  return (
-                    <React.Fragment key={msg.id}>
-                      {showDateDivider && (
-                        <div className="date-divider">
-                          <span>{formatDate(msg.timestamp)}</span>
-                        </div>
+              {messages[selectedGroup.id]?.map((msg) => (
+                <div
+                  key={msg.id}
+                  className={`message ${
+                    msg.isSystem
+                      ? "system-message"
+                      : msg.sender === user.id
+                      ? "outgoing"
+                      : "incoming"
+                  } ${msg._isOptimistic ? "optimistic" : ""}`}
+                >
+                  {!msg.isSystem && (
+                    <>
+                      {renderFileContent(msg)}
+                      {msg.text && (
+                        <div className="message-text">{msg.text}</div>
                       )}
-                      <div className="system-message">{msg.text}</div>
-                    </React.Fragment>
-                  );
-                }
-
-                return (
-                  <React.Fragment key={msg.id}>
-                    {showDateDivider && (
-                      <div className="date-divider">
-                        <span>{formatDate(msg.timestamp)}</span>
-                      </div>
-                    )}
-                    <div
-                      className={`message ${
-                        msg.sender === user.id ? "outgoing" : "incoming"
-                      }`}
-                    >
-                      {msg.sender !== user.id && (
-                        <div className="message-sender">{msg.senderName}</div>
-                      )}
-                      <div className="message-text">{msg.text}</div>
                       <div className="message-time">
                         {formatTime(msg.timestamp)}
+                        {msg._isOptimistic && (
+                          <span className="message-status">
+                            <i className="fas fa-check"></i>
+                          </span>
+                        )}
                       </div>
-                    </div>
-                  </React.Fragment>
-                );
-              })}
+                    </>
+                  )}
+                  {msg.isSystem && <div>{msg.text}</div>}
+                </div>
+              ))}
               <div ref={messagesEndRef} />
             </div>
+
+            {filePreview && (
+              <div className="file-preview-container">
+                {filePreview.type.startsWith("image/") ? (
+                  <div className="image-preview">
+                    <img src={filePreview.url} alt="Preview" />
+                  </div>
+                ) : filePreview.type.startsWith("video/") ? (
+                  <div className="video-preview">
+                    <video src={filePreview.url} controls />
+                  </div>
+                ) : (
+                  <div className="file-icon-preview">
+                    <i className="fas fa-file"></i>
+                    <span>{filePreview.name}</span>
+                  </div>
+                )}
+                <button
+                  className="cancel-file-button"
+                  onClick={cancelFileUpload}
+                >
+                  <i className="fas fa-times"></i>
+                </button>
+              </div>
+            )}
+
             <form className="chat-input-area" onSubmit={handleSendMessage}>
-              <button type="button" className="attachment-button">
-                <i className="fas fa-paperclip"></i>
-              </button>
               <input
-                type="text"
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                placeholder="Type a message..."
-                className={`text-${textSize}`}
+                type="file"
+                ref={fileInputRef}
+                className="file-input"
+                onChange={handleFileSelection}
+                accept="image/*,video/*,application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt"
               />
-              <button type="submit" className="send-button">
-                <i className="fas fa-paper-plane"></i>
-              </button>
+              <div className="input-container">
+                <button
+                  type="button"
+                  className="attachment-button"
+                  onClick={handleAttachmentClick}
+                  disabled={isUploading}
+                >
+                  <i className="fas fa-paperclip"></i>
+                </button>
+                <input
+                  type="text"
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  placeholder={
+                    isUploading ? "Uploading..." : "Type a message..."
+                  }
+                  className={`text-${textSize}`}
+                  disabled={isUploading}
+                />
+                <button
+                  type="submit"
+                  className="send-button"
+                  disabled={isUploading}
+                >
+                  <i className="fas fa-paper-plane"></i>
+                </button>
+              </div>
             </form>
           </>
         ) : (
@@ -449,7 +809,7 @@ function GroupChatPage({ user, textSize }) {
       {showGroupDetails && selectedGroup && (
         <div className="group-details-sidebar">
           <div className="group-details-header">
-            <h3>Group Info</h3>
+            <h3>Group Information</h3>
             <button
               className="close-details-button"
               onClick={() => setShowGroupDetails(false)}
@@ -459,35 +819,48 @@ function GroupChatPage({ user, textSize }) {
           </div>
           <div className="group-details-content">
             <div className="group-description">
-              <h4>Description</h4>
-              <p>{selectedGroup.description || "No description available"}</p>
+              <h4>About</h4>
+              <p>{selectedGroup.description || "No description"}</p>
             </div>
+
             <div className="group-members-section">
               <h4>
                 Members{" "}
                 <span className="members-count">
-                  {selectedGroup.memberCount}
+                  {selectedGroup.members?.length || 0}
                 </span>
               </h4>
               <div className="member-list">
-                {/* In a real app, this would show actual group members */}
-                <div className="member-item">
-                  <div
-                    className="member-avatar"
-                    style={{ backgroundColor: generateAvatar(user.name) }}
-                  >
-                    {user.name.charAt(0)}
+                {selectedGroup.members?.map((member) => (
+                  <div className="member-item" key={member.id}>
+                    <div
+                      className="member-avatar"
+                      style={{
+                        backgroundColor: generateAvatar(member.name),
+                      }}
+                    >
+                      {member.name.charAt(0)}
+                    </div>
+                    <div className="member-details">
+                      <div className="member-name">{member.name}</div>
+                      <div className="member-role">
+                        {member.id === selectedGroup.createdBy
+                          ? "Admin"
+                          : "Member"}
+                      </div>
+                    </div>
+                    <div className="member-status">
+                      <span
+                        className={
+                          member.isActive ? "status-online" : "status-offline"
+                        }
+                      ></span>
+                    </div>
                   </div>
-                  <div className="member-details">
-                    <div className="member-name">{user.name} (You)</div>
-                    <div className="member-role">Admin</div>
-                  </div>
-                  <div className="member-status">
-                    <span className="status-online"></span>
-                  </div>
-                </div>
+                ))}
               </div>
             </div>
+
             <div className="group-actions">
               <button className="group-action-button">
                 <i className="fas fa-bell-slash"></i> Mute Notifications
@@ -547,24 +920,26 @@ function GroupChatPage({ user, textSize }) {
                   rows="3"
                 ></textarea>
               </div>
+
               <div className="add-members-section">
                 <div className="add-members-header">
                   <h4>Add Members</h4>
-                  <div className="members-search">
-                    <i className="fas fa-search"></i>
-                    <input
-                      type="text"
-                      placeholder="Search contacts..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                    />
-                  </div>
                 </div>
+                <div className="members-search">
+                  <i className="fas fa-search"></i>
+                  <input
+                    type="text"
+                    placeholder="Search contacts..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                </div>
+
                 {selectedMembers.length > 0 && (
                   <div className="selected-members">
                     {selectedMembers.map((member) => (
-                      <div key={member.id} className="selected-member">
-                        {member.name}
+                      <div className="selected-member" key={member.id}>
+                        <span>{member.name}</span>
                         <button
                           className="remove-member"
                           onClick={() => toggleMemberSelection(member)}
@@ -575,11 +950,12 @@ function GroupChatPage({ user, textSize }) {
                     ))}
                   </div>
                 )}
+
                 <div className="suggested-members">
                   {filteredContacts.map((contact) => (
                     <div
-                      key={contact.id}
                       className="suggested-member"
+                      key={contact.id}
                       onClick={() => toggleMemberSelection(contact)}
                     >
                       <div
@@ -600,17 +976,10 @@ function GroupChatPage({ user, textSize }) {
             </div>
             <div className="modal-footer">
               <button
-                className="btn btn-secondary"
-                onClick={() => {
-                  setShowCreateGroup(false);
-                  setNewGroup({ name: "", description: "" });
-                  setSelectedMembers([]);
-                  setError("");
-                }}
+                className="btn-primary"
+                onClick={handleCreateGroup}
+                disabled={!newGroup.name || selectedMembers.length === 0}
               >
-                Cancel
-              </button>
-              <button className="btn btn-primary" onClick={handleCreateGroup}>
                 Create Group
               </button>
             </div>

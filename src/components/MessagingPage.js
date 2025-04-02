@@ -13,17 +13,35 @@ function MessagingPage({ user, textSize }) {
   const { getSocket } = useAuth();
   const socket = getSocket();
   const [messageIdCounter, setMessageIdCounter] = useState(1000);
+  const fileInputRef = useRef(null);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [filePreview, setFilePreview] = useState(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [contactToDelete, setContactToDelete] = useState(null);
 
   // Fetch contacts from API
   useEffect(() => {
     const fetchContacts = async () => {
       try {
         const response = await axios.get("/api/contacts");
+
+        // Get IDs of removed chats from localStorage
+        const removedChats = JSON.parse(
+          localStorage.getItem("removedChats") || "[]"
+        );
+
+        // Filter out contacts with removed chats
+        const filteredContacts = response.data.filter(
+          (contact) => !removedChats.includes(contact.id)
+        );
+
         // Generate avatar colors for the contacts
-        const contactsWithAvatars = response.data.map((contact) => ({
+        const contactsWithAvatars = filteredContacts.map((contact) => ({
           ...contact,
           avatar: generateAvatar(contact.name),
         }));
+
         setContacts(contactsWithAvatars);
       } catch (error) {
         console.error("Error fetching contacts:", error);
@@ -39,6 +57,8 @@ function MessagingPage({ user, textSize }) {
 
     // Listen for new messages
     socket.on("receive_message", (newMessage) => {
+      console.log("Received message:", newMessage); // Debug log
+
       setMessages((prevMessages) => {
         const contactId =
           newMessage.sender === user.id
@@ -75,9 +95,33 @@ function MessagingPage({ user, textSize }) {
           }
         }
 
+        // Show notification if message is new and from someone else
+        if (newMessage.sender !== user.id) {
+          showNotification(newMessage);
+        }
+
+        // Create a new array with the updated messages
+        const updatedMessages = [...(prevMessages[contactId] || [])];
+
+        // Ensure fileData is properly set
+        if (newMessage.fileUrl && !newMessage.fileData) {
+          newMessage.fileData = newMessage.fileUrl;
+        }
+
+        // For debugging
+        if (newMessage.fileUrl || newMessage.fileData) {
+          console.log("Message contains file:", {
+            fileUrl: newMessage.fileUrl ? "Yes" : "No",
+            fileData: newMessage.fileData ? "Yes" : "No",
+            fileType: newMessage.fileType,
+          });
+        }
+
+        updatedMessages.push(newMessage);
+
         return {
           ...prevMessages,
-          [contactId]: [...(prevMessages[contactId] || []), newMessage],
+          [contactId]: updatedMessages,
         };
       });
     });
@@ -100,6 +144,105 @@ function MessagingPage({ user, textSize }) {
       socket.off("user_status");
     };
   }, [socket, user]);
+
+  // Handle delete chat
+  const handleDeleteChat = (e, contact) => {
+    e.stopPropagation(); // Prevent contact selection when clicking delete
+    setContactToDelete(contact);
+    setShowDeleteConfirm(true);
+  };
+
+  // Confirm delete chat
+  const confirmDeleteChat = () => {
+    if (contactToDelete) {
+      // Delete messages for this contact
+      setMessages((prevMessages) => {
+        const updatedMessages = { ...prevMessages };
+        delete updatedMessages[contactToDelete.id];
+        return updatedMessages;
+      });
+
+      // If the deleted contact is the selected contact, clear selection
+      if (selectedContact && selectedContact.id === contactToDelete.id) {
+        setSelectedContact(null);
+      }
+
+      // Remove the contact from the contacts list
+      setContacts((prevContacts) =>
+        prevContacts.filter((contact) => contact.id !== contactToDelete.id)
+      );
+
+      // Store the removed chat ID in localStorage
+      const removedChats = JSON.parse(
+        localStorage.getItem("removedChats") || "[]"
+      );
+      if (!removedChats.includes(contactToDelete.id)) {
+        removedChats.push(contactToDelete.id);
+        localStorage.setItem("removedChats", JSON.stringify(removedChats));
+      }
+    }
+
+    setShowDeleteConfirm(false);
+    setContactToDelete(null);
+  };
+
+  // Cancel delete chat
+  const cancelDeleteChat = () => {
+    setShowDeleteConfirm(false);
+    setContactToDelete(null);
+  };
+
+  // Show browser notification
+  const showNotification = (message) => {
+    try {
+      if (!("Notification" in window)) {
+        console.log("This browser does not support desktop notification");
+        return;
+      }
+
+      if (Notification.permission === "granted") {
+        // Find sender's name
+        const sender = contacts.find(
+          (contact) => contact.id === message.sender
+        );
+        const senderName = sender ? sender.name : "Someone";
+
+        const notification = new Notification(
+          "New message from " + senderName,
+          {
+            body: message.text || "Sent you a file",
+            icon: "/logo192.png",
+          }
+        );
+
+        notification.onclick = function () {
+          window.focus();
+          if (sender) {
+            setSelectedContact(sender);
+          }
+        };
+      } else if (Notification.permission !== "denied") {
+        Notification.requestPermission().then((permission) => {
+          if (permission === "granted") {
+            showNotification(message);
+          }
+        });
+      }
+    } catch (error) {
+      console.error("Error showing notification:", error);
+    }
+  };
+
+  // Request notification permission on component mount
+  useEffect(() => {
+    if (
+      "Notification" in window &&
+      Notification.permission !== "granted" &&
+      Notification.permission !== "denied"
+    ) {
+      Notification.requestPermission();
+    }
+  }, []);
 
   // Generate random avatar color based on user name
   function generateAvatar(name) {
@@ -151,13 +294,108 @@ function MessagingPage({ user, textSize }) {
     setSelectedContact(contact);
   };
 
-  const handleSendMessage = (e) => {
+  const handleFileSelection = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setSelectedFile(file);
+
+    // Generate preview for images and videos
+    if (file.type.startsWith("image/") || file.type.startsWith("video/")) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setFilePreview({
+          url: e.target.result,
+          type: file.type,
+          name: file.name,
+        });
+      };
+      reader.readAsDataURL(file);
+    } else {
+      // For other file types, just show the filename
+      setFilePreview({
+        url: null,
+        type: file.type,
+        name: file.name,
+      });
+    }
+  };
+
+  const cancelFileUpload = () => {
+    setSelectedFile(null);
+    setFilePreview(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  // Handle file uploads and conversion
+  const fileToBase64 = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = (error) => reject(error);
+    });
+  };
+
+  const handleSendMessage = async (e) => {
     e.preventDefault();
-    if (!message.trim() || !selectedContact || !socket) return;
+    if (
+      (!message.trim() && !selectedFile) ||
+      !selectedContact ||
+      !socket ||
+      isUploading
+    )
+      return;
 
     // Create a temporary ID for optimistic update
     const tempId = `temp-${messageIdCounter}`;
     setMessageIdCounter((prev) => prev + 1);
+
+    let fileUrl = null;
+    let fileType = null;
+    let fileName = null;
+    let fileData = null;
+
+    // Handle file upload if a file is selected
+    if (selectedFile) {
+      try {
+        setIsUploading(true);
+
+        // Convert file to base64 for transmission via socket
+        fileData = await fileToBase64(selectedFile);
+
+        if (!fileData) {
+          throw new Error("Failed to convert file to base64");
+        }
+
+        // Show optimistic preview with local URL
+        fileUrl = filePreview.url;
+        fileType = selectedFile.type;
+        fileName = selectedFile.name;
+
+        console.log("File prepared for sending:", {
+          fileName,
+          fileType,
+          fileDataLength: fileData ? fileData.length : 0,
+        });
+
+        // Reset file selection
+        setSelectedFile(null);
+        setFilePreview(null);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
+        }
+      } catch (error) {
+        console.error("Error uploading file:", error);
+        alert(
+          "Failed to upload file. Please try again with a smaller file or different format."
+        );
+        setIsUploading(false);
+        return;
+      }
+    }
 
     // Create optimistic message
     const optimisticMessage = {
@@ -166,6 +404,10 @@ function MessagingPage({ user, textSize }) {
       receiver: selectedContact.id,
       text: message,
       timestamp: new Date().toISOString(),
+      fileUrl: fileUrl,
+      fileType: fileType,
+      fileName: fileName,
+      fileData: fileData,
       _isOptimistic: true, // Flag to identify optimistic messages
     };
 
@@ -179,18 +421,37 @@ function MessagingPage({ user, textSize }) {
     }));
 
     // Send message via Socket.IO
-    socket.emit("send_message", {
-      token: localStorage.getItem("token"),
-      receiverId: selectedContact.id,
-      text: message,
-    });
+    try {
+      socket.emit("send_message", {
+        token: localStorage.getItem("token"),
+        receiverId: selectedContact.id,
+        text: message,
+        fileUrl: fileUrl,
+        fileType: fileType,
+        fileName: fileName,
+        fileData: fileData, // Send the base64 data to server
+      });
+
+      console.log("Message sent successfully:", {
+        hasFile: fileData ? true : false,
+        textLength: message.length,
+      });
+    } catch (error) {
+      console.error("Error sending message:", error);
+      alert("Failed to send message. Please try again.");
+    }
 
     setMessage("");
+    setIsUploading(false);
   };
 
   const formatTime = (timestamp) => {
     const date = new Date(timestamp);
     return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  };
+
+  const handleAttachmentClick = () => {
+    fileInputRef.current.click();
   };
 
   // Filter contacts based on search term
@@ -200,6 +461,70 @@ function MessagingPage({ user, textSize }) {
       (contact.email &&
         contact.email.toLowerCase().includes(searchTerm.toLowerCase()))
   );
+
+  // Render file content based on type
+  const renderFileContent = (msg) => {
+    if (!msg.fileUrl && !msg.fileData) return null;
+
+    // Use fileData (base64) if available, otherwise fall back to fileUrl
+    const fileSource = msg.fileData || msg.fileUrl;
+
+    if (!fileSource) {
+      console.error("Missing file source for message:", msg.id);
+      return <div className="file-error">File could not be displayed</div>;
+    }
+
+    try {
+      if (msg.fileType && msg.fileType.startsWith("image/")) {
+        return (
+          <div className="message-image-container">
+            <img
+              src={fileSource}
+              alt="Sent"
+              className="message-image"
+              onClick={() => window.open(fileSource, "_blank")}
+              onError={(e) => {
+                console.error("Image failed to load:", e);
+                e.target.src = "/placeholder-image.png"; // Fallback image
+                e.target.alt = "Image failed to load";
+              }}
+            />
+          </div>
+        );
+      } else if (msg.fileType && msg.fileType.startsWith("video/")) {
+        return (
+          <div className="message-video-container">
+            <video
+              src={fileSource}
+              controls
+              className="message-video"
+              onError={(e) => {
+                console.error("Video failed to load:", e);
+                e.target.parentNode.innerHTML =
+                  '<div class="video-error">Video could not be played</div>';
+              }}
+            />
+          </div>
+        );
+      } else if (fileSource || msg.fileName) {
+        // For other file types
+        return (
+          <div
+            className="message-file-container"
+            onClick={() => fileSource && window.open(fileSource, "_blank")}
+          >
+            <i className="fas fa-file"></i>
+            <span className="file-name">{msg.fileName || "File"}</span>
+          </div>
+        );
+      }
+    } catch (error) {
+      console.error("Error rendering file:", error);
+      return <div className="file-error">File could not be displayed</div>;
+    }
+
+    return null;
+  };
 
   return (
     <div className="messaging-container">
@@ -234,18 +559,34 @@ function MessagingPage({ user, textSize }) {
                 style={{ backgroundColor: contact.avatar }}
               >
                 {contact.name.charAt(0)}
+                <div
+                  className={`contact-status ${
+                    contact.isActive ? "active" : ""
+                  }`}
+                ></div>
               </div>
               <div className="contact-info">
                 <div className="contact-name">{contact.name}</div>
                 <div className="contact-last-message">
                   {messages[contact.id]?.length > 0
-                    ? messages[contact.id][messages[contact.id].length - 1].text
+                    ? messages[contact.id][messages[contact.id].length - 1]
+                        .text ||
+                      (messages[contact.id][messages[contact.id].length - 1]
+                        .fileUrl ||
+                      messages[contact.id][messages[contact.id].length - 1]
+                        .fileData
+                        ? "Sent a file"
+                        : "No messages yet")
                     : "No messages yet"}
                 </div>
               </div>
-              <div className="contact-status">
-                {contact.isActive && <span className="status-dot"></span>}
-              </div>
+              <button
+                className="delete-chat-button"
+                onClick={(e) => handleDeleteChat(e, contact)}
+                title="Delete conversation"
+              >
+                <i className="fas fa-trash-alt"></i>
+              </button>
             </div>
           ))}
         </div>
@@ -289,7 +630,8 @@ function MessagingPage({ user, textSize }) {
                     msg.sender === user.id ? "outgoing" : "incoming"
                   } ${msg._isOptimistic ? "optimistic" : ""}`}
                 >
-                  <div className="message-text">{msg.text}</div>
+                  {renderFileContent(msg)}
+                  {msg.text && <div className="message-text">{msg.text}</div>}
                   <div className="message-time">
                     {formatTime(msg.timestamp)}
                     {msg._isOptimistic && (
@@ -302,19 +644,64 @@ function MessagingPage({ user, textSize }) {
               ))}
               <div ref={messagesEndRef} />
             </div>
+
+            {filePreview && (
+              <div className="file-preview-container">
+                {filePreview.type.startsWith("image/") ? (
+                  <div className="image-preview">
+                    <img src={filePreview.url} alt="Preview" />
+                  </div>
+                ) : filePreview.type.startsWith("video/") ? (
+                  <div className="video-preview">
+                    <video src={filePreview.url} controls />
+                  </div>
+                ) : (
+                  <div className="file-icon-preview">
+                    <i className="fas fa-file"></i>
+                    <span>{filePreview.name}</span>
+                  </div>
+                )}
+                <button
+                  className="cancel-file-button"
+                  onClick={cancelFileUpload}
+                >
+                  <i className="fas fa-times"></i>
+                </button>
+              </div>
+            )}
+
             <form className="chat-input-area" onSubmit={handleSendMessage}>
+              <input
+                type="file"
+                ref={fileInputRef}
+                className="file-input"
+                onChange={handleFileSelection}
+                accept="image/*,video/*,application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt"
+              />
               <div className="input-container">
-                <button type="button" className="attachment-button">
+                <button
+                  type="button"
+                  className="attachment-button"
+                  onClick={handleAttachmentClick}
+                  disabled={isUploading}
+                >
                   <i className="fas fa-paperclip"></i>
                 </button>
                 <input
                   type="text"
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
-                  placeholder="Type a message..."
+                  placeholder={
+                    isUploading ? "Uploading..." : "Type a message..."
+                  }
                   className={`text-${textSize}`}
+                  disabled={isUploading}
                 />
-                <button type="submit" className="send-button">
+                <button
+                  type="submit"
+                  className="send-button"
+                  disabled={isUploading}
+                >
                   <i className="fas fa-paper-plane"></i>
                 </button>
               </div>
@@ -330,6 +717,32 @@ function MessagingPage({ user, textSize }) {
           </div>
         )}
       </div>
+
+      {showDeleteConfirm && (
+        <div className="confirm-dialog-overlay">
+          <div className="confirm-dialog">
+            <div className="confirm-dialog-header">
+              <h3>Delete Conversation</h3>
+            </div>
+            <div className="confirm-dialog-content">
+              <p>
+                Are you sure you want to delete your conversation with{" "}
+                {contactToDelete?.name}?
+                <br />
+                This action cannot be undone.
+              </p>
+            </div>
+            <div className="confirm-dialog-actions">
+              <button className="btn-cancel" onClick={cancelDeleteChat}>
+                Cancel
+              </button>
+              <button className="btn-danger" onClick={confirmDeleteChat}>
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

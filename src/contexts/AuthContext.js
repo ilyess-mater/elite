@@ -110,25 +110,12 @@ export const AuthProvider = ({ children }) => {
     try {
       setError(null);
       const response = await axios.post("/api/auth/signup", userData);
-      const { user, token } = response.data;
+      const { user } = response.data;
 
-      // Save user data and token
-      localStorage.setItem("user", JSON.stringify(user));
-      localStorage.setItem("token", token);
-
-      // Set axios default header
-      axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
-
-      // Set user in state
-      setUser(user);
-
-      // Initialize socket connection
-      socket = io("/", {
-        query: { token },
-      });
-
-      // Set up socket event listeners
-      setupSocketListeners();
+      // Don't save user data and token
+      // Don't set axios default header
+      // Don't set user in state
+      // Don't initialize socket connection
 
       return user;
     } catch (err) {

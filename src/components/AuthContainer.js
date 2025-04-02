@@ -14,11 +14,25 @@ function AuthContainerContent() {
     setIsSignUpMode(mode);
   };
 
-  // Handle successful authentication from either form
-  const handleAuthentication = (user) => {
+  // Handle successful authentication from sign in form
+  const handleSignIn = (user) => {
     // No need to navigate - the component will re-render with the user
     // and show the MainDashboard component
     console.log("User authenticated:", user);
+  };
+
+  // Handle sign up success or toggle mode
+  const handleSignUp = (param) => {
+    // If param is a boolean, it's a toggle mode request
+    if (typeof param === "boolean") {
+      toggleSignUpMode(param);
+    }
+    // If param is an object, it's a user object after authentication
+    else if (param && typeof param === "object") {
+      console.log("User registered:", param);
+      // We don't need to do anything else since the updated AuthContext
+      // no longer automatically logs in users after registration
+    }
   };
 
   if (loading) {
@@ -33,8 +47,8 @@ function AuthContainerContent() {
     <div className={`container ${isSignUpMode ? "sign-up-mode" : ""}`}>
       <div className="forms-container">
         <div className="signin-signup">
-          <SignInForm onSignIn={handleAuthentication} />
-          <SignUpForm onSignUp={handleAuthentication} />
+          <SignInForm onSignIn={handleSignIn} />
+          <SignUpForm onSignUp={handleSignUp} />
         </div>
       </div>
 

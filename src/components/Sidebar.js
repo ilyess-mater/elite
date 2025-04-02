@@ -81,7 +81,7 @@ function Sidebar({ activePage, setActivePage, isAdmin, onLogout, userName }) {
         >
           {userName ? userName.charAt(0).toUpperCase() : "U"}
         </div>
-        {expanded && <div className="user-name">{userName || "User"}</div>}
+        <div className="user-name">{userName || "User"}</div>
       </div>
 
       <nav className="sidebar-nav">
@@ -93,8 +93,8 @@ function Sidebar({ activePage, setActivePage, isAdmin, onLogout, userName }) {
             onClick={() => setActivePage("messaging")}
             title="Messages"
           >
-            <i className="fas fa-comment"></i>
-            {expanded && <span className="sidebar-text">Messages</span>}
+            <i className="fas fa-comment-alt"></i>
+            <span className="sidebar-text">Messages</span>
           </li>
 
           <li
@@ -105,7 +105,7 @@ function Sidebar({ activePage, setActivePage, isAdmin, onLogout, userName }) {
             title="Contacts"
           >
             <i className="fas fa-address-book"></i>
-            {expanded && <span className="sidebar-text">Contacts</span>}
+            <span className="sidebar-text">Contacts</span>
           </li>
 
           <li
@@ -116,7 +116,7 @@ function Sidebar({ activePage, setActivePage, isAdmin, onLogout, userName }) {
             title="Group Chats"
           >
             <i className="fas fa-users"></i>
-            {expanded && <span className="sidebar-text">Group Chats</span>}
+            <span className="sidebar-text">Group Chats</span>
           </li>
 
           <li
@@ -126,8 +126,8 @@ function Sidebar({ activePage, setActivePage, isAdmin, onLogout, userName }) {
             onClick={() => setActivePage("settings")}
             title="Settings"
           >
-            <i className="fas fa-cog"></i>
-            {expanded && <span className="sidebar-text">Settings</span>}
+            <i className="fas fa-sliders-h"></i>
+            <span className="sidebar-text">Settings</span>
           </li>
 
           <li
@@ -138,7 +138,7 @@ function Sidebar({ activePage, setActivePage, isAdmin, onLogout, userName }) {
             title="Security"
           >
             <i className="fas fa-shield-alt"></i>
-            {expanded && <span className="sidebar-text">Security</span>}
+            <span className="sidebar-text">Security</span>
           </li>
 
           {isAdmin && (
@@ -150,7 +150,7 @@ function Sidebar({ activePage, setActivePage, isAdmin, onLogout, userName }) {
               title="Admin Panel"
             >
               <i className="fas fa-user-shield"></i>
-              {expanded && <span className="sidebar-text">Admin Panel</span>}
+              <span className="sidebar-text">Admin Panel</span>
             </li>
           )}
         </ul>
@@ -159,7 +159,7 @@ function Sidebar({ activePage, setActivePage, isAdmin, onLogout, userName }) {
       <div className="sidebar-footer">
         <button className="logout-button" onClick={handleLogout} title="Logout">
           <i className="fas fa-sign-out-alt"></i>
-          {expanded && <span className="sidebar-text">Logout</span>}
+          <span className="sidebar-text">Logout</span>
         </button>
       </div>
 

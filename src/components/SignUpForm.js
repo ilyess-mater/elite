@@ -83,30 +83,34 @@ function SignUpForm({ onSignUp }) {
       try {
         const user = await signUp(formData);
 
-        // Call the onSignUp prop with the user data if provided
-        if (onSignUp) {
-          onSignUp(user);
-        } else {
-          // If onSignUp not provided, just show success message
-          setSuccessMessage(
-            `Account created successfully! ${user.isAdmin ? "(Admin)" : ""}`
-          );
+        // Show success message
+        setSuccessMessage(
+          `Account created successfully! ${
+            user.isAdmin ? "(Admin)" : ""
+          } Please sign in.`
+        );
 
-          // Clear form
-          setFormData({
-            username: "",
-            email: "",
-            password: "",
-            confirmPassword: "",
-            isAdmin: false,
-            adminPassword: "",
-          });
+        // Clear form
+        setFormData({
+          username: "",
+          email: "",
+          password: "",
+          confirmPassword: "",
+          isAdmin: false,
+          adminPassword: "",
+        });
 
-          // Clear success message after 3 seconds
-          setTimeout(() => {
-            setSuccessMessage("");
-          }, 3000);
-        }
+        // After successful registration, switch to sign in mode after a short delay
+        setTimeout(() => {
+          // If we have a parent component callback, call it to switch to sign in mode
+          if (onSignUp) {
+            // Pass false to switch to sign in mode
+            onSignUp(false);
+          }
+
+          // Clear success message
+          setSuccessMessage("");
+        }, 2000);
       } catch (error) {
         console.error("Signup error:", error);
         setErrors({
