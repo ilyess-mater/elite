@@ -1,14 +1,34 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import "../styles/sidebar.css";
 
 function Sidebar({ activePage, setActivePage, isAdmin, onLogout, userName }) {
+  const [avatarColor, setAvatarColor] = useState(
+    localStorage.getItem("avatarColor") || "#4a6cf7"
+  );
+
+  // Listen for avatar color changes
+  useEffect(() => {
+    const handleAvatarColorChange = (event) => {
+      setAvatarColor(event.detail.color);
+    };
+
+    document.addEventListener("avatarColorChanged", handleAvatarColorChange);
+
+    return () => {
+      document.removeEventListener(
+        "avatarColorChanged",
+        handleAvatarColorChange
+      );
+    };
+  }, []);
+
   const handleLogout = () => {
     if (onLogout) {
       onLogout();
     }
   };
 
-  // Generate avatar color based on username
+  // Generate avatar color based on username (fallback)
   const generateAvatarColor = (name) => {
     const colors = [
       "#FF5733",
@@ -40,7 +60,9 @@ function Sidebar({ activePage, setActivePage, isAdmin, onLogout, userName }) {
       <div className="user-profile">
         <div
           className="user-avatar"
-          style={{ backgroundColor: generateAvatarColor(userName) }}
+          style={{
+            backgroundColor: avatarColor || generateAvatarColor(userName),
+          }}
         >
           {userName ? userName.charAt(0).toUpperCase() : "U"}
         </div>
@@ -97,14 +119,6 @@ function Sidebar({ activePage, setActivePage, isAdmin, onLogout, userName }) {
               >
                 <i className="fas fa-user-shield"></i>
                 <span>Admin Panel</span>
-              </li>
-
-              <li
-                className={activePage === "realtime" ? "active" : ""}
-                onClick={() => setActivePage("realtime")}
-              >
-                <i className="fas fa-chart-line"></i>
-                <span>Realtime</span>
               </li>
             </>
           )}

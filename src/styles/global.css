@@ -2,11 +2,106 @@
   margin: 0;
   padding: 0;
   box-sizing: border-box;
-  font-family: 'Inter', 'Segoe UI', 'Roboto', sans-serif;
+  font-family: "Inter", "Segoe UI", "Roboto", sans-serif;
 }
 
 body {
   background-color: #f5f5f5;
   height: 100vh;
   overflow: hidden;
+}
+
+/* Global Text Size Styles */
+.text-small {
+  font-size: 0.9rem !important;
+}
+
+.text-small .sidebar-nav span,
+.text-small .messaging-container,
+.text-small .contacts-page-container,
+.text-small .settings-container,
+.text-small .security-container,
+.text-small .admin-container,
+.text-small .chat-messages,
+.text-small .chat-input-area input {
+  font-size: 0.9rem;
+}
+
+.text-small h1 {
+  font-size: 1.6rem;
+}
+
+.text-small h2 {
+  font-size: 1.3rem;
+}
+
+.text-small h3 {
+  font-size: 1.1rem;
+}
+
+.text-medium {
+  font-size: 1rem !important;
+}
+
+.text-medium .sidebar-nav span,
+.text-medium .messaging-container,
+.text-medium .contacts-page-container,
+.text-medium .settings-container,
+.text-medium .security-container,
+.text-medium .admin-container,
+.text-medium .chat-messages,
+.text-medium .chat-input-area input {
+  font-size: 1rem;
+}
+
+.text-medium h1 {
+  font-size: 1.8rem;
+}
+
+.text-medium h2 {
+  font-size: 1.5rem;
+}
+
+.text-medium h3 {
+  font-size: 1.2rem;
+}
+
+.text-large {
+  font-size: 1.1rem !important;
+}
+
+.text-large .sidebar-nav span,
+.text-large .messaging-container,
+.text-large .contacts-page-container,
+.text-large .settings-container,
+.text-large .security-container,
+.text-large .admin-container,
+.text-large .chat-messages,
+.text-large .chat-input-area input {
+  font-size: 1.1rem;
+}
+
+.text-large h1 {
+  font-size: 2rem;
+}
+
+.text-large h2 {
+  font-size: 1.7rem;
+}
+
+.text-large h3 {
+  font-size: 1.4rem;
+}
+
+/* Adjust button sizes based on text size */
+.text-small button,
+.text-small .btn {
+  font-size: 0.85rem;
+  padding: 6px 12px;
+}
+
+.text-large button,
+.text-large .btn {
+  font-size: 1.1rem;
+  padding: 10px 18px;
 }

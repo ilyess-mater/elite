@@ -14,6 +14,7 @@ function AdminPanel({ user }) {
     dailyMessages: [],
     newUsers: 0,
   });
+  const [timeRange, setTimeRange] = useState("7days");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -43,6 +44,9 @@ function AdminPanel({ user }) {
         const statsResponse = await axios.get("/api/stats");
         setStats(statsResponse.data);
 
+        // Fetch daily messages data based on the selected time range
+        fetchDailyMessages(timeRange);
+
         setLoading(false);
       } catch (error) {
         console.error("Error fetching admin data:", error);
@@ -53,6 +57,33 @@ function AdminPanel({ user }) {
 
     fetchData();
   }, [user]);
+
+  // Function to fetch daily messages data
+  const fetchDailyMessages = async (range) => {
+    try {
+      const dailyMessagesResponse = await axios.get(
+        `/api/admin/messages/daily?range=${range}`
+      );
+      if (
+        dailyMessagesResponse.data &&
+        Array.isArray(dailyMessagesResponse.data)
+      ) {
+        // Update the stats object with real daily messages data
+        setStats((prevStats) => ({
+          ...prevStats,
+          dailyMessages: dailyMessagesResponse.data,
+        }));
+      }
+    } catch (error) {
+      console.error("Error fetching daily messages:", error);
+    }
+  };
+
+  // Handle time range change
+  const handleTimeRangeChange = (range) => {
+    setTimeRange(range);
+    fetchDailyMessages(range);
+  };
 
   // Listen for real-time updates
   useEffect(() => {
@@ -67,8 +98,39 @@ function AdminPanel({ user }) {
       );
     });
 
+    // Listen for new messages to update stats in real-time
+    socket.on("new_message", (messageData) => {
+      // Update total messages count
+      setStats((prevStats) => ({
+        ...prevStats,
+        totalMessages: prevStats.totalMessages + 1,
+      }));
+
+      // Update daily messages for the current day
+      const today = new Date().toISOString().split("T")[0];
+      setStats((prevStats) => {
+        const updatedDailyMessages = [...prevStats.dailyMessages];
+        const todayIndex = updatedDailyMessages.findIndex(
+          (day) => day.date === today
+        );
+
+        if (todayIndex >= 0) {
+          updatedDailyMessages[todayIndex] = {
+            ...updatedDailyMessages[todayIndex],
+            count: updatedDailyMessages[todayIndex].count + 1,
+          };
+        }
+
+        return {
+          ...prevStats,
+          dailyMessages: updatedDailyMessages,
+        };
+      });
+    });
+
     return () => {
       socket.off("user_status");
+      socket.off("new_message");
     };
   }, [socket]);
 
@@ -147,13 +209,13 @@ function AdminPanel({ user }) {
     try {
       if (action === "delete") {
         // In a real app, you would send this to the backend
-        // await axios.delete(`/api/admin/users/${userData.id}`);
+        await axios.delete(`/api/admin/users/${userData.id}`);
 
         // Update local state
         setUsers(users.filter((user) => user.id !== userData.id));
       } else if (action === "suspend") {
         // In a real app, you would send this to the backend
-        // await axios.post(`/api/admin/users/${userData.id}/suspend`);
+        await axios.post(`/api/admin/users/${userData.id}/suspend`);
 
         // Update local state
         setUsers(
@@ -163,7 +225,7 @@ function AdminPanel({ user }) {
         );
       } else if (action === "unsuspend") {
         // In a real app, you would send this to the backend
-        // await axios.post(`/api/admin/users/${userData.id}/unsuspend`);
+        await axios.post(`/api/admin/users/${userData.id}/unsuspend`);
 
         // Update local state
         setUsers(
@@ -173,7 +235,7 @@ function AdminPanel({ user }) {
         );
       } else if (action === "promote") {
         // In a real app, you would send this to the backend
-        // await axios.post(`/api/admin/users/${userData.id}/promote`);
+        await axios.post(`/api/admin/users/${userData.id}/promote`);
 
         // Update local state
         setUsers(
@@ -183,7 +245,7 @@ function AdminPanel({ user }) {
         );
       } else if (action === "demote") {
         // In a real app, you would send this to the backend
-        // await axios.post(`/api/admin/users/${userData.id}/demote`);
+        await axios.post(`/api/admin/users/${userData.id}/demote`);
 
         // Update local state
         setUsers(
@@ -204,10 +266,19 @@ function AdminPanel({ user }) {
     setConfirmAction(null);
   };
 
+  // Format date for chart labels
+  const formatChartDate = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  };
+
   if (loading) {
     return (
       <div className="admin-container">
-        <div className="loading-message">Loading admin panel...</div>
+        <div className="loading-message">
+          <div className="loader"></div>
+          <span>Loading admin panel...</span>
+        </div>
       </div>
     );
   }
@@ -225,9 +296,9 @@ function AdminPanel({ user }) {
   return (
     <div className="admin-container">
       <div className="admin-header">
-        <h1>Admin Panel</h1>
+        <h1>Admin Dashboard</h1>
         <div className="admin-actions">
-          <button className="btn btn-primary">
+          <button className="btn-modern">
             <i className="fas fa-cog"></i> System Settings
           </button>
         </div>
@@ -239,25 +310,29 @@ function AdminPanel({ user }) {
             className={`admin-tab ${activeTab === "users" ? "active" : ""}`}
             onClick={() => setActiveTab("users")}
           >
-            <i className="fas fa-users"></i> Users
+            <i className="fas fa-users"></i>
+            <span>Users</span>
           </button>
           <button
             className={`admin-tab ${activeTab === "messages" ? "active" : ""}`}
             onClick={() => setActiveTab("messages")}
           >
-            <i className="fas fa-comments"></i> Messages
+            <i className="fas fa-comments"></i>
+            <span>Messages</span>
           </button>
           <button
             className={`admin-tab ${activeTab === "analytics" ? "active" : ""}`}
             onClick={() => setActiveTab("analytics")}
           >
-            <i className="fas fa-chart-line"></i> Analytics
+            <i className="fas fa-chart-line"></i>
+            <span>Analytics</span>
           </button>
           <button
             className={`admin-tab ${activeTab === "settings" ? "active" : ""}`}
             onClick={() => setActiveTab("settings")}
           >
-            <i className="fas fa-cog"></i> System Settings
+            <i className="fas fa-cog"></i>
+            <span>System Settings</span>
           </button>
         </div>
 
@@ -266,18 +341,28 @@ function AdminPanel({ user }) {
             <>
               <div className="stats-grid">
                 <div className="stat-card">
-                  <div className="stat-label">Total Users</div>
-                  <div className="stat-value">{stats.totalUsers}</div>
-                  <div className="stat-change stat-increase">
-                    +{stats.newUsers} new in last 7 days
+                  <div className="stat-icon">
+                    <i className="fas fa-users"></i>
+                  </div>
+                  <div className="stat-details">
+                    <div className="stat-label">Total Users</div>
+                    <div className="stat-value">{stats.totalUsers}</div>
+                    <div className="stat-change stat-increase">
+                      +{stats.newUsers} new in last 7 days
+                    </div>
                   </div>
                 </div>
                 <div className="stat-card">
-                  <div className="stat-label">Active Users</div>
-                  <div className="stat-value">{stats.activeUsers}</div>
-                  <div className="stat-change stat-increase">
-                    {Math.round((stats.activeUsers / stats.totalUsers) * 100)}%
-                    of total
+                  <div className="stat-icon">
+                    <i className="fas fa-user-check"></i>
+                  </div>
+                  <div className="stat-details">
+                    <div className="stat-label">Active Users</div>
+                    <div className="stat-value">{stats.activeUsers}</div>
+                    <div className="stat-change stat-increase">
+                      {Math.round((stats.activeUsers / stats.totalUsers) * 100)}
+                      % of total
+                    </div>
                   </div>
                 </div>
               </div>
@@ -427,27 +512,63 @@ function AdminPanel({ user }) {
 
           {activeTab === "messages" && (
             <div className="messages-container">
-              <h3>Recent Messages</h3>
-              <table className="messages-table">
-                <thead>
-                  <tr>
-                    <th>From</th>
-                    <th>To</th>
-                    <th>Message</th>
-                    <th>Time</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {allMessages.map((message) => (
-                    <tr key={message.id}>
-                      <td>{message.senderName}</td>
-                      <td>{message.receiverName}</td>
-                      <td className="message-content">{message.text}</td>
-                      <td>{formatDate(message.timestamp)}</td>
+              <div className="messages-header">
+                <h3>Recent Messages</h3>
+                <div className="messages-search">
+                  <i className="fas fa-search"></i>
+                  <input type="text" placeholder="Search messages..." />
+                </div>
+              </div>
+              <div className="messages-table-container">
+                <table className="messages-table">
+                  <thead>
+                    <tr>
+                      <th>From</th>
+                      <th>To</th>
+                      <th>Message</th>
+                      <th>Time</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {allMessages.map((message) => (
+                      <tr key={message.id}>
+                        <td>
+                          <div className="message-user">
+                            <div
+                              className="user-avatar small"
+                              style={{
+                                backgroundColor: generateAvatar(
+                                  message.senderName
+                                ),
+                              }}
+                            >
+                              {message.senderName.charAt(0)}
+                            </div>
+                            <span>{message.senderName}</span>
+                          </div>
+                        </td>
+                        <td>
+                          <div className="message-user">
+                            <div
+                              className="user-avatar small"
+                              style={{
+                                backgroundColor: generateAvatar(
+                                  message.receiverName
+                                ),
+                              }}
+                            >
+                              {message.receiverName.charAt(0)}
+                            </div>
+                            <span>{message.receiverName}</span>
+                          </div>
+                        </td>
+                        <td className="message-content">{message.text}</td>
+                        <td>{formatDate(message.timestamp)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
 
@@ -455,20 +576,40 @@ function AdminPanel({ user }) {
             <div className="analytics-container">
               <div className="stats-grid">
                 <div className="stat-card">
-                  <div className="stat-label">Total Users</div>
-                  <div className="stat-value">{stats.totalUsers}</div>
+                  <div className="stat-icon">
+                    <i className="fas fa-users"></i>
+                  </div>
+                  <div className="stat-details">
+                    <div className="stat-label">Total Users</div>
+                    <div className="stat-value">{stats.totalUsers}</div>
+                  </div>
                 </div>
                 <div className="stat-card">
-                  <div className="stat-label">Active Users</div>
-                  <div className="stat-value">{stats.activeUsers}</div>
+                  <div className="stat-icon">
+                    <i className="fas fa-user-check"></i>
+                  </div>
+                  <div className="stat-details">
+                    <div className="stat-label">Active Users</div>
+                    <div className="stat-value">{stats.activeUsers}</div>
+                  </div>
                 </div>
                 <div className="stat-card">
-                  <div className="stat-label">Total Messages</div>
-                  <div className="stat-value">{stats.totalMessages}</div>
+                  <div className="stat-icon">
+                    <i className="fas fa-comment-dots"></i>
+                  </div>
+                  <div className="stat-details">
+                    <div className="stat-label">Total Messages</div>
+                    <div className="stat-value">{stats.totalMessages}</div>
+                  </div>
                 </div>
                 <div className="stat-card">
-                  <div className="stat-label">New Users (7 days)</div>
-                  <div className="stat-value">{stats.newUsers}</div>
+                  <div className="stat-icon">
+                    <i className="fas fa-user-plus"></i>
+                  </div>
+                  <div className="stat-details">
+                    <div className="stat-label">New Users (7 days)</div>
+                    <div className="stat-value">{stats.newUsers}</div>
+                  </div>
                 </div>
               </div>
 
@@ -478,19 +619,40 @@ function AdminPanel({ user }) {
                     <i className="fas fa-chart-bar"></i> Daily Messages
                   </div>
                   <div className="chart-actions">
-                    <button className="chart-action-button active">
+                    <button
+                      className={`chart-action-button ${
+                        timeRange === "7days" ? "active" : ""
+                      }`}
+                      onClick={() => handleTimeRangeChange("7days")}
+                    >
                       7 Days
                     </button>
-                    <button className="chart-action-button">30 Days</button>
-                    <button className="chart-action-button">3 Months</button>
+                    <button
+                      className={`chart-action-button ${
+                        timeRange === "30days" ? "active" : ""
+                      }`}
+                      onClick={() => handleTimeRangeChange("30days")}
+                    >
+                      30 Days
+                    </button>
+                    <button
+                      className={`chart-action-button ${
+                        timeRange === "90days" ? "active" : ""
+                      }`}
+                      onClick={() => handleTimeRangeChange("90days")}
+                    >
+                      3 Months
+                    </button>
                   </div>
                 </div>
                 <div className="chart-body">
-                  {/* In a real app, you would use a charting library like Chart.js or Recharts */}
-                  <div className="dummy-chart">
+                  <div className="modern-chart">
                     <div className="chart-bars">
                       {stats.dailyMessages.map((day, index) => (
                         <div key={index} className="chart-bar-container">
+                          <div className="chart-bar-tooltip">
+                            {day.count} messages
+                          </div>
                           <div
                             className="chart-bar"
                             style={{
@@ -498,17 +660,68 @@ function AdminPanel({ user }) {
                                 5,
                                 (day.count /
                                   Math.max(
-                                    ...stats.dailyMessages.map((d) => d.count)
+                                    ...stats.dailyMessages.map((d) => d.count),
+                                    1
                                   )) *
                                   150
                               )}px`,
                             }}
                           ></div>
                           <div className="chart-label">
-                            {day.date.split("-")[2]}
+                            {formatChartDate(day.date)}
                           </div>
                         </div>
                       ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="analytics-cards">
+                <div className="analytics-card">
+                  <div className="analytics-card-header">
+                    <h3>User Growth</h3>
+                    <i className="fas fa-users"></i>
+                  </div>
+                  <div className="analytics-card-content">
+                    <div className="analytics-stat">
+                      <div className="analytics-stat-value">
+                        +{stats.newUsers}
+                      </div>
+                      <div className="analytics-stat-label">
+                        New Users (Last 7 Days)
+                      </div>
+                    </div>
+                    <div className="analytics-trend">
+                      <div className="analytics-trend-value">
+                        <i className="fas fa-arrow-up"></i> 12%
+                      </div>
+                      <div className="analytics-trend-label">
+                        vs previous period
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="analytics-card">
+                  <div className="analytics-card-header">
+                    <h3>Message Activity</h3>
+                    <i className="fas fa-comment-dots"></i>
+                  </div>
+                  <div className="analytics-card-content">
+                    <div className="analytics-stat">
+                      <div className="analytics-stat-value">
+                        {stats.totalMessages}
+                      </div>
+                      <div className="analytics-stat-label">Total Messages</div>
+                    </div>
+                    <div className="analytics-trend">
+                      <div className="analytics-trend-value">
+                        <i className="fas fa-arrow-up"></i> 8%
+                      </div>
+                      <div className="analytics-trend-label">
+                        vs previous period
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -521,7 +734,10 @@ function AdminPanel({ user }) {
               <div className="settings-grid">
                 <div className="setting-card">
                   <div className="setting-card-header">
-                    <div className="setting-card-title">System Settings</div>
+                    <div className="setting-card-title">
+                      <i className="fas fa-user-cog"></i>
+                      User Management
+                    </div>
                   </div>
                   <div className="setting-card-body">
                     <div className="setting-group">
@@ -539,7 +755,7 @@ function AdminPanel({ user }) {
                           <input
                             type="checkbox"
                             id="allow-registration"
-                            checked
+                            defaultChecked
                           />
                           <label
                             className="slider"
@@ -558,7 +774,7 @@ function AdminPanel({ user }) {
                           <input
                             type="checkbox"
                             id="email-verification"
-                            checked
+                            defaultChecked
                           />
                           <label
                             className="slider"
@@ -594,7 +810,7 @@ function AdminPanel({ user }) {
                         </div>
                         <select className="setting-select">
                           <option>Low - 6 characters minimum</option>
-                          <option selected>
+                          <option defaultValue>
                             Medium - 8 characters with numbers
                           </option>
                           <option>
@@ -608,7 +824,10 @@ function AdminPanel({ user }) {
 
                 <div className="setting-card">
                   <div className="setting-card-header">
-                    <div className="setting-card-title">Message Settings</div>
+                    <div className="setting-card-title">
+                      <i className="fas fa-comment-alt"></i>
+                      Message Settings
+                    </div>
                   </div>
                   <div className="setting-card-body">
                     <div className="setting-group">
@@ -623,7 +842,7 @@ function AdminPanel({ user }) {
                           <input
                             type="checkbox"
                             id="allow-attachments"
-                            checked
+                            defaultChecked
                           />
                           <label
                             className="slider"
@@ -640,7 +859,7 @@ function AdminPanel({ user }) {
                         </div>
                         <select className="setting-select">
                           <option>5 MB</option>
-                          <option selected>10 MB</option>
+                          <option defaultValue>10 MB</option>
                           <option>20 MB</option>
                           <option>50 MB</option>
                         </select>
@@ -651,8 +870,10 @@ function AdminPanel({ user }) {
               </div>
 
               <div className="settings-actions">
-                <button className="btn btn-secondary">Reset to Defaults</button>
-                <button className="btn btn-primary">Save Settings</button>
+                <button className="btn-modern secondary">
+                  Reset to Defaults
+                </button>
+                <button className="btn-modern primary">Save Settings</button>
               </div>
             </div>
           )}
@@ -692,16 +913,14 @@ function AdminPanel({ user }) {
             </div>
             <div className="user-modal-footer">
               <button
-                className="btn btn-secondary"
+                className="btn-modern secondary"
                 onClick={cancelConfirmation}
               >
                 Cancel
               </button>
               <button
-                className={`btn ${
-                  confirmAction.action === "delete"
-                    ? "btn-danger"
-                    : "btn-primary"
+                className={`btn-modern ${
+                  confirmAction.action === "delete" ? "danger" : "primary"
                 }`}
                 onClick={confirmUserAction}
               >
