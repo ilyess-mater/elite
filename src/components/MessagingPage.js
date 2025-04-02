@@ -12,6 +12,7 @@ function MessagingPage({ user, textSize }) {
   const messagesEndRef = useRef(null);
   const { getSocket } = useAuth();
   const socket = getSocket();
+  const [messageIdCounter, setMessageIdCounter] = useState(1000);
 
   // Fetch contacts from API
   useEffect(() => {
@@ -43,6 +44,37 @@ function MessagingPage({ user, textSize }) {
           newMessage.sender === user.id
             ? newMessage.receiver
             : newMessage.sender;
+
+        // Skip if this is our own message that we've already added optimistically
+        if (newMessage.sender === user.id) {
+          const existingMessages = prevMessages[contactId] || [];
+          // Check if we already have this message (by comparing text and timestamp)
+          const messageExists = existingMessages.some(
+            (msg) =>
+              msg.text === newMessage.text &&
+              Math.abs(
+                new Date(msg.timestamp) - new Date(newMessage.timestamp)
+              ) < 5000 &&
+              msg._isOptimistic
+          );
+
+          if (messageExists) {
+            // Replace the optimistic message with the confirmed one
+            return {
+              ...prevMessages,
+              [contactId]: existingMessages.map((msg) =>
+                msg._isOptimistic &&
+                msg.text === newMessage.text &&
+                Math.abs(
+                  new Date(msg.timestamp) - new Date(newMessage.timestamp)
+                ) < 5000
+                  ? { ...newMessage, id: newMessage.id || msg.id }
+                  : msg
+              ),
+            };
+          }
+        }
+
         return {
           ...prevMessages,
           [contactId]: [...(prevMessages[contactId] || []), newMessage],
@@ -122,6 +154,29 @@ function MessagingPage({ user, textSize }) {
   const handleSendMessage = (e) => {
     e.preventDefault();
     if (!message.trim() || !selectedContact || !socket) return;
+
+    // Create a temporary ID for optimistic update
+    const tempId = `temp-${messageIdCounter}`;
+    setMessageIdCounter((prev) => prev + 1);
+
+    // Create optimistic message
+    const optimisticMessage = {
+      id: tempId,
+      sender: user.id,
+      receiver: selectedContact.id,
+      text: message,
+      timestamp: new Date().toISOString(),
+      _isOptimistic: true, // Flag to identify optimistic messages
+    };
+
+    // Optimistically add message to UI immediately
+    setMessages((prev) => ({
+      ...prev,
+      [selectedContact.id]: [
+        ...(prev[selectedContact.id] || []),
+        optimisticMessage,
+      ],
+    }));
 
     // Send message via Socket.IO
     socket.emit("send_message", {
@@ -232,11 +287,16 @@ function MessagingPage({ user, textSize }) {
                   key={msg.id}
                   className={`message ${
                     msg.sender === user.id ? "outgoing" : "incoming"
-                  }`}
+                  } ${msg._isOptimistic ? "optimistic" : ""}`}
                 >
                   <div className="message-text">{msg.text}</div>
                   <div className="message-time">
                     {formatTime(msg.timestamp)}
+                    {msg._isOptimistic && (
+                      <span className="message-status">
+                        <i className="fas fa-check"></i>
+                      </span>
+                    )}
                   </div>
                 </div>
               ))}
