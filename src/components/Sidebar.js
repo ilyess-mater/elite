@@ -5,6 +5,8 @@ function Sidebar({ activePage, setActivePage, isAdmin, onLogout, userName }) {
   const [avatarColor, setAvatarColor] = useState(
     localStorage.getItem("avatarColor") || "#4a6cf7"
   );
+  const [expanded, setExpanded] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   // Listen for avatar color changes
   useEffect(() => {
@@ -23,9 +25,18 @@ function Sidebar({ activePage, setActivePage, isAdmin, onLogout, userName }) {
   }, []);
 
   const handleLogout = () => {
+    setShowLogoutConfirm(true);
+  };
+
+  const confirmLogout = () => {
     if (onLogout) {
       onLogout();
     }
+    setShowLogoutConfirm(false);
+  };
+
+  const cancelLogout = () => {
+    setShowLogoutConfirm(false);
   };
 
   // Generate avatar color based on username (fallback)
@@ -47,14 +58,18 @@ function Sidebar({ activePage, setActivePage, isAdmin, onLogout, userName }) {
   };
 
   return (
-    <div className="sidebar">
+    <div
+      className={`sidebar ${expanded ? "expanded" : ""}`}
+      onMouseEnter={() => setExpanded(true)}
+      onMouseLeave={() => setExpanded(false)}
+    >
       <div className="logo-container">
         <img
           src="/logo192.png"
-          alt="Elite Messaging"
+          alt="Secure Messages"
           className="sidebar-logo"
         />
-        <h3>Elite Messaging</h3>
+        <h3 className="logo-text">Secure Messages</h3>
       </div>
 
       <div className="user-profile">
@@ -66,71 +81,104 @@ function Sidebar({ activePage, setActivePage, isAdmin, onLogout, userName }) {
         >
           {userName ? userName.charAt(0).toUpperCase() : "U"}
         </div>
-        <div className="user-name">{userName || "User"}</div>
+        {expanded && <div className="user-name">{userName || "User"}</div>}
       </div>
 
       <nav className="sidebar-nav">
         <ul>
           <li
-            className={activePage === "messaging" ? "active" : ""}
+            className={`sidebar-icon ${
+              activePage === "messaging" ? "active" : ""
+            }`}
             onClick={() => setActivePage("messaging")}
+            title="Messages"
           >
             <i className="fas fa-comment"></i>
-            <span>Messages</span>
+            {expanded && <span className="sidebar-text">Messages</span>}
           </li>
 
           <li
-            className={activePage === "contacts" ? "active" : ""}
+            className={`sidebar-icon ${
+              activePage === "contacts" ? "active" : ""
+            }`}
             onClick={() => setActivePage("contacts")}
+            title="Contacts"
           >
             <i className="fas fa-address-book"></i>
-            <span>Contacts</span>
+            {expanded && <span className="sidebar-text">Contacts</span>}
           </li>
 
           <li
-            className={activePage === "groups" ? "active" : ""}
+            className={`sidebar-icon ${
+              activePage === "groups" ? "active" : ""
+            }`}
             onClick={() => setActivePage("groups")}
+            title="Group Chats"
           >
             <i className="fas fa-users"></i>
-            <span>Group Chats</span>
+            {expanded && <span className="sidebar-text">Group Chats</span>}
           </li>
 
           <li
-            className={activePage === "settings" ? "active" : ""}
+            className={`sidebar-icon ${
+              activePage === "settings" ? "active" : ""
+            }`}
             onClick={() => setActivePage("settings")}
+            title="Settings"
           >
             <i className="fas fa-cog"></i>
-            <span>Settings</span>
+            {expanded && <span className="sidebar-text">Settings</span>}
           </li>
 
           <li
-            className={activePage === "security" ? "active" : ""}
+            className={`sidebar-icon ${
+              activePage === "security" ? "active" : ""
+            }`}
             onClick={() => setActivePage("security")}
+            title="Security"
           >
             <i className="fas fa-shield-alt"></i>
-            <span>Security</span>
+            {expanded && <span className="sidebar-text">Security</span>}
           </li>
 
           {isAdmin && (
-            <>
-              <li
-                className={activePage === "admin" ? "active" : ""}
-                onClick={() => setActivePage("admin")}
-              >
-                <i className="fas fa-user-shield"></i>
-                <span>Admin Panel</span>
-              </li>
-            </>
+            <li
+              className={`sidebar-icon ${
+                activePage === "admin" ? "active" : ""
+              }`}
+              onClick={() => setActivePage("admin")}
+              title="Admin Panel"
+            >
+              <i className="fas fa-user-shield"></i>
+              {expanded && <span className="sidebar-text">Admin Panel</span>}
+            </li>
           )}
         </ul>
       </nav>
 
       <div className="sidebar-footer">
-        <button className="logout-button" onClick={handleLogout}>
+        <button className="logout-button" onClick={handleLogout} title="Logout">
           <i className="fas fa-sign-out-alt"></i>
-          <span>Logout</span>
+          {expanded && <span className="sidebar-text">Logout</span>}
         </button>
       </div>
+
+      {showLogoutConfirm && (
+        <div className="logout-confirm-overlay">
+          <div className="logout-confirm-dialog">
+            <h4>Confirm Logout</h4>
+            <p>Are you sure you want to logout?</p>
+            <div className="logout-confirm-actions">
+              <button className="btn-cancel" onClick={cancelLogout}>
+                Cancel
+              </button>
+              <button className="btn-confirm" onClick={confirmLogout}>
+                Logout
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

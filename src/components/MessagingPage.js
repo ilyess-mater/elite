@@ -151,6 +151,8 @@ function MessagingPage({ user, textSize }) {
       <div className="contacts-list">
         <div className="contacts-header">
           <h2>Conversations</h2>
+        </div>
+        <div className="search-bar-container">
           <div className="search-bar">
             <i className="fas fa-search"></i>
             <input
@@ -241,19 +243,21 @@ function MessagingPage({ user, textSize }) {
               <div ref={messagesEndRef} />
             </div>
             <form className="chat-input-area" onSubmit={handleSendMessage}>
-              <button type="button" className="attachment-button">
-                <i className="fas fa-paperclip"></i>
-              </button>
-              <input
-                type="text"
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                placeholder="Type a message..."
-                className={`text-${textSize}`}
-              />
-              <button type="submit" className="send-button">
-                <i className="fas fa-paper-plane"></i>
-              </button>
+              <div className="input-container">
+                <button type="button" className="attachment-button">
+                  <i className="fas fa-paperclip"></i>
+                </button>
+                <input
+                  type="text"
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  placeholder="Type a message..."
+                  className={`text-${textSize}`}
+                />
+                <button type="submit" className="send-button">
+                  <i className="fas fa-paper-plane"></i>
+                </button>
+              </div>
             </form>
           </>
         ) : (
