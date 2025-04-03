@@ -26,6 +26,8 @@ function GroupChatPage({ user, textSize }) {
   const [selectedFile, setSelectedFile] = useState(null);
   const [filePreview, setFilePreview] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [groupToDelete, setGroupToDelete] = useState(null);
 
   // Fetch groups from API
   useEffect(() => {
@@ -59,7 +61,14 @@ function GroupChatPage({ user, textSize }) {
 
   // Socket.io event listeners for group messages
   useEffect(() => {
-    if (!socket) return;
+    if (!socket) {
+      console.error(
+        "Socket is not initialized. Group messages cannot be sent or received."
+      );
+      return;
+    }
+
+    console.log("Setting up group message listeners in GroupChatPage");
 
     socket.on("receive_group_message", (newMessage) => {
       console.log("Received group message:", newMessage); // Debug log
@@ -104,18 +113,25 @@ function GroupChatPage({ user, textSize }) {
         // Create a new array with the updated messages
         const updatedMessages = [...(prevMessages[groupId] || [])];
 
-        // Ensure fileData is properly set
+        // Ensure fileData is properly set for received messages
         if (newMessage.fileUrl && !newMessage.fileData) {
+          console.log(
+            "Group message file URL detected without fileData, setting fileData from URL"
+          );
           newMessage.fileData = newMessage.fileUrl;
         }
 
-        // For debugging
+        // Debug file data
         if (newMessage.fileUrl || newMessage.fileData) {
           console.log("Group message contains file:", {
             groupId: newMessage.groupId,
+            messageId: newMessage.id,
             fileUrl: newMessage.fileUrl ? "Yes" : "No",
-            fileData: newMessage.fileData ? "Yes" : "No",
+            fileData: newMessage.fileData
+              ? newMessage.fileData.substring(0, 50) + "..."
+              : "No",
             fileType: newMessage.fileType,
+            fileName: newMessage.fileName,
           });
         }
 
@@ -129,6 +145,7 @@ function GroupChatPage({ user, textSize }) {
     });
 
     socket.on("group_user_joined", (data) => {
+      console.log("User joined group:", data);
       // Add a system message when a user joins
       const systemMessage = {
         id: `system-${Date.now()}`,
@@ -145,6 +162,7 @@ function GroupChatPage({ user, textSize }) {
     });
 
     socket.on("group_user_left", (data) => {
+      console.log("User left group:", data);
       // Add a system message when a user leaves
       const systemMessage = {
         id: `system-${Date.now()}`,
@@ -160,10 +178,22 @@ function GroupChatPage({ user, textSize }) {
       }));
     });
 
+    // Handle connect/disconnect events
+    socket.on("connect", () => {
+      console.log("Socket connected in GroupChatPage");
+    });
+
+    socket.on("connect_error", (err) => {
+      console.error("Socket connection error in GroupChatPage:", err);
+    });
+
     return () => {
+      console.log("Cleaning up group message listeners in GroupChatPage");
       socket.off("receive_group_message");
       socket.off("group_user_joined");
       socket.off("group_user_left");
+      socket.off("connect");
+      socket.off("connect_error");
     };
   }, [socket, user.id]);
 
@@ -341,13 +371,34 @@ function GroupChatPage({ user, textSize }) {
     }
   };
 
-  // Handle file uploads and conversion
+  // Handle file uploads and conversion with better error handling
   const fileToBase64 = (file) => {
     return new Promise((resolve, reject) => {
+      if (!file) {
+        reject(new Error("No file provided"));
+        return;
+      }
+
+      // Check file size - 5MB limit is a good practice for socket transfers
+      if (file.size > 5 * 1024 * 1024) {
+        reject(new Error("File size exceeds 5MB limit"));
+        return;
+      }
+
       const reader = new FileReader();
       reader.readAsDataURL(file);
-      reader.onload = () => resolve(reader.result);
-      reader.onerror = (error) => reject(error);
+
+      reader.onload = () => {
+        console.log(
+          `Group file converted to base64: ${file.name} (${file.type}), length: ${reader.result.length}`
+        );
+        resolve(reader.result);
+      };
+
+      reader.onerror = (error) => {
+        console.error("Error reading group file:", error);
+        reject(error);
+      };
     });
   };
 
@@ -358,106 +409,152 @@ function GroupChatPage({ user, textSize }) {
       !selectedGroup ||
       !socket ||
       isUploading
-    )
+    ) {
+      console.log("Cannot send group message:", {
+        hasMessageText: !!message.trim(),
+        hasSelectedFile: !!selectedFile,
+        hasSelectedGroup: !!selectedGroup,
+        hasSocket: !!socket,
+        isUploading,
+      });
       return;
-
-    // Create a temporary ID for optimistic update
-    const tempId = `temp-${messageIdCounter}`;
-    setMessageIdCounter((prev) => prev + 1);
-
-    let fileUrl = null;
-    let fileType = null;
-    let fileName = null;
-    let fileData = null;
-
-    // Handle file upload if a file is selected
-    if (selectedFile) {
-      try {
-        setIsUploading(true);
-
-        // Convert file to base64 for transmission via socket
-        fileData = await fileToBase64(selectedFile);
-
-        if (!fileData) {
-          throw new Error("Failed to convert file to base64");
-        }
-
-        // Show optimistic preview with local URL
-        fileUrl = filePreview.url;
-        fileType = selectedFile.type;
-        fileName = selectedFile.name;
-
-        console.log("Group file prepared for sending:", {
-          fileName,
-          fileType,
-          fileDataLength: fileData ? fileData.length : 0,
-          groupId: selectedGroup.id,
-        });
-
-        // Reset file selection
-        setSelectedFile(null);
-        setFilePreview(null);
-        if (fileInputRef.current) {
-          fileInputRef.current.value = "";
-        }
-      } catch (error) {
-        console.error("Error processing file:", error);
-        alert(
-          "Failed to upload file. Please try again with a smaller file or different format."
-        );
-        setIsUploading(false);
-        return;
-      }
     }
 
-    // Create optimistic message
-    const optimisticMessage = {
-      id: tempId,
-      sender: user.id,
-      senderName: user.name,
-      groupId: selectedGroup.id,
-      text: message,
-      timestamp: new Date().toISOString(),
-      fileUrl: fileUrl,
-      fileType: fileType,
-      fileName: fileName,
-      fileData: fileData,
-      _isOptimistic: true, // Flag to identify optimistic messages
-    };
-
-    // Optimistically add message to UI immediately
-    setMessages((prev) => ({
-      ...prev,
-      [selectedGroup.id]: [
-        ...(prev[selectedGroup.id] || []),
-        optimisticMessage,
-      ],
-    }));
-
-    // Send message via Socket.IO
     try {
-      socket.emit("send_group_message", {
-        token: localStorage.getItem("token"),
+      // Create a temporary ID for optimistic update
+      const tempId = `temp-${messageIdCounter}`;
+      setMessageIdCounter((prev) => prev + 1);
+
+      let fileUrl = null;
+      let fileType = null;
+      let fileName = null;
+      let fileData = null;
+
+      // Handle file upload if a file is selected
+      if (selectedFile) {
+        try {
+          setIsUploading(true);
+          console.log(
+            "Processing file for group message:",
+            selectedFile.name,
+            selectedFile.type,
+            selectedFile.size
+          );
+
+          // Convert file to base64 for transmission via socket
+          fileData = await fileToBase64(selectedFile);
+
+          if (!fileData) {
+            throw new Error("Failed to convert file to base64");
+          }
+
+          // Show optimistic preview with local URL
+          fileUrl = filePreview.url;
+          fileType = selectedFile.type;
+          fileName = selectedFile.name;
+
+          console.log("Group file prepared for sending:", {
+            fileName,
+            fileType,
+            fileDataLength: fileData ? fileData.length : 0,
+            groupId: selectedGroup.id,
+          });
+
+          // Reset file selection
+          setSelectedFile(null);
+          setFilePreview(null);
+          if (fileInputRef.current) {
+            fileInputRef.current.value = "";
+          }
+        } catch (error) {
+          console.error("Error processing file for group:", error);
+          alert(
+            `Failed to upload file: ${
+              error.message ||
+              "Please try again with a smaller file or different format."
+            }`
+          );
+          setIsUploading(false);
+          return;
+        }
+      }
+
+      // Create optimistic message
+      const optimisticMessage = {
+        id: tempId,
+        sender: user.id,
+        senderName: user.name,
         groupId: selectedGroup.id,
         text: message,
+        timestamp: new Date().toISOString(),
         fileUrl: fileUrl,
         fileType: fileType,
         fileName: fileName,
-        fileData: fileData, // Send the base64 data to server
-      });
+        fileData: fileData,
+        _isOptimistic: true, // Flag to identify optimistic messages
+      };
 
-      console.log("Group message sent successfully:", {
-        hasFile: fileData ? true : false,
-        textLength: message.length,
-        groupId: selectedGroup.id,
-      });
+      // Optimistically add message to UI immediately
+      setMessages((prev) => ({
+        ...prev,
+        [selectedGroup.id]: [
+          ...(prev[selectedGroup.id] || []),
+          optimisticMessage,
+        ],
+      }));
+
+      // Send message via Socket.IO
+      try {
+        // Ensure socket is connected
+        if (!socket.connected) {
+          console.error("Socket is disconnected. Reconnecting...");
+          socket.connect();
+        }
+
+        console.log(
+          "Sending group message to:",
+          selectedGroup.id,
+          "with text:",
+          message ? message.substring(0, 30) : "No text"
+        );
+
+        socket.emit("send_group_message", {
+          token: localStorage.getItem("token"),
+          groupId: selectedGroup.id,
+          text: message,
+          fileUrl: fileUrl,
+          fileType: fileType,
+          fileName: fileName,
+          fileData: fileData, // Send the base64 data to server
+        });
+
+        console.log("Group message sent successfully:", {
+          hasFile: fileData ? true : false,
+          textLength: message ? message.length : 0,
+          groupId: selectedGroup.id,
+        });
+      } catch (error) {
+        console.error("Error sending group message:", error);
+        alert(
+          "Failed to send group message: " +
+            (error.message || "Please try again.")
+        );
+        // Update the UI to show that the message failed
+        setMessages((prev) => ({
+          ...prev,
+          [selectedGroup.id]: prev[selectedGroup.id].map((msg) =>
+            msg.id === tempId ? { ...msg, _sendFailed: true } : msg
+          ),
+        }));
+      }
+
+      setMessage("");
+      setIsUploading(false);
     } catch (error) {
-      console.error("Error sending group message:", error);
-      alert("Failed to send message. Please try again.");
+      console.error("Unexpected error in handleSendMessage for group:", error);
+      alert("An unexpected error occurred. Please try again.");
+      setIsUploading(false);
     }
-
-    setMessage("");
-    setIsUploading(false);
   };
 
   const handleCreateGroup = async () => {
@@ -542,7 +639,7 @@ function GroupChatPage({ user, textSize }) {
       contact.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Render file content based on type
+  // Render file content based on type with better error handling
   const renderFileContent = (msg) => {
     if (!msg.fileUrl && !msg.fileData) return null;
 
@@ -560,7 +657,7 @@ function GroupChatPage({ user, textSize }) {
           <div className="message-image-container">
             <img
               src={fileSource}
-              alt="Sent"
+              alt={msg.fileName || "Image"}
               className="message-image"
               onClick={() => window.open(fileSource, "_blank")}
               onError={(e) => {
@@ -569,6 +666,7 @@ function GroupChatPage({ user, textSize }) {
                 e.target.alt = "Image failed to load";
               }}
             />
+            {msg.fileName && <div className="file-name">{msg.fileName}</div>}
           </div>
         );
       } else if (msg.fileType && msg.fileType.startsWith("video/")) {
@@ -580,30 +678,69 @@ function GroupChatPage({ user, textSize }) {
               className="message-video"
               onError={(e) => {
                 console.error("Group video failed to load:", e);
-                e.target.parentNode.innerHTML =
-                  '<div class="video-error">Video could not be played</div>';
+                e.target.innerHTML = "Video could not be played";
               }}
             />
+            {msg.fileName && <div className="file-name">{msg.fileName}</div>}
           </div>
         );
-      } else if (fileSource || msg.fileName) {
-        // For other file types
+      } else {
+        // For other file types (documents, etc.)
         return (
-          <div
-            className="message-file-container"
-            onClick={() => fileSource && window.open(fileSource, "_blank")}
-          >
-            <i className="fas fa-file"></i>
-            <span className="file-name">{msg.fileName || "File"}</span>
+          <div className="message-file-container">
+            <div className="file-icon">
+              <i className="fas fa-file"></i>
+            </div>
+            <div className="file-info">
+              <div className="file-name">{msg.fileName || "Unnamed file"}</div>
+              <a
+                href={fileSource}
+                download={msg.fileName || "download"}
+                className="download-link"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Download
+              </a>
+            </div>
           </div>
         );
       }
     } catch (error) {
-      console.error("Error rendering group file:", error);
-      return <div className="file-error">File could not be displayed</div>;
+      console.error("Error rendering group file content:", error, msg);
+      return (
+        <div className="file-error">Error displaying file: {error.message}</div>
+      );
     }
+  };
 
-    return null;
+  // Handle delete group chat
+  const handleDeleteGroup = (e, group) => {
+    e.stopPropagation(); // Prevent group selection when clicking delete
+    setGroupToDelete(group);
+    setShowDeleteConfirm(true);
+  };
+
+  // Confirm delete group chat
+  const confirmDeleteGroup = () => {
+    if (groupToDelete) {
+      // Logic to remove the group from state
+      setGroups((prevGroups) =>
+        prevGroups.filter((group) => group.id !== groupToDelete.id)
+      );
+
+      // Optionally, you can also remove it from the server
+      // await axios.delete(`/api/groups/${groupToDelete.id}`);
+
+      setGroupToDelete(null);
+    }
+    setShowDeleteConfirm(false);
+  };
+
+  // Cancel delete group chat
+  const cancelDeleteGroup = () => {
+    setShowDeleteConfirm(false);
+    setGroupToDelete(null);
   };
 
   return (
@@ -981,6 +1118,32 @@ function GroupChatPage({ user, textSize }) {
                 disabled={!newGroup.name || selectedMembers.length === 0}
               >
                 Create Group
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDeleteConfirm && (
+        <div className="confirm-dialog-overlay">
+          <div className="confirm-dialog">
+            <div className="confirm-dialog-header">
+              <h3>Delete Group Chat</h3>
+            </div>
+            <div className="confirm-dialog-content">
+              <p>
+                Are you sure you want to delete the group chat with{" "}
+                {groupToDelete?.name}?
+                <br />
+                This action cannot be undone.
+              </p>
+            </div>
+            <div className="confirm-dialog-actions">
+              <button className="btn-cancel" onClick={cancelDeleteGroup}>
+                Cancel
+              </button>
+              <button className="btn-danger" onClick={confirmDeleteGroup}>
+                Delete
               </button>
             </div>
           </div>

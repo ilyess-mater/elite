@@ -89,13 +89,14 @@ function SettingsPage({ user, darkMode, textSize, applySettings }) {
       <div className="settings-header">
         <h1>Settings</h1>
         <div className="settings-actions">
-          <button
+          {/* Remove this button */}
+          {/* <button
             className="btn btn-primary"
             onClick={handleSaveSettings}
             disabled={saving}
           >
             {saving ? "Saving..." : "Save Settings"}
-          </button>
+          </button> */}
         </div>
       </div>
 

@@ -17,6 +17,11 @@
   color: #333;
 }
 
+/* Ensure no underline */
+.contacts-header h2::after {
+  display: none;
+}
+
 .dark-mode .contacts-header h2 {
   color: #f1f1f1;
 }

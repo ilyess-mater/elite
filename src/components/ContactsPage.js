@@ -260,17 +260,6 @@ function ContactsPage({ user }) {
                   placeholder="Enter contact email"
                 />
               </div>
-
-              <div className="form-group">
-                <label>Department (Optional)</label>
-                <input
-                  type="text"
-                  name="department"
-                  value={newContact.department}
-                  onChange={handleInputChange}
-                  placeholder="Enter department"
-                />
-              </div>
             </div>
 
             <div className="modal-footer">

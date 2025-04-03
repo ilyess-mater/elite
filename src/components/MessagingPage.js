@@ -53,7 +53,14 @@ function MessagingPage({ user, textSize }) {
 
   // Listen for new messages and online status updates
   useEffect(() => {
-    if (!socket) return;
+    if (!socket) {
+      console.error(
+        "Socket is not initialized. Messages cannot be sent or received."
+      );
+      return;
+    }
+
+    console.log("Setting up message listeners in MessagingPage");
 
     // Listen for new messages
     socket.on("receive_message", (newMessage) => {
@@ -103,17 +110,24 @@ function MessagingPage({ user, textSize }) {
         // Create a new array with the updated messages
         const updatedMessages = [...(prevMessages[contactId] || [])];
 
-        // Ensure fileData is properly set
+        // Ensure fileData is properly set for received messages
         if (newMessage.fileUrl && !newMessage.fileData) {
+          console.log(
+            "File URL detected without fileData, setting fileData from URL"
+          );
           newMessage.fileData = newMessage.fileUrl;
         }
 
-        // For debugging
+        // Debug file data
         if (newMessage.fileUrl || newMessage.fileData) {
           console.log("Message contains file:", {
+            messageId: newMessage.id,
             fileUrl: newMessage.fileUrl ? "Yes" : "No",
-            fileData: newMessage.fileData ? "Yes" : "No",
+            fileData: newMessage.fileData
+              ? newMessage.fileData.substring(0, 50) + "..."
+              : "No",
             fileType: newMessage.fileType,
+            fileName: newMessage.fileName,
           });
         }
 
@@ -129,6 +143,7 @@ function MessagingPage({ user, textSize }) {
     // Listen for user status updates
     socket.on("user_status", (statusData) => {
       const { userId, status } = statusData;
+      console.log("User status update:", userId, status);
       setContacts((prevContacts) =>
         prevContacts.map((contact) =>
           contact.id === userId
@@ -138,10 +153,22 @@ function MessagingPage({ user, textSize }) {
       );
     });
 
+    // Handle connect/disconnect events
+    socket.on("connect", () => {
+      console.log("Socket connected in MessagingPage");
+    });
+
+    socket.on("connect_error", (err) => {
+      console.error("Socket connection error in MessagingPage:", err);
+    });
+
     // Clean up listeners on unmount
     return () => {
+      console.log("Cleaning up message listeners in MessagingPage");
       socket.off("receive_message");
       socket.off("user_status");
+      socket.off("connect");
+      socket.off("connect_error");
     };
   }, [socket, user]);
 
@@ -329,13 +356,34 @@ function MessagingPage({ user, textSize }) {
     }
   };
 
-  // Handle file uploads and conversion
+  // Handle file uploads and conversion with improved error handling
   const fileToBase64 = (file) => {
     return new Promise((resolve, reject) => {
+      if (!file) {
+        reject(new Error("No file provided"));
+        return;
+      }
+
+      // Check file size - 5MB limit is a good practice for socket transfers
+      if (file.size > 5 * 1024 * 1024) {
+        reject(new Error("File size exceeds 5MB limit"));
+        return;
+      }
+
       const reader = new FileReader();
       reader.readAsDataURL(file);
-      reader.onload = () => resolve(reader.result);
-      reader.onerror = (error) => reject(error);
+
+      reader.onload = () => {
+        console.log(
+          `File converted to base64: ${file.name} (${file.type}), length: ${reader.result.length}`
+        );
+        resolve(reader.result);
+      };
+
+      reader.onerror = (error) => {
+        console.error("Error reading file:", error);
+        reject(error);
+      };
     });
   };
 
@@ -346,103 +394,149 @@ function MessagingPage({ user, textSize }) {
       !selectedContact ||
       !socket ||
       isUploading
-    )
+    ) {
+      console.log("Cannot send message:", {
+        hasMessageText: !!message.trim(),
+        hasSelectedFile: !!selectedFile,
+        hasSelectedContact: !!selectedContact,
+        hasSocket: !!socket,
+        isUploading,
+      });
       return;
-
-    // Create a temporary ID for optimistic update
-    const tempId = `temp-${messageIdCounter}`;
-    setMessageIdCounter((prev) => prev + 1);
-
-    let fileUrl = null;
-    let fileType = null;
-    let fileName = null;
-    let fileData = null;
-
-    // Handle file upload if a file is selected
-    if (selectedFile) {
-      try {
-        setIsUploading(true);
-
-        // Convert file to base64 for transmission via socket
-        fileData = await fileToBase64(selectedFile);
-
-        if (!fileData) {
-          throw new Error("Failed to convert file to base64");
-        }
-
-        // Show optimistic preview with local URL
-        fileUrl = filePreview.url;
-        fileType = selectedFile.type;
-        fileName = selectedFile.name;
-
-        console.log("File prepared for sending:", {
-          fileName,
-          fileType,
-          fileDataLength: fileData ? fileData.length : 0,
-        });
-
-        // Reset file selection
-        setSelectedFile(null);
-        setFilePreview(null);
-        if (fileInputRef.current) {
-          fileInputRef.current.value = "";
-        }
-      } catch (error) {
-        console.error("Error uploading file:", error);
-        alert(
-          "Failed to upload file. Please try again with a smaller file or different format."
-        );
-        setIsUploading(false);
-        return;
-      }
     }
 
-    // Create optimistic message
-    const optimisticMessage = {
-      id: tempId,
-      sender: user.id,
-      receiver: selectedContact.id,
-      text: message,
-      timestamp: new Date().toISOString(),
-      fileUrl: fileUrl,
-      fileType: fileType,
-      fileName: fileName,
-      fileData: fileData,
-      _isOptimistic: true, // Flag to identify optimistic messages
-    };
-
-    // Optimistically add message to UI immediately
-    setMessages((prev) => ({
-      ...prev,
-      [selectedContact.id]: [
-        ...(prev[selectedContact.id] || []),
-        optimisticMessage,
-      ],
-    }));
-
-    // Send message via Socket.IO
     try {
-      socket.emit("send_message", {
-        token: localStorage.getItem("token"),
-        receiverId: selectedContact.id,
+      // Create a temporary ID for optimistic update
+      const tempId = `temp-${messageIdCounter}`;
+      setMessageIdCounter((prev) => prev + 1);
+
+      let fileUrl = null;
+      let fileType = null;
+      let fileName = null;
+      let fileData = null;
+
+      // Handle file upload if a file is selected
+      if (selectedFile) {
+        try {
+          setIsUploading(true);
+          console.log(
+            "Processing file for sending:",
+            selectedFile.name,
+            selectedFile.type,
+            selectedFile.size
+          );
+
+          // Convert file to base64 for transmission via socket
+          fileData = await fileToBase64(selectedFile);
+
+          if (!fileData) {
+            throw new Error("Failed to convert file to base64");
+          }
+
+          // Show optimistic preview with local URL
+          fileUrl = filePreview.url;
+          fileType = selectedFile.type;
+          fileName = selectedFile.name;
+
+          console.log("File prepared for sending:", {
+            fileName,
+            fileType,
+            fileDataLength: fileData ? fileData.length : 0,
+          });
+
+          // Reset file selection
+          setSelectedFile(null);
+          setFilePreview(null);
+          if (fileInputRef.current) {
+            fileInputRef.current.value = "";
+          }
+        } catch (error) {
+          console.error("Error processing file:", error);
+          alert(
+            `Failed to upload file: ${
+              error.message ||
+              "Please try again with a smaller file or different format."
+            }`
+          );
+          setIsUploading(false);
+          return;
+        }
+      }
+
+      // Create optimistic message
+      const optimisticMessage = {
+        id: tempId,
+        sender: user.id,
+        receiver: selectedContact.id,
         text: message,
+        timestamp: new Date().toISOString(),
         fileUrl: fileUrl,
         fileType: fileType,
         fileName: fileName,
-        fileData: fileData, // Send the base64 data to server
-      });
+        fileData: fileData,
+        _isOptimistic: true, // Flag to identify optimistic messages
+      };
 
-      console.log("Message sent successfully:", {
-        hasFile: fileData ? true : false,
-        textLength: message.length,
-      });
+      // Optimistically add message to UI immediately
+      setMessages((prev) => ({
+        ...prev,
+        [selectedContact.id]: [
+          ...(prev[selectedContact.id] || []),
+          optimisticMessage,
+        ],
+      }));
+
+      // Send message via Socket.IO
+      try {
+        // Ensure socket is connected
+        if (!socket.connected) {
+          console.error("Socket is disconnected. Reconnecting...");
+          socket.connect();
+        }
+
+        console.log(
+          "Sending message to:",
+          selectedContact.id,
+          "with text:",
+          message ? message.substring(0, 30) : "No text"
+        );
+
+        socket.emit("send_message", {
+          token: localStorage.getItem("token"),
+          receiverId: selectedContact.id,
+          text: message,
+          fileUrl: fileUrl,
+          fileType: fileType,
+          fileName: fileName,
+          fileData: fileData, // Send the base64 data to server
+        });
+
+        console.log("Message sent successfully:", {
+          hasFile: fileData ? true : false,
+          textLength: message ? message.length : 0,
+          receiverId: selectedContact.id,
+        });
+      } catch (error) {
+        console.error("Error sending message:", error);
+        alert(
+          "Failed to send message: " + (error.message || "Please try again.")
+        );
+        // You might want to update the UI to show that the message failed
+        setMessages((prev) => ({
+          ...prev,
+          [selectedContact.id]: prev[selectedContact.id].map((msg) =>
+            msg.id === tempId ? { ...msg, _sendFailed: true } : msg
+          ),
+        }));
+      }
+
+      setMessage("");
+      setIsUploading(false);
     } catch (error) {
-      console.error("Error sending message:", error);
-      alert("Failed to send message. Please try again.");
+      console.error("Unexpected error in handleSendMessage:", error);
+      alert("An unexpected error occurred. Please try again.");
+      setIsUploading(false);
     }
-
-    setMessage("");
-    setIsUploading(false);
   };
 
   const formatTime = (timestamp) => {
@@ -462,7 +556,7 @@ function MessagingPage({ user, textSize }) {
         contact.email.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
-  // Render file content based on type
+  // Render file content based on type with better error handling
   const renderFileContent = (msg) => {
     if (!msg.fileUrl && !msg.fileData) return null;
 
@@ -480,7 +574,7 @@ function MessagingPage({ user, textSize }) {
           <div className="message-image-container">
             <img
               src={fileSource}
-              alt="Sent"
+              alt={msg.fileName || "Image"}
               className="message-image"
               onClick={() => window.open(fileSource, "_blank")}
               onError={(e) => {
@@ -489,6 +583,7 @@ function MessagingPage({ user, textSize }) {
                 e.target.alt = "Image failed to load";
               }}
             />
+            {msg.fileName && <div className="file-name">{msg.fileName}</div>}
           </div>
         );
       } else if (msg.fileType && msg.fileType.startsWith("video/")) {
@@ -500,30 +595,40 @@ function MessagingPage({ user, textSize }) {
               className="message-video"
               onError={(e) => {
                 console.error("Video failed to load:", e);
-                e.target.parentNode.innerHTML =
-                  '<div class="video-error">Video could not be played</div>';
+                e.target.innerHTML = "Video could not be played";
               }}
             />
+            {msg.fileName && <div className="file-name">{msg.fileName}</div>}
           </div>
         );
-      } else if (fileSource || msg.fileName) {
-        // For other file types
+      } else {
+        // For other file types (documents, etc.)
         return (
-          <div
-            className="message-file-container"
-            onClick={() => fileSource && window.open(fileSource, "_blank")}
-          >
-            <i className="fas fa-file"></i>
-            <span className="file-name">{msg.fileName || "File"}</span>
+          <div className="message-file-container">
+            <div className="file-icon">
+              <i className="fas fa-file"></i>
+            </div>
+            <div className="file-info">
+              <div className="file-name">{msg.fileName || "Unnamed file"}</div>
+              <a
+                href={fileSource}
+                download={msg.fileName || "download"}
+                className="download-link"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Download
+              </a>
+            </div>
           </div>
         );
       }
     } catch (error) {
-      console.error("Error rendering file:", error);
-      return <div className="file-error">File could not be displayed</div>;
+      console.error("Error rendering file content:", error, msg);
+      return (
+        <div className="file-error">Error displaying file: {error.message}</div>
+      );
     }
-
-    return null;
   };
 
   return (
