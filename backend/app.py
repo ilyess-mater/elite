@@ -419,6 +419,50 @@ def get_all_messages():
     
     return jsonify(messages_list), 200
 
+@app.route('/api/admin/group-messages', methods=['GET'])
+def get_all_group_messages():
+    token = request.headers.get('Authorization', '').replace('Bearer ', '')
+    user_id = verify_token(token)
+    
+    if not user_id:
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    # Check if user is admin
+    user = users_collection.find_one({"_id": ObjectId(user_id)})
+    if not user or not user.get("isAdmin", False):
+        return jsonify({"error": "Forbidden"}), 403
+    
+    # Get all group messages
+    all_messages = group_messages_collection.find({}).sort("timestamp", -1).limit(100)
+    messages_list = []
+    
+    sender_cache = {}
+    group_cache = {}
+    
+    for msg in all_messages:
+        sender_id = str(msg["senderId"])
+        group_id = str(msg["groupId"])
+        
+        if sender_id not in sender_cache:
+            sender = users_collection.find_one({"_id": ObjectId(sender_id)})
+            sender_cache[sender_id] = sender["name"] if sender else "Unknown"
+        
+        if group_id not in group_cache:
+            group = groups_collection.find_one({"_id": ObjectId(group_id)})
+            group_cache[group_id] = group["name"] if group else "Unknown Group"
+        
+        messages_list.append({
+            "id": str(msg["_id"]),
+            "senderId": sender_id,
+            "senderName": sender_cache[sender_id],
+            "groupId": group_id,
+            "groupName": group_cache[group_id],
+            "text": msg["text"],
+            "timestamp": msg["timestamp"].isoformat()
+        })
+    
+    return jsonify(messages_list), 200
+
 # Socket.IO event handlers
 @socketio.on('connect')
 def handle_connect():
@@ -625,7 +669,9 @@ def get_stats():
     # Get statistics
     total_users = users_collection.count_documents({})
     active_users_count = len(active_users)
-    total_messages = messages_collection.count_documents({})
+    total_private_messages = messages_collection.count_documents({})
+    total_group_messages = group_messages_collection.count_documents({})
+    total_messages = total_private_messages + total_group_messages
     
     # Get messages per day for last 7 days
     today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
@@ -635,13 +681,24 @@ def get_stats():
         day = today - timedelta(days=i)
         next_day = day + timedelta(days=1)
         
-        count = messages_collection.count_documents({
+        # Compter les messages privés
+        private_count = messages_collection.count_documents({
             "timestamp": {"$gte": day, "$lt": next_day}
         })
         
+        # Compter les messages de groupe
+        group_count = group_messages_collection.count_documents({
+            "timestamp": {"$gte": day, "$lt": next_day}
+        })
+        
+        # Combiner les deux types de messages
+        total_count = private_count + group_count
+        
         daily_messages.append({
             "date": day.strftime("%Y-%m-%d"),
-            "count": count
+            "count": total_count,
+            "privateCount": private_count,
+            "groupCount": group_count
         })
     
     # Get number of new users in last 7 days
@@ -653,6 +710,8 @@ def get_stats():
         "totalUsers": total_users,
         "activeUsers": active_users_count,
         "totalMessages": total_messages,
+        "privateMessages": total_private_messages,
+        "groupMessages": total_group_messages,
         "dailyMessages": daily_messages,
         "newUsers": new_users
     }

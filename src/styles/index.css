@@ -25,6 +25,7 @@ body {
 @import url("./groupchat.css");
 @import url("./security.css");
 @import url("./admin.css");
+@import url("./search.css");
 
 /* Common utility classes */
 .text-small {

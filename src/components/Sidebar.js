@@ -64,11 +64,7 @@ function Sidebar({ activePage, setActivePage, isAdmin, onLogout, userName }) {
       onMouseLeave={() => setExpanded(false)}
     >
       <div className="logo-container">
-        <img
-          src="/logo192.png"
-          alt="Secure Messages"
-          className="sidebar-logo"
-        />
+        <img src="/shield.png" alt="Secure Messages" className="sidebar-logo" />
         <h3 className="logo-text">Secure Messages</h3>
       </div>
 

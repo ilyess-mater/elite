@@ -2,11 +2,13 @@ import React, { useState, useEffect } from "react";
 import "../styles/admin.css";
 import axios from "axios";
 import { useAuth } from "../contexts/AuthContext";
+import SearchBar from "./SearchBar";
 
 function AdminPanel({ user }) {
   const [activeTab, setActiveTab] = useState("users");
   const [users, setUsers] = useState([]);
   const [allMessages, setAllMessages] = useState([]);
+  const [groupMessages, setGroupMessages] = useState([]); // Nouvel état pour les messages de groupe
   const [stats, setStats] = useState({
     totalUsers: 0,
     activeUsers: 0,
@@ -20,6 +22,9 @@ function AdminPanel({ user }) {
   const [currentPage, setCurrentPage] = useState(1);
   const [usersPerPage] = useState(10);
   const [confirmAction, setConfirmAction] = useState(null);
+  const [userSearchTerm, setUserSearchTerm] = useState("");
+  const [messageSearchTerm, setMessageSearchTerm] = useState("");
+  const [groupMessageSearchTerm, setGroupMessageSearchTerm] = useState("");
   const { getSocket } = useAuth();
   const socket = getSocket();
 
@@ -31,25 +36,45 @@ function AdminPanel({ user }) {
       return;
     }
 
+    const token = localStorage.getItem("token");
+    if (!token) {
+      setError("Authentication required");
+      setLoading(false);
+      return;
+    }
+
+    // Configure axios
+    axios.defaults.baseURL = "http://localhost:5000";
+    axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+
     const fetchData = async () => {
       try {
         setLoading(true);
+        setError("");
 
-        const usersResponse = await axios.get("/api/admin/users");
+        const [
+          usersResponse,
+          messagesResponse,
+          groupMessagesResponse,
+          statsResponse,
+        ] = await Promise.all([
+          axios.get("/api/admin/users"),
+          axios.get("/api/admin/messages"),
+          axios.get("/api/admin/group-messages"),
+          axios.get("/api/stats"),
+        ]);
+
         setUsers(usersResponse.data);
-
-        const messagesResponse = await axios.get("/api/admin/messages");
         setAllMessages(messagesResponse.data);
-
-        const statsResponse = await axios.get("/api/stats");
+        setGroupMessages(groupMessagesResponse.data);
         setStats(statsResponse.data);
-
-        // Fetch daily messages data based on the selected time range
-        fetchDailyMessages(timeRange);
 
         setLoading(false);
       } catch (error) {
-        console.error("Error fetching admin data:", error);
+        console.error(
+          "Error fetching admin data:",
+          error.response?.data || error.message
+        );
         setError("Failed to load admin data. Please try again.");
         setLoading(false);
       }
@@ -166,11 +191,43 @@ function AdminPanel({ user }) {
     return `${diffYears} years ago`;
   };
 
+  // Filtrer les utilisateurs en fonction du terme de recherche
+  const filteredUsers = users.filter(
+    (user) =>
+      user.name.toLowerCase().includes(userSearchTerm.toLowerCase()) ||
+      user.email.toLowerCase().includes(userSearchTerm.toLowerCase()) ||
+      (user.isAdmin ? "admin" : "user").includes(userSearchTerm.toLowerCase())
+  );
+
+  // Filtrer les messages en fonction du terme de recherche
+  const filteredMessages = allMessages.filter(
+    (message) =>
+      message.senderName
+        .toLowerCase()
+        .includes(messageSearchTerm.toLowerCase()) ||
+      message.receiverName
+        .toLowerCase()
+        .includes(messageSearchTerm.toLowerCase()) ||
+      message.text.toLowerCase().includes(messageSearchTerm.toLowerCase())
+  );
+
+  // Filtrer les messages de groupe en fonction du terme de recherche
+  const filteredGroupMessages = groupMessages.filter(
+    (message) =>
+      message.senderName
+        .toLowerCase()
+        .includes(groupMessageSearchTerm.toLowerCase()) ||
+      message.groupName
+        .toLowerCase()
+        .includes(groupMessageSearchTerm.toLowerCase()) ||
+      message.text.toLowerCase().includes(groupMessageSearchTerm.toLowerCase())
+  );
+
   // Get current users for pagination
   const indexOfLastUser = currentPage * usersPerPage;
   const indexOfFirstUser = indexOfLastUser - usersPerPage;
-  const currentUsers = users.slice(indexOfFirstUser, indexOfLastUser);
-  const totalPages = Math.ceil(users.length / usersPerPage);
+  const currentUsers = filteredUsers.slice(indexOfFirstUser, indexOfLastUser);
+  const totalPages = Math.ceil(filteredUsers.length / usersPerPage);
 
   // Generate avatar color based on name
   function generateAvatar(name) {
@@ -356,6 +413,15 @@ function AdminPanel({ user }) {
           </button>
           <button
             className={`admin-tab-button ${
+              activeTab === "group-messages" ? "active" : ""
+            }`}
+            onClick={() => setActiveTab("group-messages")}
+          >
+            <i className="fas fa-users-rectangle"></i>
+            <span>Group Messages</span>
+          </button>
+          <button
+            className={`admin-tab-button ${
               activeTab === "analytics" ? "active" : ""
             }`}
             onClick={() => setActiveTab("analytics")}
@@ -404,10 +470,13 @@ function AdminPanel({ user }) {
             </div>
 
             <div className="user-filters">
-              <div className="search-users">
-                <i className="fas fa-search"></i>
-                <input type="text" placeholder="Search users..." />
-              </div>
+              <SearchBar
+                placeholder="Search users..."
+                value={userSearchTerm}
+                onChange={setUserSearchTerm}
+                className="admin-search"
+                autoFocus={activeTab === "users"}
+              />
               <div className="filter-options">
                 <button className="filter-button">
                   <i className="fas fa-filter filter-icon"></i> Filter
@@ -546,10 +615,13 @@ function AdminPanel({ user }) {
           <div className="messages-container">
             <div className="messages-header">
               <h3>Recent Messages</h3>
-              <div className="messages-search">
-                <i className="fas fa-search"></i>
-                <input type="text" placeholder="Search messages..." />
-              </div>
+              <SearchBar
+                placeholder="Search messages..."
+                value={messageSearchTerm}
+                onChange={setMessageSearchTerm}
+                className="admin-search"
+                autoFocus={activeTab === "messages"}
+              />
             </div>
             <div className="messages-table-container">
               <table className="messages-table">
@@ -562,7 +634,7 @@ function AdminPanel({ user }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {allMessages.map((message) => (
+                  {filteredMessages.map((message) => (
                     <tr key={message.id}>
                       <td>
                         <div className="message-user">
@@ -604,36 +676,105 @@ function AdminPanel({ user }) {
           </div>
         )}
 
+        {activeTab === "group-messages" && (
+          <div className="messages-container">
+            <div className="messages-header">
+              <h3>
+                <i className="fas fa-users"></i> Group Messages
+              </h3>
+              <SearchBar
+                placeholder="Search group messages..."
+                value={groupMessageSearchTerm}
+                onChange={setGroupMessageSearchTerm}
+                className="admin-search"
+                autoFocus={activeTab === "group-messages"}
+              />
+            </div>
+            <div className="messages-table-container">
+              <table className="messages-table">
+                <thead>
+                  <tr>
+                    <th>
+                      <i className="fas fa-user"></i> From
+                    </th>
+                    <th>
+                      <i className="fas fa-users"></i> Group Name
+                    </th>
+                    <th>
+                      <i className="fas fa-comment"></i> Message
+                    </th>
+                    <th>
+                      <i className="fas fa-clock"></i> Time
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredGroupMessages.map((message) => (
+                    <tr key={message.id}>
+                      <td>
+                        <div className="message-user">
+                          <div
+                            className="user-avatar small"
+                            style={{
+                              backgroundColor: generateAvatar(
+                                message.senderName
+                              ),
+                            }}
+                          >
+                            {message.senderName.charAt(0)}
+                          </div>
+                          <span>{message.senderName}</span>
+                        </div>
+                      </td>
+                      <td>
+                        <div className="group-name">
+                          <i className="fas fa-users"></i>
+                          <span>{message.groupName}</span>
+                        </div>
+                      </td>
+                      <td className="message-content">{message.text}</td>
+                      <td>{formatDate(message.timestamp)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
         {activeTab === "analytics" && (
           <div className="analytics-container">
             <div className="stats-grid">
               <div className="stat-card">
                 <div className="stat-icon">
+                  <i className="fas fa-comment-dots"></i>
+                </div>
+                <div className="stat-details">
+                  <div className="stat-label">Private Messages</div>
+                  <div className="stat-value">{stats.privateMessages}</div>
+                </div>
+              </div>
+
+              <div className="stat-card">
+                <div className="stat-icon">
                   <i className="fas fa-users"></i>
                 </div>
                 <div className="stat-details">
-                  <div className="stat-label">Total Users</div>
-                  <div className="stat-value">{stats.totalUsers}</div>
+                  <div className="stat-label">Group Messages</div>
+                  <div className="stat-value">{stats.groupMessages}</div>
                 </div>
               </div>
+
               <div className="stat-card">
                 <div className="stat-icon">
-                  <i className="fas fa-user-check"></i>
-                </div>
-                <div className="stat-details">
-                  <div className="stat-label">Active Users</div>
-                  <div className="stat-value">{stats.activeUsers}</div>
-                </div>
-              </div>
-              <div className="stat-card">
-                <div className="stat-icon">
-                  <i className="fas fa-comment-dots"></i>
+                  <i className="fas fa-chart-line"></i>
                 </div>
                 <div className="stat-details">
                   <div className="stat-label">Total Messages</div>
                   <div className="stat-value">{stats.totalMessages}</div>
                 </div>
               </div>
+
               <div className="stat-card">
                 <div className="stat-icon">
                   <i className="fas fa-user-plus"></i>
@@ -645,6 +786,7 @@ function AdminPanel({ user }) {
               </div>
             </div>
 
+            {/* Daily Messages Chart */}
             <div className="chart-container">
               <div className="chart-header">
                 <div className="chart-title">
@@ -679,27 +821,63 @@ function AdminPanel({ user }) {
               </div>
               <div className="chart-body">
                 <div className="modern-chart">
+                  <div className="chart-legend">
+                    <div className="legend-item">
+                      <div
+                        className="legend-color"
+                        style={{ backgroundColor: "#4A90E2" }}
+                      ></div>
+                      <span>Private Messages</span>
+                    </div>
+                    <div className="legend-item">
+                      <div
+                        className="legend-color"
+                        style={{ backgroundColor: "#37BC9B" }}
+                      ></div>
+                      <span>Group Messages</span>
+                    </div>
+                  </div>
                   <div className="chart-bars">
                     {stats.dailyMessages.map((day, index) => (
                       <div key={index} className="chart-bar-container">
-                        <div className="chart-bar-value">{day.count}</div>
-                        <div className="chart-bar-tooltip">
-                          {day.count} messages
+                        <div className="chart-bar-value">
+                          {day.count}
+                          <div className="chart-bar-tooltip">
+                            <div>Total: {day.count} messages</div>
+                            <div>Private: {day.privateCount}</div>
+                            <div>Group: {day.groupCount}</div>
+                          </div>
                         </div>
-                        <div
-                          className="chart-bar"
-                          style={{
-                            height: `${Math.max(
-                              5,
-                              (day.count /
-                                Math.max(
-                                  ...stats.dailyMessages.map((d) => d.count),
-                                  1
-                                )) *
-                                150
-                            )}px`,
-                          }}
-                        ></div>
+                        <div className="chart-bar-stack">
+                          <div
+                            className="chart-bar private"
+                            style={{
+                              height: `${Math.max(
+                                5,
+                                (day.privateCount /
+                                  Math.max(
+                                    ...stats.dailyMessages.map((d) => d.count),
+                                    1
+                                  )) *
+                                  150
+                              )}px`,
+                            }}
+                          ></div>
+                          <div
+                            className="chart-bar group"
+                            style={{
+                              height: `${Math.max(
+                                5,
+                                (day.groupCount /
+                                  Math.max(
+                                    ...stats.dailyMessages.map((d) => d.count),
+                                    1
+                                  )) *
+                                  150
+                              )}px`,
+                            }}
+                          ></div>
+                        </div>
                         <div className="chart-label">
                           {formatChartDate(day.date)}
                         </div>
@@ -710,36 +888,47 @@ function AdminPanel({ user }) {
               </div>
             </div>
 
+            {/* User Growth Section */}
             <div className="analytics-cards">
               <div className="analytics-card">
                 <div className="analytics-card-header">
-                  <h3>User Growth</h3>
-                  <i className="fas fa-users"></i>
+                  <h3>
+                    <i className="fas fa-user-chart"></i> User Growth
+                  </h3>
                 </div>
                 <div className="analytics-card-content">
                   <div className="analytics-stat">
                     <div className="analytics-stat-value">
-                      +{stats.newUsers}
+                      {stats.totalUsers}
                     </div>
-                    <div className="analytics-stat-label">
-                      New Users (Last 7 Days)
+                    <div className="analytics-stat-label">Total Users</div>
+                    <div className="analytics-trend">
+                      <div className="analytics-trend-value positive">
+                        <i className="fas fa-arrow-up"></i>
+                        {stats.userGrowthRate}%
+                      </div>
+                      <div className="analytics-trend-label">vs last month</div>
                     </div>
                   </div>
-                  <div className="analytics-trend">
-                    <div className="analytics-trend-value">
-                      <i className="fas fa-arrow-up"></i> 12%
+                  <div className="analytics-stat">
+                    <div className="analytics-stat-value">
+                      {stats.activeUsers}
                     </div>
-                    <div className="analytics-trend-label">
-                      vs previous period
+                    <div className="analytics-stat-label">Active Users</div>
+                    <div className="analytics-stat-secondary">
+                      {Math.round((stats.activeUsers / stats.totalUsers) * 100)}
+                      % of total
                     </div>
                   </div>
                 </div>
               </div>
 
+              {/* Message Activity Section */}
               <div className="analytics-card">
                 <div className="analytics-card-header">
-                  <h3>Message Activity</h3>
-                  <i className="fas fa-comment-dots"></i>
+                  <h3>
+                    <i className="fas fa-chart-line"></i> Message Activity
+                  </h3>
                 </div>
                 <div className="analytics-card-content">
                   <div className="analytics-stat">
@@ -747,13 +936,34 @@ function AdminPanel({ user }) {
                       {stats.totalMessages}
                     </div>
                     <div className="analytics-stat-label">Total Messages</div>
-                  </div>
-                  <div className="analytics-trend">
-                    <div className="analytics-trend-value">
-                      <i className="fas fa-arrow-up"></i> 8%
+                    <div className="analytics-stat-secondary">
+                      {stats.averageMessagesPerDay} avg/day
                     </div>
-                    <div className="analytics-trend-label">
-                      vs previous period
+                  </div>
+                  <div className="analytics-breakdown">
+                    <div className="breakdown-item">
+                      <div className="breakdown-label">Private</div>
+                      <div className="breakdown-value">
+                        {stats.privateMessages}
+                      </div>
+                      <div className="breakdown-percentage">
+                        {Math.round(
+                          (stats.privateMessages / stats.totalMessages) * 100
+                        )}
+                        %
+                      </div>
+                    </div>
+                    <div className="breakdown-item">
+                      <div className="breakdown-label">Group</div>
+                      <div className="breakdown-value">
+                        {stats.groupMessages}
+                      </div>
+                      <div className="breakdown-percentage">
+                        {Math.round(
+                          (stats.groupMessages / stats.totalMessages) * 100
+                        )}
+                        %
+                      </div>
                     </div>
                   </div>
                 </div>
