@@ -7,6 +7,9 @@ function Sidebar({ activePage, setActivePage, isAdmin, onLogout, userName }) {
   );
   const [expanded, setExpanded] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [hoverEnabled, setHoverEnabled] = useState(
+    localStorage.getItem("sidebarHoverExpand") === "true"
+  );
 
   // Listen for avatar color changes
   useEffect(() => {
@@ -14,12 +17,24 @@ function Sidebar({ activePage, setActivePage, isAdmin, onLogout, userName }) {
       setAvatarColor(event.detail.color);
     };
 
+    const handleSidebarHoverSetting = (event) => {
+      setHoverEnabled(event.detail.enabled);
+    };
+
     document.addEventListener("avatarColorChanged", handleAvatarColorChange);
+    document.addEventListener(
+      "sidebarHoverSettingChanged",
+      handleSidebarHoverSetting
+    );
 
     return () => {
       document.removeEventListener(
         "avatarColorChanged",
         handleAvatarColorChange
+      );
+      document.removeEventListener(
+        "sidebarHoverSettingChanged",
+        handleSidebarHoverSetting
       );
     };
   }, []);
@@ -57,11 +72,23 @@ function Sidebar({ activePage, setActivePage, isAdmin, onLogout, userName }) {
     return colors[colorIndex];
   };
 
+  const handleMouseEnter = () => {
+    if (hoverEnabled) {
+      setExpanded(true);
+    }
+  };
+
+  const handleMouseLeave = () => {
+    if (hoverEnabled) {
+      setExpanded(false);
+    }
+  };
+
   return (
     <div
       className={`sidebar ${expanded ? "expanded" : ""}`}
-      onMouseEnter={() => setExpanded(true)}
-      onMouseLeave={() => setExpanded(false)}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
     >
       <div className="logo-container">
         <img src="/shield.png" alt="Secure Messages" className="sidebar-logo" />

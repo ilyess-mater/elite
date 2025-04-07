@@ -461,8 +461,16 @@ input:checked + .slider {
   background-color: #4a6cf7;
 }
 
+.dark-mode input:checked + .slider {
+  background-color: #5a77ff;
+}
+
 input:focus + .slider {
   box-shadow: 0 0 1px #4a6cf7;
+}
+
+.dark-mode input:focus + .slider {
+  box-shadow: 0 0 1px #5a77ff;
 }
 
 input:checked + .slider:before {
@@ -603,4 +611,21 @@ input:checked + .slider:before {
     width: 100%;
     max-width: 150px;
   }
+}
+
+/* Sidebar Hover Setting Option */
+.setting-option {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 10px;
+}
+
+.setting-label {
+  font-size: 0.95rem;
+  color: #444;
+}
+
+.dark-mode .setting-label {
+  color: #ddd;
 }

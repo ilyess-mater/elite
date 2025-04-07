@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import { useAuth } from "../contexts/AuthContext";
 import "../styles/settings.css";
 
 function SettingsPage({ user, darkMode, textSize, applySettings }) {
@@ -9,6 +8,8 @@ function SettingsPage({ user, darkMode, textSize, applySettings }) {
   const [settings, setSettings] = useState({
     theme: darkMode ? "dark" : "light",
     fontSize: textSize || "medium",
+    sidebarHoverExpand:
+      localStorage.getItem("sidebarHoverExpand") === "true" || false,
   });
 
   // Predefined avatar colors
@@ -43,6 +44,15 @@ function SettingsPage({ user, darkMode, textSize, applySettings }) {
     setSettings({ ...settings, fontSize });
     applySettings({ textSize: fontSize });
     localStorage.setItem("fontSize", fontSize);
+  };
+
+  const handleSidebarHoverChange = (enabled) => {
+    setSettings({ ...settings, sidebarHoverExpand: enabled });
+    localStorage.setItem("sidebarHoverExpand", enabled);
+    // Dispatch an event to notify the sidebar
+    document.dispatchEvent(
+      new CustomEvent("sidebarHoverSettingChanged", { detail: { enabled } })
+    );
   };
 
   const handleAvatarColorChange = (color) => {
@@ -119,6 +129,21 @@ function SettingsPage({ user, darkMode, textSize, applySettings }) {
                   <div className="font-size-preview large">Aa</div>
                   <div className="font-size-label">Large</div>
                 </div>
+              </div>
+            </div>
+
+            <div className="setting-group">
+              <h3>Sidebar Behavior</h3>
+              <div className="setting-option">
+                <label className="switch">
+                  <input
+                    type="checkbox"
+                    checked={settings.sidebarHoverExpand}
+                    onChange={(e) => handleSidebarHoverChange(e.target.checked)}
+                  />
+                  <span className="slider"></span>
+                </label>
+                <span className="setting-label">Expand sidebar on hover</span>
               </div>
             </div>
 

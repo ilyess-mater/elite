@@ -19,6 +19,7 @@ function AdminPanel({ user }) {
   const [timeRange, setTimeRange] = useState("7days");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState(""); // Add success message state
   const [currentPage, setCurrentPage] = useState(1);
   const [usersPerPage] = useState(10);
   const [confirmAction, setConfirmAction] = useState(null);
@@ -265,55 +266,47 @@ function AdminPanel({ user }) {
 
     try {
       if (action === "delete") {
-        // In a real app, you would send this to the backend
-        await axios.delete(`/api/admin/users/${userData.id}`);
+        const response = await axios.delete(`/api/admin/users/${userData.id}`);
 
-        // Update local state
-        setUsers(users.filter((user) => user.id !== userData.id));
-      } else if (action === "suspend") {
-        // In a real app, you would send this to the backend
-        await axios.post(`/api/admin/users/${userData.id}/suspend`);
-
-        // Update local state
-        setUsers(
-          users.map((user) =>
-            user.id === userData.id ? { ...user, suspended: true } : user
-          )
-        );
-      } else if (action === "unsuspend") {
-        // In a real app, you would send this to the backend
-        await axios.post(`/api/admin/users/${userData.id}/unsuspend`);
-
-        // Update local state
-        setUsers(
-          users.map((user) =>
-            user.id === userData.id ? { ...user, suspended: false } : user
-          )
-        );
+        if (response.status === 200) {
+          // Update local state
+          setUsers(users.filter((u) => u.id !== userData.id));
+          // Show success message
+          setSuccessMessage(`${userData.name} has been successfully deleted`);
+          // Clear success message after 3 seconds
+          setTimeout(() => {
+            setSuccessMessage("");
+          }, 3000);
+          setError("");
+        }
       } else if (action === "promote") {
-        // In a real app, you would send this to the backend
         await axios.post(`/api/admin/users/${userData.id}/promote`);
-
-        // Update local state
         setUsers(
-          users.map((user) =>
-            user.id === userData.id ? { ...user, isAdmin: true } : user
-          )
+          users.map((u) => (u.id === userData.id ? { ...u, isAdmin: true } : u))
         );
+        setSuccessMessage(`${userData.name} has been promoted to admin`);
+        setTimeout(() => {
+          setSuccessMessage("");
+        }, 3000);
       } else if (action === "demote") {
-        // In a real app, you would send this to the backend
         await axios.post(`/api/admin/users/${userData.id}/demote`);
-
-        // Update local state
         setUsers(
-          users.map((user) =>
-            user.id === userData.id ? { ...user, isAdmin: false } : user
+          users.map((u) =>
+            u.id === userData.id ? { ...u, isAdmin: false } : u
           )
         );
+        setSuccessMessage(`${userData.name}'s admin rights have been removed`);
+        setTimeout(() => {
+          setSuccessMessage("");
+        }, 3000);
       }
     } catch (error) {
       console.error(`Error ${action} user:`, error);
-      setError(`Failed to ${action} user. Please try again.`);
+      const errorMessage =
+        error.response?.data?.error ||
+        `Failed to ${action} user. Please try again.`;
+      setError(errorMessage);
+      setSuccessMessage("");
     } finally {
       setConfirmAction(null);
     }
@@ -360,8 +353,9 @@ function AdminPanel({ user }) {
             </div>
             <div className="confirm-dialog-content">
               <p>
-                Are you sure you want to {confirmAction.action}{" "}
-                {confirmAction.user.name}?
+                {confirmAction.action === "delete"
+                  ? `Are you sure you want to delete user ${confirmAction.user.name}? This action cannot be undone.`
+                  : `Are you sure you want to ${confirmAction.action} ${confirmAction.user.name}?`}
               </p>
             </div>
             <div className="confirm-dialog-actions">
@@ -379,7 +373,7 @@ function AdminPanel({ user }) {
                 }`}
                 onClick={confirmUserAction}
               >
-                Confirm
+                {confirmAction.action === "delete" ? "Delete" : "Confirm"}
               </button>
             </div>
           </div>
@@ -390,6 +384,18 @@ function AdminPanel({ user }) {
         <h1>Admin Dashboard</h1>
         <p>Manage users, messages, and analytics</p>
       </div>
+
+      {successMessage && (
+        <div className="success-message">
+          <i className="fas fa-check-circle"></i> {successMessage}
+        </div>
+      )}
+
+      {error && (
+        <div className="admin-error">
+          <i className="fas fa-exclamation-circle"></i> {error}
+        </div>
+      )}
 
       <div className="admin-tabs-container">
         <div className="admin-tabs">

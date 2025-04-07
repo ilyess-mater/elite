@@ -463,6 +463,66 @@ def get_all_group_messages():
     
     return jsonify(messages_list), 200
 
+@app.route('/api/admin/users/<user_id>', methods=['DELETE'])
+def delete_user(user_id):
+    token = request.headers.get('Authorization', '').replace('Bearer ', '')
+    admin_id = verify_token(token)
+    
+    if not admin_id:
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    # Check if the requester is an admin
+    admin = users_collection.find_one({"_id": ObjectId(admin_id)})
+    if not admin or not admin.get("isAdmin", False):
+        return jsonify({"error": "Forbidden"}), 403
+        
+    try:
+        # Check if user exists
+        user = users_collection.find_one({"_id": ObjectId(user_id)})
+        if not user:
+            return jsonify({"error": "User not found"}), 404
+            
+        # Don't allow deleting self
+        if str(admin_id) == user_id:
+            return jsonify({"error": "Cannot delete your own account"}), 403
+            
+        # Delete user's contacts
+        contacts_collection.delete_many({
+            "$or": [
+                {"userId": ObjectId(user_id)},
+                {"contactId": ObjectId(user_id)}
+            ]
+        })
+        
+        # Delete user's messages
+        messages_collection.delete_many({
+            "$or": [
+                {"senderId": ObjectId(user_id)},
+                {"receiverId": ObjectId(user_id)}
+            ]
+        })
+        
+        # Delete user's group messages
+        group_messages_collection.delete_many({"senderId": ObjectId(user_id)})
+        
+        # Remove user from all groups
+        groups_collection.update_many(
+            {"members.userId": ObjectId(user_id)},
+            {"$pull": {"members": {"userId": ObjectId(user_id)}}}
+        )
+        
+        # Finally delete the user
+        result = users_collection.delete_one({"_id": ObjectId(user_id)})
+        
+        if result.deleted_count == 0:
+            return jsonify({"error": "Failed to delete user"}), 500
+            
+        return jsonify({"message": "User deleted successfully"}), 200
+        
+    except Exception as e:
+        print(f"Error deleting user: {e}")
+        return jsonify({"error": "An error occurred while deleting the user"}), 500
+
 # Socket.IO event handlers
 @socketio.on('connect')
 def handle_connect():
