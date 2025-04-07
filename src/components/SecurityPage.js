@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import axios from "axios";
 import "../styles/security.css";
 
 function SecurityPage({ user }) {
@@ -71,28 +72,45 @@ function SecurityPage({ user }) {
     }
 
     try {
-      // In a real app, you would send this to the backend
-      // const response = await axios.post('/api/auth/change-password', passwordForm);
+      await axios.post(
+        "/api/auth/change-password",
+        {
+          currentPassword: passwordForm.currentPassword,
+          newPassword: passwordForm.newPassword,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+        }
+      );
 
-      // Simulate API call
+      // Clear form
+      setPasswordForm({
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: "",
+      });
+
+      // Show success message
+      setSuccessMessage("Password changed successfully");
+
+      // Clear success message after 3 seconds
       setTimeout(() => {
-        // Show success message
-        setSuccessMessage("Password changed successfully");
-
-        // Clear form
-        setPasswordForm({
-          currentPassword: "",
-          newPassword: "",
-          confirmPassword: "",
-        });
-
-        // Clear success message after 3 seconds
-        setTimeout(() => {
-          setSuccessMessage("");
-        }, 3000);
-      }, 1000);
+        setSuccessMessage("");
+      }, 3000);
     } catch (error) {
-      setError("Failed to change password. Please try again.");
+      if (error.response) {
+        switch (error.response.status) {
+          case 401:
+            setError("Current password is incorrect");
+            break;
+          default:
+            setError("Failed to change password. Please try again.");
+        }
+      } else {
+        setError("Failed to change password. Please check your connection.");
+      }
     }
   };
 

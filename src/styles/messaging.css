@@ -56,9 +56,16 @@
   text-align: center;
 }
 
-/* Remove the underline decoration */
 .contacts-header h2::after {
-  display: none;
+  content: "";
+  position: absolute;
+  bottom: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 40px;
+  height: 3px;
+  background: linear-gradient(to right, #4a6cf7, #7a9fff);
+  border-radius: 3px;
 }
 
 .dark-mode .contacts-header h2 {
@@ -325,7 +332,6 @@
   box-shadow: 0 2px 4px rgba(74, 108, 247, 0.1);
 }
 
-/* Delete chat button */
 .delete-chat-button {
   position: absolute;
   top: 50%;
@@ -770,145 +776,100 @@
 }
 
 /* Message attachment styles */
-.message-image-container,
-.message-video-container,
-.message-file-container {
-  margin: 5px 0;
-  border-radius: 8px;
-  overflow: hidden;
-  max-width: 250px;
-}
-
-.message-image-container img {
-  width: 100%;
-  height: auto;
-  cursor: pointer;
-  border-radius: 8px;
-  display: block;
-  transition: transform 0.2s;
-}
-
-.message-image-container img:hover {
-  transform: scale(1.03);
-}
-
-.message-video-container video {
-  width: 100%;
-  border-radius: 8px;
-  display: block;
-}
-
-.message-file-container {
-  display: flex;
-  align-items: center;
-  padding: 10px;
-  background-color: rgba(255, 255, 255, 0.7);
-  border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-.dark-mode .message-file-container {
-  background-color: rgba(60, 60, 70, 0.7);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
-}
-
-.message-file-container .file-icon {
-  font-size: 24px;
-  margin-right: 10px;
-  color: #4a6cf7;
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background-color: rgba(74, 108, 247, 0.1);
-  border-radius: 50%;
-}
-
-.dark-mode .message-file-container .file-icon {
-  background-color: rgba(74, 108, 247, 0.2);
-}
-
-.message-file-container .file-info {
-  flex: 1;
-  min-width: 0;
-}
-
-.message-file-container .file-name {
-  font-weight: 500;
+.message-image-container {
   margin-bottom: 5px;
+}
+
+.message-image {
+  max-width: 200px;
+  max-height: 200px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.message-video-container {
+  margin-bottom: 5px;
+}
+
+.message-video {
+  max-width: 200px;
+  max-height: 200px;
+  border-radius: 8px;
+}
+
+.message-file-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background-color: rgba(0, 0, 0, 0.05);
+  border-radius: 8px;
+  margin-bottom: 5px;
+  cursor: pointer;
+}
+
+.dark-mode .message.incoming .message-file-container {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.message-file-container i {
+  font-size: 18px;
+  color: #4a6cf7;
+}
+
+.dark-mode .message-file-container i {
+  color: #7a9fff;
+}
+
+.file-name {
+  font-size: 13px;
+  max-width: 150px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  color: #333;
-  font-size: 0.9rem;
 }
 
-.dark-mode .message-file-container .file-name {
-  color: #e0e0e0;
-}
-
-.message-file-container .download-link {
-  color: #4a6cf7;
+/* Delete chat button */
+.delete-chat-button {
+  background: none;
+  border: none;
+  color: #aaa;
+  cursor: pointer;
   font-size: 0.8rem;
-  text-decoration: none;
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: 4px;
-  background-color: rgba(74, 108, 247, 0.1);
-  transition: all 0.2s;
-}
-
-.message-file-container .download-link:hover {
-  background-color: rgba(74, 108, 247, 0.2);
-  text-decoration: underline;
-}
-
-.dark-mode .message-file-container .download-link {
-  background-color: rgba(74, 108, 247, 0.2);
-}
-
-.dark-mode .message-file-container .download-link:hover {
-  background-color: rgba(74, 108, 247, 0.3);
-}
-
-.file-error {
-  padding: 10px;
-  background-color: rgba(255, 0, 0, 0.1);
-  color: #d32f2f;
-  border-radius: 5px;
-  font-size: 0.9rem;
-  margin: 5px 0;
-}
-
-.dark-mode .file-error {
-  background-color: rgba(255, 0, 0, 0.15);
-  color: #ff6b6b;
-}
-
-/* Mark failed messages */
-.message._sendFailed {
-  opacity: 0.6;
-  position: relative;
-}
-
-.message._sendFailed::after {
-  content: "⚠️ Failed to send";
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  margin-left: 8px;
+  opacity: 0;
+  transition: all 0.3s ease;
   position: absolute;
-  bottom: -15px;
-  right: 5px;
-  font-size: 0.7rem;
-  color: #d32f2f;
-  background-color: rgba(255, 255, 255, 0.9);
-  padding: 2px 6px;
-  border-radius: 4px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  background-color: rgba(255, 255, 255, 0.8);
 }
 
-.dark-mode .message._sendFailed::after {
-  background-color: rgba(50, 50, 60, 0.9);
+.contact-item:hover .delete-chat-button {
+  opacity: 1;
+}
+
+.delete-chat-button:hover {
+  background-color: rgba(255, 0, 0, 0.1);
+  color: #ff4d4d;
+  transform: translateY(-50%) scale(1.1);
+}
+
+.dark-mode .delete-chat-button {
+  color: #888;
+  background-color: rgba(42, 42, 42, 0.8);
+}
+
+.dark-mode .delete-chat-button:hover {
+  background-color: rgba(255, 0, 0, 0.2);
   color: #ff6b6b;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
 /* Confirm dialog */
@@ -1027,4 +988,104 @@
 
 .dark-mode .btn-danger:hover {
   background-color: #c0392b;
+}
+
+/* File upload error styles */
+.file-error {
+  padding: 10px;
+  margin: 5px 0;
+  background-color: #fff3f3;
+  border: 1px solid #fcc;
+  border-radius: 6px;
+  color: #d32f2f;
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.file-error::before {
+  content: "\f071";
+  font-family: "Font Awesome 5 Free";
+  font-weight: 900;
+  margin-right: 8px;
+}
+
+.video-error {
+  padding: 15px;
+  margin: 5px 0;
+  background-color: #f8f9fa;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  color: #555;
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+/* Dark mode for error messages */
+.dark-mode .file-error {
+  background-color: #2c2121;
+  border-color: #533535;
+  color: #ff6b6b;
+}
+
+.dark-mode .video-error {
+  background-color: #2a2a2a;
+  border-color: #444;
+  color: #ddd;
+}
+
+/* Ensure all file preview elements have proper styling */
+.message-image,
+.message-video {
+  max-width: 100%;
+  max-height: 300px;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.message-image:hover,
+.message-video:hover {
+  transform: scale(1.02);
+}
+
+/* Style for file download link */
+.message-file-container {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  background-color: #f1f5f9;
+  border-radius: 6px;
+  margin: 5px 0;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.dark-mode .message-file-container {
+  background-color: #323645;
+}
+
+.message-file-container:hover {
+  background-color: #e3e9f0;
+}
+
+.dark-mode .message-file-container:hover {
+  background-color: #3a3f52;
+}
+
+.message-file-container i {
+  margin-right: 10px;
+  color: #4b81e8;
+}
+
+.file-name {
+  font-size: 0.9rem;
+  color: #444;
+  word-break: break-all;
+}
+
+.dark-mode .file-name {
+  color: #ddd;
 }

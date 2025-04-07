@@ -56,7 +56,7 @@ function AdminPanel({ user }) {
     };
 
     fetchData();
-  }, [user]);
+  }, [user, timeRange]);
 
   // Function to fetch daily messages data
   const fetchDailyMessages = async (range) => {
@@ -331,7 +331,7 @@ function AdminPanel({ user }) {
 
       <div className="admin-panel-header">
         <h1>Admin Dashboard</h1>
-        <p>Manage users, messages, and system settings</p>
+        <p>Manage users, messages, and analytics</p>
       </div>
 
       <div className="admin-tabs-container">
@@ -362,15 +362,6 @@ function AdminPanel({ user }) {
           >
             <i className="fas fa-chart-bar"></i>
             <span>Analytics</span>
-          </button>
-          <button
-            className={`admin-tab-button ${
-              activeTab === "settings" ? "active" : ""
-            }`}
-            onClick={() => setActiveTab("settings")}
-          >
-            <i className="fas fa-cog"></i>
-            <span>System Settings</span>
           </button>
         </div>
       </div>
@@ -691,6 +682,7 @@ function AdminPanel({ user }) {
                   <div className="chart-bars">
                     {stats.dailyMessages.map((day, index) => (
                       <div key={index} className="chart-bar-container">
+                        <div className="chart-bar-value">{day.count}</div>
                         <div className="chart-bar-tooltip">
                           {day.count} messages
                         </div>
@@ -766,148 +758,6 @@ function AdminPanel({ user }) {
                   </div>
                 </div>
               </div>
-            </div>
-          </div>
-        )}
-
-        {activeTab === "settings" && (
-          <div className="settings-container">
-            <div className="settings-grid">
-              <div className="setting-card">
-                <div className="setting-card-header">
-                  <div className="setting-card-title">
-                    <i className="fas fa-user-cog"></i>
-                    User Management
-                  </div>
-                </div>
-                <div className="setting-card-body">
-                  <div className="setting-group">
-                    <div className="setting-group-label">User Registration</div>
-                    <div className="setting-option">
-                      <div className="setting-option-label">
-                        Allow New Registrations
-                      </div>
-                      <div className="setting-option-info">
-                        Allow new users to register on the platform
-                      </div>
-                      <div className="switch">
-                        <input
-                          type="checkbox"
-                          id="allow-registration"
-                          defaultChecked
-                        />
-                        <label
-                          className="slider"
-                          htmlFor="allow-registration"
-                        ></label>
-                      </div>
-                    </div>
-                    <div className="setting-option">
-                      <div className="setting-option-label">
-                        Email Verification
-                      </div>
-                      <div className="setting-option-info">
-                        Require email verification for new accounts
-                      </div>
-                      <div className="switch">
-                        <input
-                          type="checkbox"
-                          id="email-verification"
-                          defaultChecked
-                        />
-                        <label
-                          className="slider"
-                          htmlFor="email-verification"
-                        ></label>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="setting-group">
-                    <div className="setting-group-label">Security</div>
-                    <div className="setting-option">
-                      <div className="setting-option-label">
-                        Two-Factor Authentication
-                      </div>
-                      <div className="setting-option-info">
-                        Require two-factor authentication for all users
-                      </div>
-                      <div className="switch">
-                        <input type="checkbox" id="require-2fa" />
-                        <label className="slider" htmlFor="require-2fa"></label>
-                      </div>
-                    </div>
-                    <div className="setting-option">
-                      <div className="setting-option-label">
-                        Password Requirements
-                      </div>
-                      <div className="setting-option-info">
-                        Set minimum complexity for passwords
-                      </div>
-                      <select className="setting-select">
-                        <option>Low - 6 characters minimum</option>
-                        <option defaultValue>
-                          Medium - 8 characters with numbers
-                        </option>
-                        <option>
-                          High - 10 characters with special characters
-                        </option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="setting-card">
-                <div className="setting-card-header">
-                  <div className="setting-card-title">
-                    <i className="fas fa-comment-alt"></i>
-                    Message Settings
-                  </div>
-                </div>
-                <div className="setting-card-body">
-                  <div className="setting-group">
-                    <div className="setting-option">
-                      <div className="setting-option-label">
-                        File Attachments
-                      </div>
-                      <div className="setting-option-info">
-                        Allow users to send file attachments
-                      </div>
-                      <div className="switch">
-                        <input
-                          type="checkbox"
-                          id="allow-attachments"
-                          defaultChecked
-                        />
-                        <label
-                          className="slider"
-                          htmlFor="allow-attachments"
-                        ></label>
-                      </div>
-                    </div>
-                    <div className="setting-option">
-                      <div className="setting-option-label">Max File Size</div>
-                      <div className="setting-option-info">
-                        Maximum size for attachments
-                      </div>
-                      <select className="setting-select">
-                        <option>5 MB</option>
-                        <option defaultValue>10 MB</option>
-                        <option>20 MB</option>
-                        <option>50 MB</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="settings-actions">
-              <button className="btn-modern secondary">
-                Reset to Defaults
-              </button>
-              <button className="btn-modern primary">Save Settings</button>
             </div>
           </div>
         )}

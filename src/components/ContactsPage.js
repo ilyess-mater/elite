@@ -5,6 +5,8 @@ import axios from "axios";
 function ContactsPage({ user }) {
   const [contacts, setContacts] = useState([]);
   const [showAddContact, setShowAddContact] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [contactToDelete, setContactToDelete] = useState(null);
   const [newContact, setNewContact] = useState({
     name: "",
     email: "",
@@ -105,6 +107,47 @@ function ContactsPage({ user }) {
     }
   };
 
+  // Handle delete contact
+  const handleDeleteClick = (e, contact) => {
+    e.stopPropagation();
+    setContactToDelete(contact);
+    setShowDeleteConfirm(true);
+  };
+
+  // Cancel delete contact
+  const cancelDelete = () => {
+    setShowDeleteConfirm(false);
+    setContactToDelete(null);
+  };
+
+  // Confirm delete contact
+  const confirmDelete = async () => {
+    if (contactToDelete) {
+      try {
+        await axios.delete(`/api/contacts/${contactToDelete.id}`, {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+        });
+
+        // Remove contact from state
+        setContacts(contacts.filter((c) => c.id !== contactToDelete.id));
+        setSuccessMessage("Contact deleted successfully!");
+
+        // Clear success message after 3 seconds
+        setTimeout(() => {
+          setSuccessMessage("");
+        }, 3000);
+      } catch (error) {
+        console.error("Error deleting contact:", error);
+        setError("Failed to delete contact. Please try again.");
+      }
+
+      setShowDeleteConfirm(false);
+      setContactToDelete(null);
+    }
+  };
+
   // Start conversation with a contact
   const startConversation = (contact) => {
     // Check if this contact was previously removed from chats
@@ -134,8 +177,9 @@ function ContactsPage({ user }) {
 
   return (
     <div className="contacts-page-container">
+      <h2 className="contacts-title">Contacts</h2>
+
       <div className="contacts-header">
-        <h2>Contacts</h2>
         <div className="contacts-actions">
           <div className="search-bar">
             <i className="fas fa-search"></i>
@@ -158,6 +202,12 @@ function ContactsPage({ user }) {
       {successMessage && (
         <div className="success-message">
           <i className="fas fa-check-circle"></i> {successMessage}
+        </div>
+      )}
+
+      {error && (
+        <div className="error-message">
+          <i className="fas fa-exclamation-circle"></i> {error}
         </div>
       )}
 
@@ -207,13 +257,8 @@ function ContactsPage({ user }) {
                       <i className="fas fa-comment"></i>
                     </button>
                     <button
-                      className="action-btn edit-btn"
-                      title="Edit contact"
-                    >
-                      <i className="fas fa-edit"></i>
-                    </button>
-                    <button
                       className="action-btn delete-btn"
+                      onClick={(e) => handleDeleteClick(e, contact)}
                       title="Delete contact"
                     >
                       <i className="fas fa-trash"></i>
@@ -260,6 +305,17 @@ function ContactsPage({ user }) {
                   placeholder="Enter contact email"
                 />
               </div>
+
+              <div className="form-group">
+                <label>Department (Optional)</label>
+                <input
+                  type="text"
+                  name="department"
+                  value={newContact.department}
+                  onChange={handleInputChange}
+                  placeholder="Enter department"
+                />
+              </div>
             </div>
 
             <div className="modal-footer">
@@ -279,6 +335,26 @@ function ContactsPage({ user }) {
                 disabled={isLoading}
               >
                 {isLoading ? "Adding..." : "Add Contact"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDeleteConfirm && (
+        <div className="confirm-dialog-overlay">
+          <div className="confirm-dialog">
+            <h4>Supprimer le contact</h4>
+            <p>
+              Êtes-vous sûr de vouloir supprimer {contactToDelete?.name} de vos
+              contacts ? Cette action ne peut pas être annulée.
+            </p>
+            <div className="confirm-actions">
+              <button className="btn-cancel" onClick={cancelDelete}>
+                Annuler
+              </button>
+              <button className="btn-confirm" onClick={confirmDelete}>
+                Supprimer
               </button>
             </div>
           </div>

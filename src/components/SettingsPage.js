@@ -10,9 +10,6 @@ function SettingsPage({ user, darkMode, textSize, applySettings }) {
     theme: darkMode ? "dark" : "light",
     fontSize: textSize || "medium",
   });
-  const [saving, setSaving] = useState(false);
-  const [success, setSuccess] = useState("");
-  const [error, setError] = useState("");
 
   // Predefined avatar colors
   const avatarColors = [
@@ -39,78 +36,28 @@ function SettingsPage({ user, darkMode, textSize, applySettings }) {
   const handleThemeChange = (theme) => {
     setSettings({ ...settings, theme });
     applySettings({ darkMode: theme === "dark" });
+    localStorage.setItem("theme", theme);
   };
 
   const handleFontSizeChange = (fontSize) => {
     setSettings({ ...settings, fontSize });
     applySettings({ textSize: fontSize });
+    localStorage.setItem("fontSize", fontSize);
   };
 
   const handleAvatarColorChange = (color) => {
     setSelectedColor(color);
     localStorage.setItem("avatarColor", color);
-    // This will trigger a re-render of the sidebar with the new color
     document.dispatchEvent(
       new CustomEvent("avatarColorChanged", { detail: { color } })
     );
-  };
-
-  const handleSaveSettings = async () => {
-    try {
-      setSaving(true);
-      setError("");
-      setSuccess("");
-
-      // Save settings to local storage
-      localStorage.setItem("theme", settings.theme);
-      localStorage.setItem("fontSize", settings.fontSize);
-      localStorage.setItem("avatarColor", selectedColor);
-
-      // Apply the settings
-      applySettings({
-        darkMode: settings.theme === "dark",
-        textSize: settings.fontSize,
-      });
-
-      setSuccess("Settings saved successfully!");
-      setSaving(false);
-
-      // Clear success message after 3 seconds
-      setTimeout(() => setSuccess(""), 3000);
-    } catch (error) {
-      console.error("Error saving settings:", error);
-      setError("Failed to save settings. Please try again.");
-      setSaving(false);
-    }
   };
 
   return (
     <div className="settings-container">
       <div className="settings-header">
         <h1>Settings</h1>
-        <div className="settings-actions">
-          {/* Remove this button */}
-          {/* <button
-            className="btn btn-primary"
-            onClick={handleSaveSettings}
-            disabled={saving}
-          >
-            {saving ? "Saving..." : "Save Settings"}
-          </button> */}
-        </div>
       </div>
-
-      {success && (
-        <div className="alert alert-success">
-          <i className="fas fa-check-circle"></i> {success}
-        </div>
-      )}
-
-      {error && (
-        <div className="alert alert-danger">
-          <i className="fas fa-exclamation-circle"></i> {error}
-        </div>
-      )}
 
       <div className="settings-grid">
         <div className="settings-card">

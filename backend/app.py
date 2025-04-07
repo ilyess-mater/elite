@@ -26,7 +26,7 @@ class JSONEncoder(json.JSONEncoder):
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'default_secret_key')
 CORS(app, resources={r"/*": {"origins": "*"}})
-socketio = SocketIO(app, cors_allowed_origins="*")
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 
 # MongoDB connection
 client = MongoClient(os.getenv('MONGO_URI', 'mongodb://localhost:27017/'))
@@ -35,6 +35,7 @@ users_collection = db.users
 messages_collection = db.messages
 contacts_collection = db.contacts
 groups_collection = db.groups
+group_messages_collection = db.group_messages
 
 # Active users dictionary to track online status
 active_users = {}
@@ -66,6 +67,15 @@ def verify_token(token):
         return None
     except jwt.InvalidTokenError:
         return None
+
+def delete_group_messages(group_id):
+    """Delete all messages for a group"""
+    try:
+        group_messages_collection.delete_many({"groupId": ObjectId(group_id)})
+        return True
+    except Exception as e:
+        print(f"Error deleting group messages: {e}")
+        return False
 
 # Authentication routes
 @app.route('/api/auth/signup', methods=['POST'])
@@ -159,6 +169,40 @@ def signin():
         "token": token
     }), 200
 
+@app.route('/api/auth/change-password', methods=['POST'])
+def change_password():
+    token = request.headers.get('Authorization', '').replace('Bearer ', '')
+    user_id = verify_token(token)
+    
+    if not user_id:
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    data = request.get_json()
+    current_password = data.get('currentPassword')
+    new_password = data.get('newPassword')
+    
+    if not current_password or not new_password:
+        return jsonify({"error": "Both current and new password are required"}), 400
+    
+    # Récupérer l'utilisateur
+    user = users_collection.find_one({"_id": ObjectId(user_id)})
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+    
+    # Vérifier l'ancien mot de passe
+    if not bcrypt.checkpw(current_password.encode('utf-8'), user['password']):
+        return jsonify({"error": "Current password is incorrect"}), 401
+    
+    # Hasher et enregistrer le nouveau mot de passe
+    hashed_password = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt())
+    
+    users_collection.update_one(
+        {"_id": ObjectId(user_id)},
+        {"$set": {"password": hashed_password}}
+    )
+    
+    return jsonify({"message": "Password changed successfully"}), 200
+
 # Contacts routes
 @app.route('/api/contacts', methods=['GET'])
 def get_contacts():
@@ -232,6 +276,44 @@ def add_contact():
         "department": department,
         "isActive": str(contact_user["_id"]) in active_users
     }), 201
+
+@app.route('/api/contacts/<contact_id>', methods=['DELETE'])
+def delete_contact(contact_id):
+    token = request.headers.get('Authorization', '').replace('Bearer ', '')
+    user_id = verify_token(token)
+    
+    if not user_id:
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    try:
+        # Vérifier que le contact existe et appartient à l'utilisateur
+        contact = contacts_collection.find_one({
+            "userId": ObjectId(user_id),
+            "contactId": ObjectId(contact_id)
+        })
+        
+        if not contact:
+            return jsonify({"error": "Contact not found"}), 404
+            
+        # Supprimer le contact
+        contacts_collection.delete_one({
+            "userId": ObjectId(user_id),
+            "contactId": ObjectId(contact_id)
+        })
+        
+        # Supprimer également les messages associés
+        messages_collection.delete_many({
+            "$or": [
+                {"senderId": ObjectId(user_id), "receiverId": ObjectId(contact_id)},
+                {"senderId": ObjectId(contact_id), "receiverId": ObjectId(user_id)}
+            ]
+        })
+        
+        return jsonify({"message": "Contact deleted successfully"}), 200
+        
+    except Exception as e:
+        print(f"Error deleting contact: {e}")
+        return jsonify({"error": "Failed to delete contact"}), 500
 
 # Messaging routes
 @app.route('/api/messages/<contact_id>', methods=['GET'])
@@ -598,23 +680,28 @@ def get_groups():
             sort=[("timestamp", -1)]
         )
         
-        # Count unread messages
-        unread_count = 0
-        member = next((m for m in group["members"] if str(m["userId"]) == user_id), None)
-        if member and last_message:
-            unread_count = db.group_messages.count_documents({
-                "groupId": group["_id"],
-                "timestamp": {"$gt": member.get("lastRead", datetime(1970, 1, 1))}
-            })
+        # Get full member details
+        members = []
+        for member in group["members"]:
+            member_user = users_collection.find_one({"_id": member["userId"]})
+            if member_user:
+                members.append({
+                    "id": str(member_user["_id"]),
+                    "name": member_user["name"],
+                    "role": member["role"],
+                    "isActive": str(member_user["_id"]) in active_users,
+                })
         
         groups_list.append({
             "id": str(group["_id"]),
             "name": group["name"],
             "description": group.get("description", ""),
+            "createdBy": str(group["createdBy"]),
+            "members": members,
             "lastMessage": last_message["text"] if last_message else "",
             "lastMessageTime": last_message["timestamp"].isoformat() if last_message else None,
-            "unreadCount": unread_count,
-            "memberCount": len(group["members"])
+            "unreadCount": 0,
+            "memberCount": len(members)
         })
     
     return jsonify(groups_list), 200
@@ -723,5 +810,101 @@ def get_group_messages(group_id):
     
     return jsonify(messages_list), 200
 
+@app.route('/api/groups/<group_id>/messages', methods=['DELETE'])
+def delete_group_chat(group_id):
+    token = request.headers.get('Authorization', '').replace('Bearer ', '')
+    user_id = verify_token(token)
+    
+    if not user_id:
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    # Check if user is member of the group
+    group = groups_collection.find_one({
+        "_id": ObjectId(group_id),
+        "members": {"$elemMatch": {"userId": ObjectId(user_id)}}
+    })
+    
+    if not group:
+        return jsonify({"error": "Forbidden"}), 403
+    
+    # Delete all messages in the group
+    if delete_group_messages(group_id):
+        return jsonify({"message": "Chat history deleted successfully"}), 200
+    else:
+        return jsonify({"error": "Failed to delete chat history"}), 500
+
+@app.route('/api/groups/<group_id>/leave', methods=['POST'])
+def leave_group(group_id):
+    token = request.headers.get('Authorization', '').replace('Bearer ', '')
+    user_id = verify_token(token)
+    
+    if not user_id:
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    try:
+        # Remove user from group members
+        result = groups_collection.update_one(
+            {"_id": ObjectId(group_id)},
+            {"$pull": {"members": {"userId": ObjectId(user_id)}}}
+        )
+        
+        if result.modified_count == 0:
+            return jsonify({"error": "Group not found or user is not a member"}), 404
+        
+        # Get user info for notification
+        user = users_collection.find_one({"_id": ObjectId(user_id)})
+        
+        # Emit socket event to notify other members
+        socketio.emit('group_user_left', {
+            "groupId": group_id,
+            "userId": str(user_id),
+            "userName": user["name"] if user else "Unknown"
+        }, room=f"group_{group_id}")
+        
+        return jsonify({"message": "Successfully left the group"}), 200
+        
+    except Exception as e:
+        print(f"Error leaving group: {e}")
+        return jsonify({"error": "An error occurred while leaving the group"}), 500
+
+@app.route('/api/groups/<group_id>', methods=['DELETE'])
+def delete_group(group_id):
+    token = request.headers.get('Authorization', '').replace('Bearer ', '')
+    user_id = verify_token(token)
+    
+    if not user_id:
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    try:
+        # Check if user is the creator of the group
+        group = groups_collection.find_one({
+            "_id": ObjectId(group_id),
+            "createdBy": ObjectId(user_id)
+        })
+        
+        if not group:
+            return jsonify({"error": "Only group creator can delete the group"}), 403
+        
+        # Delete all messages in the group
+        group_messages_collection.delete_many({"groupId": ObjectId(group_id)})
+        
+        # Delete the group itself
+        result = groups_collection.delete_one({"_id": ObjectId(group_id)})
+        
+        if result.deleted_count == 0:
+            return jsonify({"error": "Group not found"}), 404
+        
+        # Notify all members via socket
+        socketio.emit("group_deleted", {
+            "groupId": group_id,
+            "groupName": group["name"]
+        }, room=f"group_{group_id}")
+        
+        return jsonify({"message": "Group deleted successfully"}), 200
+        
+    except Exception as e:
+        print(f"Error deleting group: {e}")
+        return jsonify({"error": "An error occurred while deleting the group"}), 500
+
 if __name__ == '__main__':
-    socketio.run(app, debug=True, host='0.0.0.0', port=5000) 
+    socketio.run(app, debug=True, host='0.0.0.0', port=5000)

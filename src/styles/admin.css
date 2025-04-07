@@ -853,6 +853,7 @@
   background-color: #4a6cf7;
   border-radius: 4px;
   transition: height 0.3s ease;
+  position: relative;
 }
 
 .dark-mode .chart-bar {
@@ -867,6 +868,20 @@
 }
 
 .dark-mode .chart-label {
+  color: #a7a7b3;
+}
+
+.chart-bar-value {
+  position: absolute;
+  top: -25px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.75rem;
+  color: #6c757d;
+  font-weight: 500;
+}
+
+.dark-mode .chart-bar-value {
   color: #a7a7b3;
 }
 
