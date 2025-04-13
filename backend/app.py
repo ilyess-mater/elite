@@ -523,6 +523,44 @@ def delete_user(user_id):
         print(f"Error deleting user: {e}")
         return jsonify({"error": "An error occurred while deleting the user"}), 500
 
+@app.route('/api/admin/users/<user_id>/promote', methods=['POST'])
+def promote_user(user_id):
+    token = request.headers.get('Authorization', '').replace('Bearer ', '')
+    admin_id = verify_token(token)
+    
+    if not admin_id:
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    # Check if the requester is an admin
+    admin = users_collection.find_one({"_id": ObjectId(admin_id)})
+    if not admin or not admin.get("isAdmin", False):
+        return jsonify({"error": "Forbidden"}), 403
+        
+    try:
+        # Check if user exists
+        user = users_collection.find_one({"_id": ObjectId(user_id)})
+        if not user:
+            return jsonify({"error": "User not found"}), 404
+            
+        # Don't allow promoting self
+        if str(admin_id) == user_id:
+            return jsonify({"error": "Cannot promote yourself"}), 403
+        
+        # Update user to admin
+        result = users_collection.update_one(
+            {"_id": ObjectId(user_id)},
+            {"$set": {"isAdmin": True}}
+        )
+        
+        if result.modified_count == 0:
+            return jsonify({"error": "Failed to promote user"}), 500
+            
+        return jsonify({"message": "User promoted to admin successfully"}), 200
+        
+    except Exception as e:
+        print(f"Error promoting user: {e}")
+        return jsonify({"error": "An error occurred while promoting the user"}), 500
+
 # Socket.IO event handlers
 @socketio.on('connect')
 def handle_connect():
@@ -604,6 +642,146 @@ def handle_send_message(data):
     # Send to receiver's room if online
     if receiver_id in active_users:
         emit('receive_message', message_data, room=receiver_id)
+
+@socketio.on('send_group_message')
+def handle_group_message(data):
+    try:
+        token = data.get('token')
+        user = verify_token(token)
+        if not user:
+            return
+
+        group_id = data.get('groupId')
+        text = data.get('text', '')
+        file_data = data.get('fileData')
+        file_type = data.get('fileType')
+        file_name = data.get('fileName')
+
+        # Generate a unique message ID
+        message_id = str(ObjectId())
+        timestamp = datetime.utcnow().isoformat()
+
+        # Store file if present
+        file_url = None
+        if file_data and file_type and file_name:
+            file_url = save_file(file_data, file_type, file_name)
+
+        # Create message document
+        message = {
+            'id': message_id,
+            'sender': user['id'],
+            'senderName': user['name'],
+            'groupId': group_id,
+            'text': text,
+            'timestamp': timestamp,
+            'fileUrl': file_url,
+            'fileType': file_type,
+            'fileName': file_name
+        }
+
+        # Save message to database
+        db.messages.insert_one(message)
+
+        # Emit to all users in the group, including sender
+        # Use room=f"group_{group_id}" to ensure all users in the group receive the message exactly once
+        emit('receive_group_message', message, room=f"group_{group_id}")
+
+    except Exception as e:
+        print(f"Error handling group message: {str(e)}")
+        emit('error', {'message': 'Failed to send message'})
+
+@socketio.on('join_group')
+def on_join_group(data):
+    try:
+        token = data.get('token')
+        user = verify_token(token)
+        if not user:
+            return
+
+        group_id = data.get('groupId')
+        
+        # Join the socket room
+        join_room(group_id)
+        
+        # Store room information for the session
+        if not hasattr(request, 'rooms'):
+            request.rooms = set()
+        request.rooms.add(group_id)
+
+        # Get group details and check if user is already a member
+        group = db.groups.find_one({'_id': ObjectId(group_id)})
+        if not group:
+            return
+
+        # Check if user is already a member
+        is_member = any(member.get('id') == user['id'] for member in (group.get('members') or []))
+        if not is_member:
+            # Only update members if user isn't already in the group
+            db.groups.update_one(
+                {'_id': ObjectId(group_id)},
+                {'$addToSet': {'members': {
+                    'id': user['id'],
+                    'name': user['name'],
+                    'isActive': True
+                }}}
+            )
+
+            # Notify other members only if user wasn't already in the group
+            emit('group_user_joined', {
+                'groupId': group_id,
+                'userId': user['id'],
+                'userName': user['name'],
+                'user': {
+                    'id': user['id'],
+                    'name': user['name'],
+                    'isActive': True
+                }
+            }, room=group_id)
+
+    except Exception as e:
+        print(f"Error joining group: {str(e)}")
+
+@socketio.on('leave_group')
+def on_leave_group(data):
+    try:
+        token = data.get('token')
+        user = verify_token(token)
+        if not user:
+            return
+
+        group_id = data.get('groupId')
+        
+        # Leave the socket room
+        leave_room(group_id)
+        
+        # Remove room from session storage
+        if hasattr(request, 'rooms'):
+            request.rooms.discard(group_id)
+
+        # Get group details and check if user is actually a member
+        group = db.groups.find_one({'_id': ObjectId(group_id)})
+        if not group:
+            return
+
+        # Check if user is actually a member
+        is_member = any(member.get('id') == user['id'] for member in (group.get('members') or []))
+        if is_member:
+            # Only update members if user is actually in the group
+            result = db.groups.update_one(
+                {'_id': ObjectId(group_id)},
+                {'$pull': {'members': {'id': user['id']}}}
+            )
+
+            if result.modified_count > 0:
+                # Notify other members only if user was actually removed
+                emit('group_user_left', {
+                    'groupId': group_id,
+                    'userId': user['id'],
+                    'userName': user['name']
+                }, room=group_id)
+
+    except Exception as e:
+        print(f"Error leaving group: {str(e)}")
 
 @socketio.on('join_group')
 def handle_join_group(data):
@@ -1024,6 +1202,158 @@ def delete_group(group_id):
     except Exception as e:
         print(f"Error deleting group: {e}")
         return jsonify({"error": "An error occurred while deleting the group"}), 500
+
+@app.route('/api/groups/<group_id>/invite', methods=['POST'])
+def invite_to_group(group_id):
+    token = request.headers.get('Authorization', '').replace('Bearer ', '')
+    user_id = verify_token(token)
+    
+    if not user_id:
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    # Check if user is member of the group
+    group = groups_collection.find_one({
+        "_id": ObjectId(group_id),
+        "members": {"$elemMatch": {"userId": ObjectId(user_id)}}
+    })
+    
+    if not group:
+        return jsonify({"error": "Forbidden"}), 403
+    
+    data = request.get_json()
+    member_ids = data.get('members', [])
+    
+    if not member_ids:
+        return jsonify({"error": "No members specified"}), 400
+    
+    try:
+        # Add new members
+        new_members = []
+        for mid in member_ids:
+            member = {
+                "userId": ObjectId(mid),
+                "role": "member",
+                "joinedAt": datetime.utcnow(),
+                "lastRead": datetime.utcnow()
+            }
+            new_members.append(member)
+        
+        # Update group with new members
+        result = groups_collection.update_one(
+            {"_id": ObjectId(group_id)},
+            {"$push": {"members": {"$each": new_members}}}
+        )
+        
+        if result.modified_count == 0:
+            return jsonify({"error": "Failed to add members to group"}), 500
+        
+        # Get member details for response
+        added_members = []
+        for mid in member_ids:
+            member_user = users_collection.find_one({"_id": ObjectId(mid)})
+            if member_user:
+                added_members.append({
+                    "id": str(member_user["_id"]),
+                    "name": member_user["name"],
+                    "isActive": str(member_user["_id"]) in active_users
+                })
+                
+                # Emit socket event to notify the new member
+                socketio.emit('group_invite', {
+                    "groupId": group_id,
+                    "groupName": group["name"],
+                    "invitedBy": user_id
+                }, room=str(member_user["_id"]))
+        
+        return jsonify({
+            "success": True,
+            "message": "Members invited successfully",
+            "members": added_members
+        }), 200
+        
+    except Exception as e:
+        print(f"Error inviting members to group: {e}")
+        return jsonify({"error": "An error occurred while inviting members"}), 500
+
+@app.route('/api/groups/<group_id>/invite', methods=['POST'])
+def invite_group_members(group_id):
+    token = request.headers.get('Authorization', '').replace('Bearer ', '')
+    user_id = verify_token(token)
+    
+    if not user_id:
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    try:
+        data = request.get_json()
+        members_to_invite = data.get('members', [])
+        
+        if not members_to_invite:
+            return jsonify({"error": "No members specified"}), 400
+            
+        # Check if group exists and user is a member
+        group = groups_collection.find_one({"_id": ObjectId(group_id)})
+        if not group:
+            return jsonify({"error": "Group not found"}), 404
+            
+        # Check if user is in the group
+        if ObjectId(user_id) not in [member["id"] for member in group.get("members", [])]:
+            return jsonify({"error": "You must be a member of the group to invite others"}), 403
+        
+        # Convert member IDs to ObjectIds and check if they exist
+        member_ids = []
+        for member_id in members_to_invite:
+            if users_collection.find_one({"_id": ObjectId(member_id)}):
+                member_ids.append(ObjectId(member_id))
+        
+        if not member_ids:
+            return jsonify({"error": "No valid members to invite"}), 400
+            
+        # Add new members to the group
+        current_members = group.get("members", [])
+        new_members = []
+        for member_id in member_ids:
+            if not any(m["id"] == member_id for m in current_members):
+                member = users_collection.find_one({"_id": member_id})
+                new_members.append({
+                    "id": member_id,
+                    "name": member["name"],
+                    "isActive": str(member_id) in active_users
+                })
+        
+        if not new_members:
+            return jsonify({"error": "All specified users are already members"}), 400
+            
+        # Update group with new members
+        groups_collection.update_one(
+            {"_id": ObjectId(group_id)},
+            {"$push": {"members": {"$each": new_members}}}
+        )
+        
+        # Emit socket event for each new member
+        for member in new_members:
+            socketio.emit("group_user_joined", {
+                "groupId": group_id,
+                "user": {
+                    "id": str(member["id"]),
+                    "name": member["name"],
+                    "isActive": member["isActive"]
+                },
+                "userName": member["name"]
+            })
+        
+        return jsonify({
+            "success": True,
+            "message": f"Successfully invited {len(new_members)} members to the group",
+            "newMembers": [{
+                "id": str(m["id"]),
+                "name": m["name"],
+                "isActive": m["isActive"]
+            } for m in new_members]
+        }), 200
+        
+    except Exception as e:
+        print(f"Error inviting members to group: {e}")
+        return jsonify({"error": "Failed to invite members"}), 500
 
 if __name__ == '__main__':
     socketio.run(app, debug=True, host='0.0.0.0', port=5000)

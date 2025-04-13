@@ -526,13 +526,43 @@ function MessagingPage({ user, textSize }) {
     return null;
   };
 
+  // State for chat details sidebar
+  const [showChatDetails, setShowChatDetails] = useState(false);
+  const [showDeleteMessagesConfirm, setShowDeleteMessagesConfirm] =
+    useState(false);
+
+  // Handle delete messages
+  const handleDeleteMessages = async () => {
+    if (!selectedContact) return;
+
+    try {
+      // Clear messages for current contact
+      setMessages((prev) => ({
+        ...prev,
+        [selectedContact.id]: [],
+      }));
+
+      // You would typically make an API call here to delete messages on the server
+      // await axios.delete(`/api/messages/${selectedContact.id}`, {
+      //   headers: {
+      //     Authorization: `Bearer ${localStorage.getItem("token")}`,
+      //   },
+      // });
+
+      setShowDeleteMessagesConfirm(false);
+    } catch (error) {
+      console.error("Error deleting messages:", error);
+      alert("Error deleting messages. Please try again.");
+    }
+  };
+
   return (
     <div className="messaging-container">
       <div className="contacts-list">
         <div className="contacts-header">
           <h2>Conversations</h2>
         </div>
-        <div className="search-bar-container">
+        <div className="contacts-search">
           <div className="search-bar">
             <i className="fas fa-search"></i>
             <input
@@ -580,13 +610,16 @@ function MessagingPage({ user, textSize }) {
                     : "No messages yet"}
                 </div>
               </div>
-              <button
-                className="delete-chat-button"
-                onClick={(e) => handleDeleteChat(e, contact)}
-                title="Delete conversation"
-              >
-                <i className="fas fa-trash-alt"></i>
-              </button>
+              <div className="contact-meta">
+                {contact.lastMessageTime && (
+                  <div className="contact-time">
+                    {formatTime(contact.lastMessageTime)}
+                  </div>
+                )}
+                {contact.unreadCount > 0 && (
+                  <div className="unread-count">{contact.unreadCount}</div>
+                )}
+              </div>
             </div>
           ))}
         </div>
@@ -603,21 +636,20 @@ function MessagingPage({ user, textSize }) {
                 >
                   {selectedContact.name.charAt(0)}
                 </div>
-                <div className="contact-name">
-                  {selectedContact.name}
-                  {selectedContact.isActive && (
-                    <span className="status-text">Online</span>
-                  )}
+                <div className="chat-contact-details">
+                  <div className="chat-contact-name">
+                    {selectedContact.name}
+                  </div>
+                  <div className="chat-contact-status">
+                    {selectedContact.isActive ? "Online" : "Offline"}
+                  </div>
                 </div>
               </div>
               <div className="chat-actions">
-                <button className="chat-action-button">
-                  <i className="fas fa-phone"></i>
-                </button>
-                <button className="chat-action-button">
-                  <i className="fas fa-video"></i>
-                </button>
-                <button className="chat-action-button">
+                <button
+                  className="chat-action-button"
+                  onClick={() => setShowChatDetails(!showChatDetails)}
+                >
                   <i className="fas fa-info-circle"></i>
                 </button>
               </div>
@@ -718,6 +750,58 @@ function MessagingPage({ user, textSize }) {
         )}
       </div>
 
+      {showChatDetails && selectedContact && (
+        <div className="chat-details-sidebar">
+          <div className="chat-details-header">
+            <h3>Chat Information</h3>
+            <button
+              className="close-details-button"
+              onClick={() => setShowChatDetails(false)}
+            >
+              <i className="fas fa-times"></i>
+            </button>
+          </div>
+          <div className="chat-details-content">
+            <div className="contact-profile">
+              <div
+                className="contact-avatar large"
+                style={{ backgroundColor: selectedContact.avatar }}
+              >
+                {selectedContact.name.charAt(0)}
+              </div>
+              <h4 className="contact-name">{selectedContact.name}</h4>
+              <div className="contact-status-text">
+                {selectedContact.isActive ? "Online" : "Offline"}
+              </div>
+            </div>
+
+            <div className="chat-details-section">
+              <h5 className="section-title">Chat Options</h5>
+              <div className="chat-actions centered-actions">
+                <div className="search-conversation-container">
+                  <button className="chat-action-button centered-button">
+                    <i className="fas fa-search"></i> Search in Conversation
+                  </button>
+                  <div className="search-bar chat-search-bar">
+                    <i className="fas fa-search"></i>
+                    <input type="text" placeholder="Search messages..." />
+                  </div>
+                </div>
+                <button className="group-action-button">
+                  <i className="fas fa-bell-slash"></i> Mute Notifications
+                </button>
+                <button
+                  className="delete-messages-button"
+                  onClick={() => setShowDeleteMessagesConfirm(true)}
+                >
+                  <i className="fas fa-trash-alt"></i> Delete Messages
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showDeleteConfirm && (
         <div className="confirm-dialog-overlay">
           <div className="confirm-dialog">
@@ -738,6 +822,30 @@ function MessagingPage({ user, textSize }) {
               </button>
               <button className="btn-danger" onClick={confirmDeleteChat}>
                 Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDeleteMessagesConfirm && (
+        <div className="confirm-dialog-overlay">
+          <div className="confirm-dialog">
+            <h4>Delete Messages</h4>
+            <p>
+              Are you sure you want to delete all messages in this chat?
+              Messages will only be deleted for you, the other person will still
+              be able to see them.
+            </p>
+            <div className="confirm-dialog-actions">
+              <button
+                className="btn-cancel"
+                onClick={() => setShowDeleteMessagesConfirm(false)}
+              >
+                Cancel
+              </button>
+              <button className="btn-danger" onClick={handleDeleteMessages}>
+                Delete Messages
               </button>
             </div>
           </div>

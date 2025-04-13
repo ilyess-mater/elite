@@ -40,21 +40,21 @@
 .sidebar-logo {
   height: 40px;
   width: 40px;
-  filter: drop-shadow(0 0 8px rgba(74, 108, 247, 0.6));
+  filter: drop-shadow(0 0 8px rgba(68, 129, 235, 0.6));
   animation: logo-pulse 3s infinite alternate;
 }
 
 @keyframes logo-pulse {
   0% {
-    filter: drop-shadow(0 0 8px rgba(74, 108, 247, 0.6));
+    filter: drop-shadow(0 0 8px rgba(68, 129, 235, 0.6));
     transform: scale(1);
   }
   50% {
-    filter: drop-shadow(0 0 12px rgba(74, 108, 247, 0.8));
+    filter: drop-shadow(0 0 12px rgba(4, 190, 254, 0.8));
     transform: scale(1.05);
   }
   100% {
-    filter: drop-shadow(0 0 8px rgba(74, 108, 247, 0.6));
+    filter: drop-shadow(0 0 8px rgba(68, 129, 235, 0.6));
     transform: scale(1);
   }
 }
@@ -65,28 +65,28 @@
 
 @keyframes logo-pulse-dark {
   0% {
-    filter: drop-shadow(0 0 8px rgba(122, 159, 255, 0.6));
+    filter: drop-shadow(0 0 8px rgba(4, 190, 254, 0.6));
     transform: scale(1);
   }
   50% {
-    filter: drop-shadow(0 0 15px rgba(122, 159, 255, 0.8));
+    filter: drop-shadow(0 0 15px rgba(4, 190, 254, 0.8));
     transform: scale(1.05);
   }
   100% {
-    filter: drop-shadow(0 0 8px rgba(122, 159, 255, 0.6));
+    filter: drop-shadow(0 0 8px rgba(4, 190, 254, 0.6));
     transform: scale(1);
   }
 }
 
 .logo-text {
   font-size: 14px;
-  color: #4a6cf7;
+  color: #4481eb;
   text-align: center;
   margin: 10px 0 0 0;
   font-weight: 600;
   display: none;
   animation: text-glow 3s infinite alternate;
-  text-shadow: 0 0 8px rgba(74, 108, 247, 0.4);
+  text-shadow: 0 0 8px rgba(68, 129, 235, 0.4);
   letter-spacing: 0.5px;
 }
 
@@ -96,30 +96,30 @@
 
 @keyframes text-glow {
   0% {
-    text-shadow: 0 0 8px rgba(74, 108, 247, 0.4);
+    text-shadow: 0 0 8px rgba(68, 129, 235, 0.4);
   }
   50% {
-    text-shadow: 0 0 15px rgba(74, 108, 247, 0.8);
+    text-shadow: 0 0 15px rgba(4, 190, 254, 0.8);
   }
   100% {
-    text-shadow: 0 0 8px rgba(74, 108, 247, 0.4);
+    text-shadow: 0 0 8px rgba(68, 129, 235, 0.4);
   }
 }
 
 .dark-mode .logo-text {
-  color: #7a9fff;
+  color: #04befe;
   animation: text-glow-dark 3s infinite alternate;
 }
 
 @keyframes text-glow-dark {
   0% {
-    text-shadow: 0 0 8px rgba(122, 159, 255, 0.4);
+    text-shadow: 0 0 8px rgba(4, 190, 254, 0.4);
   }
   50% {
-    text-shadow: 0 0 15px rgba(122, 159, 255, 0.8);
+    text-shadow: 0 0 15px rgba(4, 190, 254, 0.8);
   }
   100% {
-    text-shadow: 0 0 8px rgba(122, 159, 255, 0.4);
+    text-shadow: 0 0 8px rgba(4, 190, 254, 0.4);
   }
 }
 
@@ -146,7 +146,7 @@
   width: 45px;
   height: 45px;
   border-radius: 16px;
-  background-color: #4a6cf7;
+  background-color: #4481eb;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -154,8 +154,8 @@
   font-weight: bold;
   font-size: 18px;
   cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 15px rgba(74, 108, 247, 0.25);
+  transition: all 0.5s;
+  box-shadow: 0 4px 15px rgba(68, 129, 235, 0.25);
   position: relative;
   overflow: hidden;
 }
@@ -177,7 +177,8 @@
 
 .user-avatar:hover {
   transform: translateY(-3px);
-  box-shadow: 0 8px 20px rgba(74, 108, 247, 0.35);
+  box-shadow: 0 8px 20px rgba(68, 129, 235, 0.35);
+  transform: scale(1.05);
 }
 
 .user-name {
@@ -270,9 +271,9 @@
 
 .sidebar-icon:hover {
   background-color: #f0f4ff;
-  color: #4a6cf7;
+  color: #4481eb;
   transform: translateY(-3px);
-  box-shadow: 0 5px 15px rgba(74, 108, 247, 0.15);
+  box-shadow: 0 5px 15px rgba(68, 129, 235, 0.15);
 }
 
 .sidebar-icon:hover::before {
@@ -285,15 +286,15 @@
 
 .dark-mode .sidebar-icon:hover {
   background-color: #30304d;
-  color: #7a9fff;
+  color: #04befe;
   box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
 }
 
 .sidebar-icon.active {
   color: white;
-  background-color: #4a6cf7;
+  background-color: #4481eb;
   font-weight: 500;
-  box-shadow: 0 5px 20px rgba(74, 108, 247, 0.35);
+  box-shadow: 0 5px 20px rgba(68, 129, 235, 0.35);
 }
 
 .sidebar-icon.active::before {
@@ -302,8 +303,8 @@
 
 .dark-mode .sidebar-icon.active {
   color: white;
-  background-color: #3a5ce5;
-  box-shadow: 0 5px 20px rgba(58, 92, 229, 0.35);
+  background-color: #04befe;
+  box-shadow: 0 5px 20px rgba(4, 190, 254, 0.35);
 }
 
 .sidebar-icon i {
@@ -363,7 +364,7 @@
   justify-content: center;
   color: #e63946;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.5s;
   background-color: #fff5f5;
   position: relative;
   overflow: hidden;
@@ -397,7 +398,7 @@
 
 .logout-button:hover {
   background-color: #ffebeb;
-  transform: translateY(-3px);
+  transform: translateY(-3px) scale(1.05);
   box-shadow: 0 5px 15px rgba(230, 57, 70, 0.25);
 }
 
@@ -495,9 +496,10 @@
 .btn-cancel,
 .btn-confirm {
   padding: 12px 24px;
-  border-radius: 12px;
+  border-radius: 49px;
   border: none;
   font-weight: 600;
+  transition: 0.5s;
   cursor: pointer;
   transition: all 0.3s ease;
   font-size: 15px;
@@ -525,14 +527,15 @@
 }
 
 .btn-confirm {
-  background-color: #4a6cf7;
+  background-color: #4481eb;
   color: white;
+  transition: .5s;
 }
 
 .btn-confirm:hover {
-  background-color: #3a5ce5;
-  transform: translateY(-2px);
-  box-shadow: 0 5px 15px rgba(74, 108, 247, 0.3);
+  background-color: #04befe;
+  transform: translateY(-2px) scale(1.05);
+  box-shadow: 0 5px 15px rgba(4, 190, 254, 0.3);
 }
 
 @media (max-width: 768px) {

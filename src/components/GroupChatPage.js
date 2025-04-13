@@ -29,18 +29,31 @@ function GroupChatPage({ user, textSize }) {
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showMembersDialog, setShowMembersDialog] = useState(false);
+  const [groupMemberCounts, setGroupMemberCounts] = useState({});
+  const [showInviteMembers, setShowInviteMembers] = useState(false);
+  const [inviteError, setInviteError] = useState("");
 
   // Fetch groups from API
   useEffect(() => {
     const fetchGroups = async () => {
       try {
         const response = await axios.get("/api/groups");
-        // Generate avatars for groups
+        // Generate avatars for groups and ensure members array exists
         const groupsWithAvatars = response.data.map((group) => ({
           ...group,
           avatar: generateGroupAvatar(group.name),
+          members: Array.isArray(group.members) ? group.members : [],
         }));
         setGroups(groupsWithAvatars);
+
+        // Initialize member counts safely
+        const counts = {};
+        groupsWithAvatars.forEach((group) => {
+          counts[group.id] = Array.isArray(group.members)
+            ? group.members.length
+            : 0;
+        });
+        setGroupMemberCounts(counts);
       } catch (error) {
         console.error("Error fetching groups:", error);
         setError("Failed to load groups");
@@ -105,74 +118,61 @@ function GroupChatPage({ user, textSize }) {
     if (!socket) return;
 
     socket.on("receive_group_message", (newMessage) => {
-      console.log("Received group message:", newMessage); // Debug log
+      if (!newMessage?.groupId) return;
 
       setMessages((prevMessages) => {
         const groupId = newMessage.groupId;
+        const existingMessages = Array.isArray(prevMessages[groupId])
+          ? prevMessages[groupId]
+          : [];
 
-        // Skip if this is our own message that we've already added optimistically
-        if (newMessage.sender === user.id) {
-          const existingMessages = prevMessages[groupId] || [];
-          const messageExists = existingMessages.some(
-            (msg) =>
-              msg.text === newMessage.text &&
+        // Enhanced duplicate detection
+        const isDuplicate = existingMessages.some(
+          (msg) =>
+            // Check by ID (most reliable)
+            msg?.id === newMessage.id ||
+            // Check by content and sender with timestamp proximity
+            (msg?.text === newMessage.text &&
+              msg?.sender === newMessage.sender &&
               Math.abs(
-                new Date(msg.timestamp) - new Date(newMessage.timestamp)
-              ) < 5000 &&
-              msg._isOptimistic
-          );
+                new Date(msg?.timestamp || 0) -
+                  new Date(newMessage.timestamp || 0)
+              ) < 2000) ||
+            // Check optimistic messages that might have been replaced
+            (msg?._isOptimistic && 
+             msg?.text === newMessage.text && 
+             msg?.sender === newMessage.sender)
+        );
 
-          if (messageExists) {
-            // Replace the optimistic message with the confirmed one
-            return {
-              ...prevMessages,
-              [groupId]: existingMessages.map((msg) =>
-                msg._isOptimistic &&
-                msg.text === newMessage.text &&
-                Math.abs(
-                  new Date(msg.timestamp) - new Date(newMessage.timestamp)
-                ) < 5000
-                  ? { ...newMessage, id: newMessage.id || msg.id }
-                  : msg
-              ),
-            };
-          }
+        if (isDuplicate) {
+          console.log("Duplicate message detected and prevented", newMessage.id);
+          return prevMessages;
         }
 
-        // Show notification if message is not from current user
-        if (newMessage.sender !== user.id) {
-          showNotification(newMessage);
-        }
-
-        // Create a new array with the updated messages
-        const updatedMessages = [...(prevMessages[groupId] || [])];
-
-        // Ensure fileData is properly set
-        if (newMessage.fileUrl && !newMessage.fileData) {
-          newMessage.fileData = newMessage.fileUrl;
-        }
-
-        // For debugging
-        if (newMessage.fileUrl || newMessage.fileData) {
-          console.log("Group message contains file:", {
-            groupId: newMessage.groupId,
-            fileUrl: newMessage.fileUrl ? "Yes" : "No",
-            fileData: newMessage.fileData ? "Yes" : "No",
-            fileType: newMessage.fileType,
-          });
-        }
-
-        updatedMessages.push(newMessage);
+        // Remove any optimistic version of this message if it exists
+        const filteredMessages = existingMessages.filter(
+          (msg) => 
+            !(msg?._isOptimistic && 
+              msg?.text === newMessage.text && 
+              msg?.sender === newMessage.sender)
+        );
 
         return {
           ...prevMessages,
-          [groupId]: updatedMessages,
+          [groupId]: [...filteredMessages, newMessage],
         };
       });
+
+      // Show notification if message is from another user
+      if (newMessage.sender !== user?.id) {
+        showNotification(newMessage);
+      }
     });
 
     socket.on("group_user_joined", (data) => {
-      // Add a system message when a user joins
+      if (!data?.groupId || !data?.userName) return;
+
+      // Add system message
       const systemMessage = {
         id: `system-${Date.now()}`,
         groupId: data.groupId,
@@ -183,12 +183,45 @@ function GroupChatPage({ user, textSize }) {
 
       setMessages((prevMessages) => ({
         ...prevMessages,
-        [data.groupId]: [...(prevMessages[data.groupId] || []), systemMessage],
+        [data.groupId]: [
+          ...(Array.isArray(prevMessages[data.groupId])
+            ? prevMessages[data.groupId]
+            : []),
+          systemMessage,
+        ],
       }));
+
+      // Update groups and member counts safely
+      setGroups((prevGroups) => {
+        return prevGroups.map((group) => {
+          if (group?.id === data.groupId) {
+            const currentMembers = Array.isArray(group.members)
+              ? group.members
+              : [];
+            // Check if user is already a member
+            const isExistingMember = currentMembers.some(
+              (m) => m?.id === data.user?.id
+            );
+            if (!isExistingMember && data.user) {
+              // Update member count
+              setGroupMemberCounts((prev) => ({
+                ...prev,
+                [data.groupId]: (prev[data.groupId] || 0) + 1,
+              }));
+              // Add new member
+              return {
+                ...group,
+                members: [...currentMembers, data.user],
+              };
+            }
+          }
+          return group;
+        });
+      });
     });
 
     socket.on("group_user_left", (data) => {
-      // Add a system message when a user leaves
+      // Add system message
       const systemMessage = {
         id: `system-${Date.now()}`,
         groupId: data.groupId,
@@ -201,6 +234,43 @@ function GroupChatPage({ user, textSize }) {
         ...prevMessages,
         [data.groupId]: [...(prevMessages[data.groupId] || []), systemMessage],
       }));
+
+      // Update groups and member counts
+      setGroups((prevGroups) => {
+        return prevGroups.map((group) => {
+          if (group.id === data.groupId) {
+            const updatedMembers = (group.members || []).filter(
+              (m) => m.id !== data.userId
+            );
+            if (updatedMembers.length < (group.members || []).length) {
+              // Only update count if member was actually removed
+              setGroupMemberCounts((prev) => ({
+                ...prev,
+                [data.groupId]: Math.max((prev[data.groupId] || 0) - 1, 0),
+              }));
+              return {
+                ...group,
+                members: updatedMembers,
+              };
+            }
+          }
+          return group;
+        });
+      });
+
+      // Update selected group if it's the current one
+      setSelectedGroup((prevGroup) => {
+        if (prevGroup?.id === data.groupId) {
+          const updatedMembers = (prevGroup.members || []).filter(
+            (m) => m.id !== data.userId
+          );
+          return {
+            ...prevGroup,
+            members: updatedMembers,
+          };
+        }
+        return prevGroup;
+      });
     });
 
     return () => {
@@ -208,7 +278,45 @@ function GroupChatPage({ user, textSize }) {
       socket.off("group_user_joined");
       socket.off("group_user_left");
     };
-  }, [socket, user.id, showNotification]);
+  }, [socket, user?.id, showNotification]);
+
+  // Add socket listener for user status updates
+  useEffect(() => {
+    if (!socket) return;
+
+    socket.on("user_status", (statusData) => {
+      const { userId, status } = statusData;
+
+      // Update user status in groups
+      setGroups((prevGroups) => {
+        return prevGroups.map((group) => ({
+          ...group,
+          members: (group.members || []).map((member) =>
+            member.id === userId
+              ? { ...member, isActive: status === "online" }
+              : member
+          ),
+        }));
+      });
+
+      // Update selected group if needed
+      setSelectedGroup((prevGroup) => {
+        if (!prevGroup) return prevGroup;
+        return {
+          ...prevGroup,
+          members: (prevGroup.members || []).map((member) =>
+            member.id === userId
+              ? { ...member, isActive: status === "online" }
+              : member
+          ),
+        };
+      });
+    });
+
+    return () => {
+      socket.off("user_status");
+    };
+  }, [socket]);
 
   // Request notification permission on component mount
   useEffect(() => {
@@ -232,7 +340,7 @@ function GroupChatPage({ user, textSize }) {
       "#33FFF3",
     ];
     let hash = 0;
-    for (let i = 0; i < name.length; i++) {
+    for (let i = 0; name && i < name.length; i++) {
       hash = name.charCodeAt(i) + ((hash << 5) - hash);
     }
     const colorIndex = Math.abs(hash % colors.length);
@@ -250,7 +358,7 @@ function GroupChatPage({ user, textSize }) {
       "#10AC84",
     ];
     let hash = 0;
-    for (let i = 0; i < name.length; i++) {
+    for (let i = 0; name && i < name.length; i++) {
       hash = name.charCodeAt(i) + ((hash << 5) - hash);
     }
     const colorIndex = Math.abs(hash % colors.length);
@@ -502,6 +610,67 @@ function GroupChatPage({ user, textSize }) {
     }
   };
 
+  const handleInviteMembers = async (membersToInvite) => {
+    if (!selectedGroup || membersToInvite.length === 0) {
+      setInviteError("Please select at least one member to invite");
+      return;
+    }
+
+    try {
+      const response = await axios.post(
+        `/api/groups/${selectedGroup.id}/invite`,
+        {
+          members: membersToInvite.map((member) => member.id),
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+        }
+      );
+
+      if (response.data.success) {
+        // Update the group members locally
+        setGroups((prevGroups) =>
+          prevGroups.map((group) => {
+            if (group.id === selectedGroup.id) {
+              return {
+                ...group,
+                members: [...group.members, ...membersToInvite],
+              };
+            }
+            return group;
+          })
+        );
+
+        // Update selected group if it's the current one
+        setSelectedGroup((prev) => ({
+          ...prev,
+          members: [...prev.members, ...membersToInvite],
+        }));
+
+        // Update member count
+        setGroupMemberCounts((prev) => ({
+          ...prev,
+          [selectedGroup.id]:
+            (prev[selectedGroup.id] || 0) + membersToInvite.length,
+        }));
+
+        setShowInviteMembers(false);
+        setSelectedMembers([]);
+        setInviteError("");
+      } else {
+        setInviteError("Failed to invite members. Please try again.");
+      }
+    } catch (error) {
+      console.error("Error inviting members:", error);
+      setInviteError(
+        error.response?.data?.message ||
+          "Failed to invite members. Please try again."
+      );
+    }
+  };
+
   const toggleMemberSelection = (member) => {
     if (selectedMembers.some((m) => m.id === member.id)) {
       setSelectedMembers(selectedMembers.filter((m) => m.id !== member.id));
@@ -544,31 +713,27 @@ function GroupChatPage({ user, textSize }) {
     }
   };
 
-  const handleDeleteGroup = async () => {
+  const handleDeleteMessages = async () => {
     if (!selectedGroup) return;
 
     try {
-      await axios.delete(`/api/groups/${selectedGroup.id}`, {
+      await axios.delete(`/api/groups/${selectedGroup.id}/messages`, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem("token")}`,
         },
       });
 
-      // Remove group from state
-      setGroups(groups.filter((g) => g.id !== selectedGroup.id));
-      setSelectedGroup(null);
-      setShowGroupDetails(false);
+      // Clear messages for current user
+      setMessages((prev) => ({
+        ...prev,
+        [selectedGroup.id]: [],
+      }));
+
       setShowDeleteConfirm(false);
     } catch (error) {
-      console.error("Error deleting group:", error);
-      alert("Error deleting group. Please try again.");
+      console.error("Error deleting messages:", error);
+      alert("Error deleting messages. Please try again.");
     }
-  };
-
-  const handleDeleteGroupClick = (e, group) => {
-    e.stopPropagation(); // Prevent group selection when clicking delete
-    setSelectedGroup(group);
-    setShowDeleteConfirm(true);
   };
 
   const filteredGroups = groups.filter(
@@ -652,47 +817,60 @@ function GroupChatPage({ user, textSize }) {
   const renderMembersDialog = () => {
     if (!showMembersDialog || !selectedGroup) return null;
 
+    const members = selectedGroup.members || [];
+
     return (
       <div className="confirm-dialog-overlay">
         <div className="confirm-dialog members-dialog">
           <div className="members-dialog-header">
             <div className="members-dialog-title">
-              Group Members ({selectedGroup.members.length})
+              Group Members ({members.length})
             </div>
             <button
-              className="modal-close"
+              className="dialog-close-btn"
               onClick={() => setShowMembersDialog(false)}
             >
               <i className="fas fa-times"></i>
             </button>
           </div>
           <div className="members-list">
-            {selectedGroup.members &&
-              selectedGroup.members.map((member) => (
+            {members.map((member) => {
+              if (!member?.name) return null;
+              return (
                 <div className="member-item" key={member.id}>
                   <div
                     className="member-avatar"
-                    style={{
-                      backgroundColor: generateAvatar(member.name),
-                    }}
+                    style={{ backgroundColor: generateAvatar(member.name) }}
                   >
                     {member.name.charAt(0)}
                   </div>
                   <div className="member-info">
                     <div className="member-name">{member.name}</div>
                     <div className="member-role">
-                      {member.id === selectedGroup.createdBy
-                        ? "Admin"
-                        : "Member"}
+                      {member.id === selectedGroup.createdBy ? (
+                        <>
+                          <i className="fas fa-crown"></i> Admin
+                        </>
+                      ) : (
+                        <>
+                          <i className="fas fa-user"></i> Member
+                        </>
+                      )}
                     </div>
                   </div>
                   <div
                     className={`member-status ${
-                      member.isActive ? "online" : "offline"
+                      member.isActive ? "status-online" : "status-offline"
                     }`}
-                  ></div>
+                  >
+                    <div className="status-indicator"></div>
+                    <span className="status-text">
+                      {member.isActive ? "Online" : "Offline"}
+                    </span>
+                  </div>
                 </div>
-              ))}
+              );
+            })}
           </div>
         </div>
       </div>
@@ -760,15 +938,6 @@ function GroupChatPage({ user, textSize }) {
                   <div className="unread-count">{group.unreadCount}</div>
                 )}
               </div>
-              {group.createdBy === user.id && (
-                <button
-                  className="delete-chat-button"
-                  onClick={(e) => handleDeleteGroupClick(e, group)}
-                  title="Delete group"
-                >
-                  <i className="fas fa-trash-alt"></i>
-                </button>
-              )}
             </div>
           ))}
         </div>
@@ -791,7 +960,9 @@ function GroupChatPage({ user, textSize }) {
                     className="chat-group-members"
                     onClick={() => setShowMembersDialog(true)}
                   >
-                    {selectedGroup.memberCount} members
+                    {groupMemberCounts[selectedGroup.id] ||
+                      (selectedGroup.members || []).length}{" "}
+                    members
                   </div>
                 </div>
               </div>
@@ -805,7 +976,7 @@ function GroupChatPage({ user, textSize }) {
               </div>
             </div>
             <div className="chat-messages">
-              {messages[selectedGroup.id]?.map((msg) => (
+              {messages[selectedGroup?.id]?.map((msg, index) => (
                 <div
                   key={msg.id}
                   className={`message ${
@@ -814,25 +985,16 @@ function GroupChatPage({ user, textSize }) {
                       : msg.sender === user.id
                       ? "outgoing"
                       : "incoming"
-                  } ${msg._isOptimistic ? "optimistic" : ""}`}
+                  }`}
                 >
-                  {!msg.isSystem && (
-                    <>
-                      {renderFileContent(msg)}
-                      {msg.text && (
-                        <div className="message-text">{msg.text}</div>
-                      )}
-                      <div className="message-time">
-                        {formatTime(msg.timestamp)}
-                        {msg._isOptimistic && (
-                          <span className="message-status">
-                            <i className="fas fa-check"></i>
-                          </span>
-                        )}
-                      </div>
-                    </>
+                  {!msg.isSystem && msg.sender !== user.id && (
+                    <div className="sender-name">{msg.senderName}</div>
                   )}
-                  {msg.isSystem && <div>{msg.text}</div>}
+                  {renderFileContent(msg)}
+                  {msg.text && <div className="message-text">{msg.text}</div>}
+                  <div className="message-time">
+                    {formatTime(msg.timestamp)}
+                  </div>
                 </div>
               ))}
               <div ref={messagesEndRef} />
@@ -928,47 +1090,15 @@ function GroupChatPage({ user, textSize }) {
               <p>{selectedGroup.description || "No description"}</p>
             </div>
 
-            <div className="group-members-section">
-              <h4>
-                Members{" "}
-                <span className="members-count">
-                  {selectedGroup.members?.length || 0}
-                </span>
-              </h4>
-              <div className="member-list">
-                {selectedGroup.members?.map((member) => (
-                  <div className="member-item" key={member.id}>
-                    <div
-                      className="member-avatar"
-                      style={{
-                        backgroundColor: generateAvatar(member.name),
-                      }}
-                    >
-                      {member.name.charAt(0)}
-                    </div>
-                    <div className="member-details">
-                      <div className="member-name">{member.name}</div>
-                      <div className="member-role">
-                        {member.id === selectedGroup.createdBy
-                          ? "Admin"
-                          : "Member"}
-                      </div>
-                    </div>
-                    <div className="member-status">
-                      <span
-                        className={
-                          member.isActive ? "status-online" : "status-offline"
-                        }
-                      ></span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
             <div className="group-actions">
               <button className="group-action-button">
                 <i className="fas fa-bell-slash"></i> Mute Notifications
+              </button>
+              <button
+                className="group-action-button"
+                onClick={() => setShowInviteMembers(true)}
+              >
+                <i className="fas fa-user-plus"></i> Invite Members
               </button>
               <button
                 className="group-action-button danger"
@@ -976,14 +1106,12 @@ function GroupChatPage({ user, textSize }) {
               >
                 <i className="fas fa-sign-out-alt"></i> Leave Group
               </button>
-              {selectedGroup.createdBy === user.id && (
-                <button
-                  className="delete-group-button"
-                  onClick={() => setShowDeleteConfirm(true)}
-                >
-                  <i className="fas fa-trash-alt"></i> Delete Group
-                </button>
-              )}
+              <button
+                className="delete-messages-button"
+                onClick={() => setShowDeleteConfirm(true)}
+              >
+                <i className="fas fa-trash-alt"></i> Delete Messages
+              </button>
             </div>
           </div>
         </div>
@@ -1103,6 +1231,102 @@ function GroupChatPage({ user, textSize }) {
         </div>
       )}
 
+      {showInviteMembers && selectedGroup && (
+        <div className="modal-overlay">
+          <div className="modal-container">
+            <div className="modal-header">
+              <div className="modal-title">
+                Invite Members to {selectedGroup.name}
+              </div>
+              <button
+                className="modal-close"
+                onClick={() => {
+                  setShowInviteMembers(false);
+                  setSelectedMembers([]);
+                  setInviteError("");
+                }}
+              >
+                <i className="fas fa-times"></i>
+              </button>
+            </div>
+            <div className="modal-body">
+              {inviteError && (
+                <div className="error-message">
+                  <i className="fas fa-exclamation-circle"></i> {inviteError}
+                </div>
+              )}
+
+              <div className="add-members-section">
+                <div className="add-members-header">
+                  <h4>Select Members to Invite</h4>
+                </div>
+
+                {selectedMembers.length > 0 && (
+                  <div className="selected-members">
+                    {selectedMembers.map((member) => (
+                      <div className="selected-member" key={member.id}>
+                        <span>{member.name}</span>
+                        <button
+                          className="remove-member"
+                          onClick={() => toggleMemberSelection(member)}
+                        >
+                          <i className="fas fa-times"></i>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="available-contacts">
+                  {contacts
+                    .filter(
+                      (contact) =>
+                        !selectedGroup.members.some(
+                          (member) => member.id === contact.id
+                        )
+                    )
+                    .map((contact) => (
+                      <div
+                        className={`contact-item ${
+                          selectedMembers.some((m) => m.id === contact.id)
+                            ? "selected"
+                            : ""
+                        }`}
+                        key={contact.id}
+                        onClick={() => toggleMemberSelection(contact)}
+                      >
+                        <div
+                          className="contact-avatar"
+                          style={{
+                            backgroundColor: generateAvatar(contact.name),
+                          }}
+                        >
+                          {contact.name.charAt(0)}
+                        </div>
+                        <div className="contact-name">{contact.name}</div>
+                        {selectedMembers.some((m) => m.id === contact.id) && (
+                          <div className="selected-indicator">
+                            <i className="fas fa-check"></i>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                </div>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button
+                className="btn-primary"
+                onClick={() => handleInviteMembers(selectedMembers)}
+                disabled={selectedMembers.length === 0}
+              >
+                Invite Selected Members ({selectedMembers.length})
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showLeaveConfirm && (
         <div className="confirm-dialog-overlay">
           <div className="confirm-dialog">
@@ -1129,10 +1353,11 @@ function GroupChatPage({ user, textSize }) {
       {showDeleteConfirm && (
         <div className="confirm-dialog-overlay">
           <div className="confirm-dialog">
-            <h4>Delete Group</h4>
+            <h4>Delete Messages</h4>
             <p>
-              Are you sure you want to delete this group? This action cannot be
-              undone.
+              Are you sure you want to delete all messages in this chat?
+              Messages will only be deleted for you, other members will still be
+              able to see them.
             </p>
             <div className="confirm-dialog-actions">
               <button
@@ -1141,8 +1366,8 @@ function GroupChatPage({ user, textSize }) {
               >
                 Cancel
               </button>
-              <button className="btn-danger" onClick={handleDeleteGroup}>
-                Delete Group
+              <button className="btn-danger" onClick={handleDeleteMessages}>
+                Delete Messages
               </button>
             </div>
           </div>
