@@ -9,6 +9,7 @@ import jwt
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from bson import ObjectId
+from task_routes import task_routes
 
 # Load environment variables
 load_dotenv()
@@ -36,6 +37,10 @@ messages_collection = db.messages
 contacts_collection = db.contacts
 groups_collection = db.groups
 group_messages_collection = db.group_messages
+tasks_collection = db.tasks
+
+# Register blueprints
+app.register_blueprint(task_routes)
 
 # Active users dictionary to track online status
 active_users = {}
@@ -560,6 +565,44 @@ def promote_user(user_id):
     except Exception as e:
         print(f"Error promoting user: {e}")
         return jsonify({"error": "An error occurred while promoting the user"}), 500
+
+@app.route('/api/admin/users/<user_id>/demote', methods=['POST'])
+def demote_user(user_id):
+    token = request.headers.get('Authorization', '').replace('Bearer ', '')
+    admin_id = verify_token(token)
+    
+    if not admin_id:
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    # Check if the requester is an admin
+    admin = users_collection.find_one({"_id": ObjectId(admin_id)})
+    if not admin or not admin.get("isAdmin", False):
+        return jsonify({"error": "Forbidden"}), 403
+        
+    try:
+        # Check if user exists
+        user = users_collection.find_one({"_id": ObjectId(user_id)})
+        if not user:
+            return jsonify({"error": "User not found"}), 404
+            
+        # Don't allow demoting self
+        if str(admin_id) == user_id:
+            return jsonify({"error": "Cannot demote yourself"}), 403
+        
+        # Update user to remove admin status
+        result = users_collection.update_one(
+            {"_id": ObjectId(user_id)},
+            {"$set": {"isAdmin": False}}
+        )
+        
+        if result.modified_count == 0:
+            return jsonify({"error": "Failed to demote user"}), 500
+            
+        return jsonify({"message": "User demoted successfully"}), 200
+        
+    except Exception as e:
+        print(f"Error demoting user: {e}")
+        return jsonify({"error": "An error occurred while demoting the user"}), 500
 
 # Socket.IO event handlers
 @socketio.on('connect')

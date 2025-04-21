@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import "../styles/groupchat.css";
 import axios from "axios";
 import { useAuth } from "../contexts/AuthContext";
+import TaskManagement from "./TaskManagement";
 
 function GroupChatPage({ user, textSize }) {
   const [groups, setGroups] = useState([]);
@@ -9,6 +10,7 @@ function GroupChatPage({ user, textSize }) {
   const [selectedGroup, setSelectedGroup] = useState(null);
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState({});
+  const [repliedMessages, setRepliedMessages] = useState([]);
   const [showCreateGroup, setShowCreateGroup] = useState(false);
   const [showGroupDetails, setShowGroupDetails] = useState(false);
   const [newGroup, setNewGroup] = useState({
@@ -32,6 +34,7 @@ function GroupChatPage({ user, textSize }) {
   const [groupMemberCounts, setGroupMemberCounts] = useState({});
   const [showInviteMembers, setShowInviteMembers] = useState(false);
   const [inviteError, setInviteError] = useState("");
+  const [activeTab, setActiveTab] = useState("chat"); // Added for task management
 
   // Fetch groups from API
   useEffect(() => {
@@ -139,22 +142,27 @@ function GroupChatPage({ user, textSize }) {
                   new Date(newMessage.timestamp || 0)
               ) < 2000) ||
             // Check optimistic messages that might have been replaced
-            (msg?._isOptimistic && 
-             msg?.text === newMessage.text && 
-             msg?.sender === newMessage.sender)
+            (msg?._isOptimistic &&
+              msg?.text === newMessage.text &&
+              msg?.sender === newMessage.sender)
         );
 
         if (isDuplicate) {
-          console.log("Duplicate message detected and prevented", newMessage.id);
+          console.log(
+            "Duplicate message detected and prevented",
+            newMessage.id
+          );
           return prevMessages;
         }
 
         // Remove any optimistic version of this message if it exists
         const filteredMessages = existingMessages.filter(
-          (msg) => 
-            !(msg?._isOptimistic && 
-              msg?.text === newMessage.text && 
-              msg?.sender === newMessage.sender)
+          (msg) =>
+            !(
+              msg?._isOptimistic &&
+              msg?.text === newMessage.text &&
+              msg?.sender === newMessage.sender
+            )
         );
 
         return {
@@ -975,92 +983,158 @@ function GroupChatPage({ user, textSize }) {
                 </button>
               </div>
             </div>
-            <div className="chat-messages">
-              {messages[selectedGroup?.id]?.map((msg, index) => (
-                <div
-                  key={msg.id}
-                  className={`message ${
-                    msg.isSystem
-                      ? "system-message"
-                      : msg.sender === user.id
-                      ? "outgoing"
-                      : "incoming"
-                  }`}
-                >
-                  {!msg.isSystem && msg.sender !== user.id && (
-                    <div className="sender-name">{msg.senderName}</div>
-                  )}
-                  {renderFileContent(msg)}
-                  {msg.text && <div className="message-text">{msg.text}</div>}
-                  <div className="message-time">
-                    {formatTime(msg.timestamp)}
-                  </div>
-                </div>
-              ))}
-              <div ref={messagesEndRef} />
+
+            {/* Tab Navigation */}
+            <div className="group-tabs">
+              <button
+                className={`tab-btn ${activeTab === "chat" ? "active" : ""}`}
+                onClick={() => setActiveTab("chat")}
+              >
+                <i className="fas fa-comment-alt"></i> Chat
+              </button>
+              <button
+                className={`tab-btn ${activeTab === "tasks" ? "active" : ""}`}
+                onClick={() => setActiveTab("tasks")}
+              >
+                <i className="fas fa-tasks"></i> Tasks
+              </button>
             </div>
 
-            {filePreview && (
-              <div className="file-preview-container">
-                {filePreview.type.startsWith("image/") ? (
-                  <div className="image-preview">
-                    <img src={filePreview.url} alt="Preview" />
-                  </div>
-                ) : filePreview.type.startsWith("video/") ? (
-                  <div className="video-preview">
-                    <video src={filePreview.url} controls />
-                  </div>
-                ) : (
-                  <div className="file-icon-preview">
-                    <i className="fas fa-file"></i>
-                    <span>{filePreview.name}</span>
+            {activeTab === "chat" ? (
+              <>
+                <div className="chat-messages">
+                  {messages[selectedGroup?.id]?.map((msg, index) => (
+                    <div
+                      key={msg.id}
+                      className={`message ${
+                        msg.isSystem
+                          ? "system-message"
+                          : msg.sender === user.id
+                          ? "outgoing"
+                          : "incoming"
+                      }`}
+                    >
+                      {!msg.isSystem && msg.sender !== user.id && (
+                        <div className="sender-name">{msg.senderName}</div>
+                      )}
+                      {renderFileContent(msg)}
+                      {msg.text && (
+                        <div className="message-text">{msg.text}</div>
+                      )}
+                      {msg.text &&
+                        msg.text.trim().endsWith("?") &&
+                        msg.sender !== user.id &&
+                        !repliedMessages.includes(msg.id) && (
+                          <div className="quick-reply-buttons">
+                            <button
+                              className="quick-reply-btn"
+                              onClick={() => {
+                                setMessage("✅ I agree");
+                                handleSendMessage(new Event("submit"));
+                                setRepliedMessages((prev) => [...prev, msg.id]);
+                              }}
+                            >
+                              ✅ I agree
+                            </button>
+                            <button
+                              className="quick-reply-btn"
+                              onClick={() => {
+                                setMessage("❌ I don't agree");
+                                handleSendMessage(new Event("submit"));
+                                setRepliedMessages((prev) => [...prev, msg.id]);
+                              }}
+                            >
+                              ❌ I don't agree
+                            </button>
+                            <button
+                              className="quick-reply-btn"
+                              onClick={() => {
+                                setMessage("❓ I'll think about it");
+                                handleSendMessage(new Event("submit"));
+                                setRepliedMessages((prev) => [...prev, msg.id]);
+                              }}
+                            >
+                              ❓ I'll think about it
+                            </button>
+                          </div>
+                        )}
+                      <div className="message-time">
+                        {formatTime(msg.timestamp)}
+                      </div>
+                    </div>
+                  ))}
+                  <div ref={messagesEndRef} />
+                </div>
+
+                {filePreview && (
+                  <div className="file-preview-container">
+                    {filePreview.type.startsWith("image/") ? (
+                      <div className="image-preview">
+                        <img src={filePreview.url} alt="Preview" />
+                      </div>
+                    ) : filePreview.type.startsWith("video/") ? (
+                      <div className="video-preview">
+                        <video src={filePreview.url} controls />
+                      </div>
+                    ) : (
+                      <div className="file-icon-preview">
+                        <i className="fas fa-file"></i>
+                        <span>{filePreview.name}</span>
+                      </div>
+                    )}
+                    <button
+                      className="cancel-file-button"
+                      onClick={cancelFileUpload}
+                    >
+                      <i className="fas fa-times"></i>
+                    </button>
                   </div>
                 )}
-                <button
-                  className="cancel-file-button"
-                  onClick={cancelFileUpload}
-                >
-                  <i className="fas fa-times"></i>
-                </button>
-              </div>
-            )}
 
-            <form className="chat-input-area" onSubmit={handleSendMessage}>
-              <input
-                type="file"
-                ref={fileInputRef}
-                className="file-input"
-                onChange={handleFileSelection}
-                accept="image/*,video/*,application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt"
+                <form className="chat-input-area" onSubmit={handleSendMessage}>
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    className="file-input"
+                    onChange={handleFileSelection}
+                    accept="image/*,video/*,application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt"
+                  />
+                  <div className="input-container">
+                    <button
+                      type="button"
+                      className="attachment-button"
+                      onClick={handleAttachmentClick}
+                      disabled={isUploading}
+                    >
+                      <i className="fas fa-paperclip"></i>
+                    </button>
+                    <input
+                      type="text"
+                      value={message}
+                      onChange={(e) => setMessage(e.target.value)}
+                      placeholder={
+                        isUploading ? "Uploading..." : "Type a message..."
+                      }
+                      className={`text-${textSize}`}
+                      disabled={isUploading}
+                    />
+                    <button
+                      type="submit"
+                      className="send-button"
+                      disabled={isUploading}
+                    >
+                      <i className="fas fa-paper-plane"></i>
+                    </button>
+                  </div>
+                </form>
+              </>
+            ) : (
+              <TaskManagement
+                groupId={selectedGroup.id}
+                user={user}
+                members={selectedGroup.members || []}
               />
-              <div className="input-container">
-                <button
-                  type="button"
-                  className="attachment-button"
-                  onClick={handleAttachmentClick}
-                  disabled={isUploading}
-                >
-                  <i className="fas fa-paperclip"></i>
-                </button>
-                <input
-                  type="text"
-                  value={message}
-                  onChange={(e) => setMessage(e.target.value)}
-                  placeholder={
-                    isUploading ? "Uploading..." : "Type a message..."
-                  }
-                  className={`text-${textSize}`}
-                  disabled={isUploading}
-                />
-                <button
-                  type="submit"
-                  className="send-button"
-                  disabled={isUploading}
-                >
-                  <i className="fas fa-paper-plane"></i>
-                </button>
-              </div>
-            </form>
+            )}
           </>
         ) : (
           <div className="no-chat-selected">

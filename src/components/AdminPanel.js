@@ -265,14 +265,14 @@ function AdminPanel({ user }) {
     const { action, user: userData } = confirmAction;
 
     try {
-      if (action === "delete") {
+      if (action === "ban") {
         const response = await axios.delete(`/api/admin/users/${userData.id}`);
 
         if (response.status === 200) {
           // Update local state
           setUsers(users.filter((u) => u.id !== userData.id));
           // Show success message
-          setSuccessMessage(`${userData.name} has been successfully deleted`);
+          setSuccessMessage(`${userData.name} has been successfully banned`);
           // Clear success message after 3 seconds
           setTimeout(() => {
             setSuccessMessage("");
@@ -354,7 +354,11 @@ function AdminPanel({ user }) {
             <div className="confirm-dialog-content">
               <p>
                 {confirmAction.action === "delete"
-                  ? `Are you sure you want to delete user ${confirmAction.user.name}? This action cannot be undone.`
+                  === "ban" ? `Are you sure you want to ban user ${confirmAction.user.name}? This action cannot be undone.`
+                  : confirmAction.action === "promote"
+                  ? `Are you sure you want to make ${confirmAction.user.name} an admin?`
+                  : confirmAction.action === "demote"
+                  ? `Are you sure you want to remove admin rights from ${confirmAction.user.name}?`
                   : `Are you sure you want to ${confirmAction.action} ${confirmAction.user.name}?`}
               </p>
             </div>
@@ -367,13 +371,11 @@ function AdminPanel({ user }) {
               </button>
               <button
                 className={`btn ${
-                  confirmAction.action === "delete"
-                    ? "btn-danger"
-                    : "btn-primary"
+                  confirmAction.action === "ban" ? "btn-danger" : "btn-primary"
                 }`}
                 onClick={confirmUserAction}
               >
-                {confirmAction.action === "delete" ? "Delete" : "Confirm"}
+                {confirmAction.action === "ban" ? "Ban" : "Confirm"}
               </button>
             </div>
           </div>
@@ -567,10 +569,10 @@ function AdminPanel({ user }) {
                           )}
                           <button
                             className="user-action-button delete"
-                            title="Delete User"
-                            onClick={() => handleUserAction("delete", user)}
+                            title="Ban User"
+                            onClick={() => handleUserAction("ban", user)}
                           >
-                            <i className="fas fa-trash-alt"></i>
+                            <i className="fas fa-ban"></i>
                           </button>
                         </div>
                       </td>
