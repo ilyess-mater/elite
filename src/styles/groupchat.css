@@ -589,7 +589,6 @@
 .chat-input-area input {
   flex: 1;
   padding: 10px 15px;
-  border: 1px solid #ced4da;
   border-radius: 20px;
   outline: none;
 }
@@ -1500,7 +1499,7 @@
 }
 
 .dark-mode .input-container {
-  background-color: #333;
+  background-color: #35354a;
 }
 
 /* Add optimistic message styling */

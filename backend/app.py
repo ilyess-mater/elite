@@ -10,6 +10,8 @@ from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from bson import ObjectId
 from task_routes import task_routes
+from integration_routes import integration_routes
+from flask_openai import OpenAI
 
 # Load environment variables
 load_dotenv()
@@ -39,8 +41,13 @@ groups_collection = db.groups
 group_messages_collection = db.group_messages
 tasks_collection = db.tasks
 
+# Initialize OpenAI extension
+openai = OpenAI()
+openai.init_app(app)
+
 # Register blueprints
 app.register_blueprint(task_routes)
+app.register_blueprint(integration_routes)
 
 # Active users dictionary to track online status
 active_users = {}

@@ -3,6 +3,7 @@ import "../styles/groupchat.css";
 import axios from "axios";
 import { useAuth } from "../contexts/AuthContext";
 import TaskManagement from "./TaskManagement";
+import SuggestedReplies from "./SuggestedReplies";
 
 function GroupChatPage({ user, textSize }) {
   const [groups, setGroups] = useState([]);
@@ -1021,6 +1022,19 @@ function GroupChatPage({ user, textSize }) {
                       {msg.text && (
                         <div className="message-text">{msg.text}</div>
                       )}
+                      {msg.text && msg.sender !== user.id && (
+                        <SuggestedReplies
+                          message={{
+                            ...msg,
+                            isOwnMessage: msg.sender === user.id
+                          }}
+                          onReplyClick={(replyText) => {
+                            setMessage(replyText);
+                            // Optional: auto-send the reply
+                            // handleSendMessage(replyText);
+                          }}
+                        />
+                      )}
                       {msg.text &&
                         msg.text.trim().endsWith("?") &&
                         msg.sender !== user.id &&
@@ -1029,32 +1043,88 @@ function GroupChatPage({ user, textSize }) {
                             <button
                               className="quick-reply-btn"
                               onClick={() => {
-                                setMessage("✅ I agree");
-                                handleSendMessage(new Event("submit"));
+                                // Create a direct message with @mention and send it immediately
+                                const replyText = `@${msg.senderName} ✅ Sounds good to me!`;
+
+                                // Create a temporary ID for optimistic update
+                                const tempId = `temp-${messageIdCounter}`;
+                                setMessageIdCounter((prev) => prev + 1);
+
+                                // Create optimistic message
+                                const optimisticMessage = {
+                                  id: tempId,
+                                  sender: user.id,
+                                  senderName: user.name,
+                                  groupId: selectedGroup.id,
+                                  text: replyText,
+                                  timestamp: new Date().toISOString(),
+                                  _isOptimistic: true, // Flag to identify optimistic messages
+                                };
+
+                                // Optimistically add message to UI immediately
+                                setMessages((prev) => ({
+                                  ...prev,
+                                  [selectedGroup.id]: [
+                                    ...(prev[selectedGroup.id] || []),
+                                    optimisticMessage,
+                                  ],
+                                }));
+
+                                // Send message via Socket.IO
+                                socket.emit("send_group_message", {
+                                  token: localStorage.getItem("token"),
+                                  groupId: selectedGroup.id,
+                                  text: replyText,
+                                });
+
+                                // Mark this message as replied to
                                 setRepliedMessages((prev) => [...prev, msg.id]);
                               }}
                             >
-                              ✅ I agree
+                              ✅ Sounds good to me!
                             </button>
                             <button
                               className="quick-reply-btn"
                               onClick={() => {
-                                setMessage("❌ I don't agree");
-                                handleSendMessage(new Event("submit"));
+                                // Create a direct message with @mention and send it immediately
+                                const replyText = `@${msg.senderName} 🤔 Could you clarify that a bit?`;
+
+                                // Create a temporary ID for optimistic update
+                                const tempId = `temp-${messageIdCounter}`;
+                                setMessageIdCounter((prev) => prev + 1);
+
+                                // Create optimistic message
+                                const optimisticMessage = {
+                                  id: tempId,
+                                  sender: user.id,
+                                  senderName: user.name,
+                                  groupId: selectedGroup.id,
+                                  text: replyText,
+                                  timestamp: new Date().toISOString(),
+                                  _isOptimistic: true, // Flag to identify optimistic messages
+                                };
+
+                                // Optimistically add message to UI immediately
+                                setMessages((prev) => ({
+                                  ...prev,
+                                  [selectedGroup.id]: [
+                                    ...(prev[selectedGroup.id] || []),
+                                    optimisticMessage,
+                                  ],
+                                }));
+
+                                // Send message via Socket.IO
+                                socket.emit("send_group_message", {
+                                  token: localStorage.getItem("token"),
+                                  groupId: selectedGroup.id,
+                                  text: replyText,
+                                });
+
+                                // Mark this message as replied to
                                 setRepliedMessages((prev) => [...prev, msg.id]);
                               }}
                             >
-                              ❌ I don't agree
-                            </button>
-                            <button
-                              className="quick-reply-btn"
-                              onClick={() => {
-                                setMessage("❓ I'll think about it");
-                                handleSendMessage(new Event("submit"));
-                                setRepliedMessages((prev) => [...prev, msg.id]);
-                              }}
-                            >
-                              ❓ I'll think about it
+                              🤔 Could you clarify that a bit?
                             </button>
                           </div>
                         )}
