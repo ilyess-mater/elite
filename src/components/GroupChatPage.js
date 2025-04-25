@@ -3,7 +3,6 @@ import "../styles/groupchat.css";
 import axios from "axios";
 import { useAuth } from "../contexts/AuthContext";
 import TaskManagement from "./TaskManagement";
-import SuggestedReplies from "./SuggestedReplies";
 
 function GroupChatPage({ user, textSize }) {
   const [groups, setGroups] = useState([]);
@@ -11,7 +10,11 @@ function GroupChatPage({ user, textSize }) {
   const [selectedGroup, setSelectedGroup] = useState(null);
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState({});
-  const [repliedMessages, setRepliedMessages] = useState([]);
+  const [repliedMessages, setRepliedMessages] = useState(() => {
+    // Load replied messages from localStorage on component mount
+    const savedReplies = localStorage.getItem("repliedMessages");
+    return savedReplies ? JSON.parse(savedReplies) : [];
+  });
   const [showCreateGroup, setShowCreateGroup] = useState(false);
   const [showGroupDetails, setShowGroupDetails] = useState(false);
   const [newGroup, setNewGroup] = useState({
@@ -36,6 +39,7 @@ function GroupChatPage({ user, textSize }) {
   const [showInviteMembers, setShowInviteMembers] = useState(false);
   const [inviteError, setInviteError] = useState("");
   const [activeTab, setActiveTab] = useState("chat"); // Added for task management
+  const [isMobileView, setIsMobileView] = useState(window.innerWidth < 769);
 
   // Fetch groups from API
   useEffect(() => {
@@ -170,6 +174,42 @@ function GroupChatPage({ user, textSize }) {
           ...prevMessages,
           [groupId]: [...filteredMessages, newMessage],
         };
+      });
+
+      // Update the group's last message timestamp to move it to the top
+      setGroups((prevGroups) => {
+        return prevGroups.map((group) => {
+          if (group.id === newMessage.groupId) {
+            return {
+              ...group,
+              lastMessageTime: newMessage.timestamp,
+            };
+          }
+          return group;
+        });
+      });
+
+      // Sort groups by most recent message timestamp
+      setGroups((prevGroups) => {
+        return [...prevGroups].sort((a, b) => {
+          // Use the updated lastMessageTime property for sorting
+          const aTime =
+            a.id === newMessage.groupId
+              ? new Date(newMessage.timestamp).getTime()
+              : a.lastMessageTime
+              ? new Date(a.lastMessageTime).getTime()
+              : 0;
+
+          const bTime =
+            b.id === newMessage.groupId
+              ? new Date(newMessage.timestamp).getTime()
+              : b.lastMessageTime
+              ? new Date(b.lastMessageTime).getTime()
+              : 0;
+
+          // Sort in descending order (newest first)
+          return bTime - aTime;
+        });
       });
 
       // Show notification if message is from another user
@@ -338,6 +378,16 @@ function GroupChatPage({ user, textSize }) {
     }
   }, []);
 
+  // Handle window resize to detect mobile view
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobileView(window.innerWidth < 769);
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   // Generate avatar color based on name
   function generateAvatar(name) {
     const colors = [
@@ -424,6 +474,8 @@ function GroupChatPage({ user, textSize }) {
   const handleGroupSelect = (group) => {
     setSelectedGroup(group);
     setShowGroupDetails(false);
+    // No longer updating lastMessageTime on group selection
+    // Groups should only move to top when messages are sent/received
   };
 
   const handleFileSelection = (e) => {
@@ -553,6 +605,19 @@ function GroupChatPage({ user, textSize }) {
         optimisticMessage,
       ],
     }));
+
+    // Update the group's lastMessageTime to move it to the top
+    setGroups((prevGroups) => {
+      return prevGroups.map((group) => {
+        if (group.id === selectedGroup.id) {
+          return {
+            ...group,
+            lastMessageTime: optimisticMessage.timestamp,
+          };
+        }
+        return group;
+      });
+    });
 
     // Send message via Socket.IO
     try {
@@ -745,12 +810,37 @@ function GroupChatPage({ user, textSize }) {
     }
   };
 
+  // First filter groups based on search term
   const filteredGroups = groups.filter(
     (group) =>
       group.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (group.description &&
         group.description.toLowerCase().includes(searchTerm.toLowerCase()))
   );
+
+  // Then sort groups by most recent message timestamp
+  const sortedGroups = [...filteredGroups].sort((a, b) => {
+    // Get the latest message timestamp for each group
+    const aLastMessage =
+      messages[a.id]?.length > 0
+        ? messages[a.id][messages[a.id].length - 1]
+        : null;
+    const bLastMessage =
+      messages[b.id]?.length > 0
+        ? messages[b.id][messages[b.id].length - 1]
+        : null;
+
+    // Get timestamps or use fallback values
+    const aTimestamp = aLastMessage?.timestamp
+      ? new Date(aLastMessage.timestamp).getTime()
+      : 0;
+    const bTimestamp = bLastMessage?.timestamp
+      ? new Date(bLastMessage.timestamp).getTime()
+      : 0;
+
+    // Sort in descending order (newest first)
+    return bTimestamp - aTimestamp;
+  });
 
   // Filter contacts for group creation
   const filteredContacts = contacts.filter(
@@ -888,14 +978,14 @@ function GroupChatPage({ user, textSize }) {
 
   return (
     <div className="group-chat-container">
-      <div className="groups-sidebar">
+      <div className={`groups-sidebar ${isMobileView && selectedGroup ? 'mobile-hidden' : ''}`}>
         <div className="groups-header">
           <h2>Group Chats</h2>
           <button
             className="create-group-btn"
             onClick={() => setShowCreateGroup(true)}
           >
-            <i className="fas fa-plus"></i> Create Group
+            <i className="fas fa-plus"></i> Create New Group
           </button>
         </div>
         <div className="groups-search">
@@ -910,7 +1000,7 @@ function GroupChatPage({ user, textSize }) {
           </div>
         </div>
         <div className="groups-list">
-          {filteredGroups.map((group) => (
+          {sortedGroups.map((group) => (
             <div
               key={group.id}
               className={`group-item ${
@@ -943,20 +1033,29 @@ function GroupChatPage({ user, textSize }) {
                     {formatTime(group.lastMessageTime)}
                   </div>
                 )}
-                {group.unreadCount > 0 && (
-                  <div className="unread-count">{group.unreadCount}</div>
-                )}
+                <div className="group-members-count">
+                  <i className="fas fa-users"></i>
+                  <span>{groupMemberCounts[group.id] || 0}</span>
+                </div>
               </div>
             </div>
           ))}
         </div>
       </div>
 
-      <div className="chat-area">
+      <div className={`chat-area ${isMobileView && selectedGroup ? 'mobile-visible' : ''}`}>
         {selectedGroup ? (
           <>
             <div className="chat-header">
               <div className="chat-group-info">
+                {isMobileView && (
+                  <button 
+                    className="back-button" 
+                    onClick={() => setSelectedGroup(null)}
+                  >
+                    <i className="fas fa-arrow-left"></i>
+                  </button>
+                )}
                 <div
                   className="group-avatar"
                   style={{ backgroundColor: selectedGroup.avatar }}
@@ -1022,110 +1121,72 @@ function GroupChatPage({ user, textSize }) {
                       {msg.text && (
                         <div className="message-text">{msg.text}</div>
                       )}
-                      {msg.text && msg.sender !== user.id && (
-                        <SuggestedReplies
-                          message={{
-                            ...msg,
-                            isOwnMessage: msg.sender === user.id
-                          }}
-                          onReplyClick={(replyText) => {
-                            setMessage(replyText);
-                            // Optional: auto-send the reply
-                            // handleSendMessage(replyText);
-                          }}
-                        />
-                      )}
                       {msg.text &&
-                        msg.text.trim().endsWith("?") &&
                         msg.sender !== user.id &&
+                        (msg.text.trim().endsWith("?") ||
+                          msg.text.trim().endsWith("!")) &&
                         !repliedMessages.includes(msg.id) && (
                           <div className="quick-reply-buttons">
-                            <button
-                              className="quick-reply-btn"
-                              onClick={() => {
-                                // Create a direct message with @mention and send it immediately
-                                const replyText = `@${msg.senderName} ✅ Sounds good to me!`;
+                            {[
+                              "✅ Sounds good to me!.",
+                              "🤔 Could you clarify that?.",
+                              "❌ I don't think that will work.",
+                              "🙌 Great job, team!.",
+                              "🕒 Let's revisit this later.",
+                            ].map((suggestion, index) => (
+                              <button
+                                key={index}
+                                className="quick-reply-btn"
+                                onClick={() => {
+                                  // Format the reply to mention the original sender
+                                  const mentionReply = `@${msg.senderName} ${suggestion}`;
 
-                                // Create a temporary ID for optimistic update
-                                const tempId = `temp-${messageIdCounter}`;
-                                setMessageIdCounter((prev) => prev + 1);
+                                  // Create a temporary ID for optimistic update
+                                  const tempId = `temp-${messageIdCounter}`;
+                                  setMessageIdCounter((prev) => prev + 1);
 
-                                // Create optimistic message
-                                const optimisticMessage = {
-                                  id: tempId,
-                                  sender: user.id,
-                                  senderName: user.name,
-                                  groupId: selectedGroup.id,
-                                  text: replyText,
-                                  timestamp: new Date().toISOString(),
-                                  _isOptimistic: true, // Flag to identify optimistic messages
-                                };
+                                  // Create optimistic message
+                                  const optimisticMessage = {
+                                    id: tempId,
+                                    sender: user.id,
+                                    senderName: user.name,
+                                    groupId: selectedGroup.id,
+                                    text: mentionReply,
+                                    timestamp: new Date().toISOString(),
+                                    _isOptimistic: true, // Flag to identify optimistic messages
+                                  };
 
-                                // Optimistically add message to UI immediately
-                                setMessages((prev) => ({
-                                  ...prev,
-                                  [selectedGroup.id]: [
-                                    ...(prev[selectedGroup.id] || []),
-                                    optimisticMessage,
-                                  ],
-                                }));
+                                  // Optimistically add message to UI immediately
+                                  setMessages((prev) => ({
+                                    ...prev,
+                                    [selectedGroup.id]: [
+                                      ...(prev[selectedGroup.id] || []),
+                                      optimisticMessage,
+                                    ],
+                                  }));
 
-                                // Send message via Socket.IO
-                                socket.emit("send_group_message", {
-                                  token: localStorage.getItem("token"),
-                                  groupId: selectedGroup.id,
-                                  text: replyText,
-                                });
+                                  // Send message via Socket.IO
+                                  socket.emit("send_group_message", {
+                                    token: localStorage.getItem("token"),
+                                    groupId: selectedGroup.id,
+                                    text: mentionReply,
+                                  });
 
-                                // Mark this message as replied to
-                                setRepliedMessages((prev) => [...prev, msg.id]);
-                              }}
-                            >
-                              ✅ Sounds good to me!
-                            </button>
-                            <button
-                              className="quick-reply-btn"
-                              onClick={() => {
-                                // Create a direct message with @mention and send it immediately
-                                const replyText = `@${msg.senderName} 🤔 Could you clarify that a bit?`;
-
-                                // Create a temporary ID for optimistic update
-                                const tempId = `temp-${messageIdCounter}`;
-                                setMessageIdCounter((prev) => prev + 1);
-
-                                // Create optimistic message
-                                const optimisticMessage = {
-                                  id: tempId,
-                                  sender: user.id,
-                                  senderName: user.name,
-                                  groupId: selectedGroup.id,
-                                  text: replyText,
-                                  timestamp: new Date().toISOString(),
-                                  _isOptimistic: true, // Flag to identify optimistic messages
-                                };
-
-                                // Optimistically add message to UI immediately
-                                setMessages((prev) => ({
-                                  ...prev,
-                                  [selectedGroup.id]: [
-                                    ...(prev[selectedGroup.id] || []),
-                                    optimisticMessage,
-                                  ],
-                                }));
-
-                                // Send message via Socket.IO
-                                socket.emit("send_group_message", {
-                                  token: localStorage.getItem("token"),
-                                  groupId: selectedGroup.id,
-                                  text: replyText,
-                                });
-
-                                // Mark this message as replied to
-                                setRepliedMessages((prev) => [...prev, msg.id]);
-                              }}
-                            >
-                              🤔 Could you clarify that a bit?
-                            </button>
+                                  // Mark this message as replied to
+                                  setRepliedMessages((prev) => {
+                                    const updatedReplies = [...prev, msg.id];
+                                    // Save to localStorage for persistence
+                                    localStorage.setItem(
+                                      "repliedMessages",
+                                      JSON.stringify(updatedReplies)
+                                    );
+                                    return updatedReplies;
+                                  });
+                                }}
+                              >
+                                {suggestion}
+                              </button>
+                            ))}
                           </div>
                         )}
                       <div className="message-time">

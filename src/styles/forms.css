@@ -9,6 +9,51 @@ form {
   transition: 1.2s ease-in-out;
 }
 
+.admin-option {
+  margin-bottom: 15px;
+}
+
+.admin-checkbox {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.admin-checkbox input {
+  margin-right: 10px;
+}
+
+.checkbox-text {
+  font-size: 14px;
+  color: #555;
+}
+
+.admin-role-selection {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 15px;
+  padding: 10px;
+  background-color: rgba(248, 249, 250, 0.7);
+  border-radius: 10px;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.admin-role-option {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  padding: 5px;
+}
+
+.admin-role-option input {
+  margin-right: 10px;
+}
+
+.radio-text {
+  font-size: 14px;
+  color: #555;
+}
 
 .sign-in-form {
   z-index: 10;
@@ -40,11 +85,18 @@ form {
   width: 100%;
   height: 55px;
   background-color: #f0f0f0;
-  margin: 10px 0;
+  margin: 12px 0;
   border-radius: 55px;
   display: grid;
   grid-template-columns: 15% 85%;
   padding: 0 0.4rem;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.03);
+}
+
+.input-field:focus-within {
+  box-shadow: 0 4px 10px rgba(68, 129, 235, 0.15);
+  transform: translateY(-2px);
 }
 
 .input-field i {
@@ -76,16 +128,19 @@ form {
   outline: none;
   border-radius: 49px;
   cursor: pointer;
-  background-color: #5995fd;
+  background-image: linear-gradient(to right, #4481eb, #04befe);
   color: #fff;
   text-transform: uppercase;
   font-weight: 600;
-  margin: 10px 0;
-  transition: .5s;
+  margin: 12px 0;
+  transition: all 0.5s ease;
+  box-shadow: 0 4px 15px rgba(68, 129, 235, 0.25);
 }
 
 .btn:hover {
-  background-color: #4d84e2;
+  background-image: linear-gradient(to right, #3b74d9, #04a9e2);
+  transform: translateY(-3px);
+  box-shadow: 0 6px 20px rgba(68, 129, 235, 0.35);
 }
 
 .btn.transparent {
@@ -120,11 +175,16 @@ form {
   color: #333;
   font-size: 1.1rem;
   border-radius: 50%;
-  transition: 0.3s;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+}
+
+.social-icon:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 5px 15px rgba(68, 129, 235, 0.2);
 }
 
 .social-icon:hover {
   color: #4481eb;
   border-color: #4481eb;
 }
-

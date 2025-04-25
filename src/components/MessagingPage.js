@@ -19,6 +19,7 @@ function MessagingPage({ user, textSize }) {
   const [isUploading, setIsUploading] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [contactToDelete, setContactToDelete] = useState(null);
+  const [isMobileView, setIsMobileView] = useState(window.innerWidth < 769);
 
   // Fetch contacts from API
   useEffect(() => {
@@ -99,6 +100,19 @@ function MessagingPage({ user, textSize }) {
         if (newMessage.sender !== user.id) {
           showNotification(newMessage);
         }
+
+        // Update the contact's lastMessageTime to move it to the top
+        setContacts((prevContacts) => {
+          return prevContacts.map((contact) => {
+            if (contact.id === contactId) {
+              return {
+                ...contact,
+                lastMessageTime: newMessage.timestamp,
+              };
+            }
+            return contact;
+          });
+        });
 
         // Create a new array with the updated messages
         const updatedMessages = [...(prevMessages[contactId] || [])];
@@ -242,6 +256,16 @@ function MessagingPage({ user, textSize }) {
     ) {
       Notification.requestPermission();
     }
+  }, []);
+
+  // Handle window resize to detect mobile view
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobileView(window.innerWidth < 769);
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
   }, []);
 
   // Generate random avatar color based on user name
@@ -420,6 +444,19 @@ function MessagingPage({ user, textSize }) {
       ],
     }));
 
+    // Update the contact's lastMessageTime to move it to the top
+    setContacts((prevContacts) => {
+      return prevContacts.map((contact) => {
+        if (contact.id === selectedContact.id) {
+          return {
+            ...contact,
+            lastMessageTime: optimisticMessage.timestamp,
+          };
+        }
+        return contact;
+      });
+    });
+
     // Send message via Socket.IO
     try {
       socket.emit("send_message", {
@@ -461,6 +498,30 @@ function MessagingPage({ user, textSize }) {
       (contact.email &&
         contact.email.toLowerCase().includes(searchTerm.toLowerCase()))
   );
+
+  // Sort contacts by most recent message timestamp
+  const sortedContacts = [...filteredContacts].sort((a, b) => {
+    // Get the latest message timestamp for each contact
+    const aLastMessage =
+      messages[a.id]?.length > 0
+        ? messages[a.id][messages[a.id].length - 1]
+        : null;
+    const bLastMessage =
+      messages[b.id]?.length > 0
+        ? messages[b.id][messages[b.id].length - 1]
+        : null;
+
+    // Get timestamps or use fallback values
+    const aTimestamp = aLastMessage?.timestamp
+      ? new Date(aLastMessage.timestamp).getTime()
+      : 0;
+    const bTimestamp = bLastMessage?.timestamp
+      ? new Date(bLastMessage.timestamp).getTime()
+      : 0;
+
+    // Sort in descending order (newest first)
+    return bTimestamp - aTimestamp;
+  });
 
   // Render file content based on type
   const renderFileContent = (msg) => {
@@ -558,7 +619,7 @@ function MessagingPage({ user, textSize }) {
 
   return (
     <div className="messaging-container">
-      <div className="contacts-list">
+      <div className={`contacts-list ${isMobileView && selectedContact ? 'mobile-hidden' : ''}`}>
         <div className="contacts-header">
           <h2>Conversations</h2>
         </div>
@@ -574,7 +635,7 @@ function MessagingPage({ user, textSize }) {
           </div>
         </div>
         <div className="contacts-items">
-          {filteredContacts.map((contact) => (
+          {sortedContacts.map((contact) => (
             <div
               key={contact.id}
               className={`contact-item ${
@@ -625,10 +686,18 @@ function MessagingPage({ user, textSize }) {
         </div>
       </div>
 
-      <div className="chat-area">
+      <div className={`chat-area ${isMobileView && selectedContact ? 'mobile-visible' : ''}`}>
         {selectedContact ? (
           <>
             <div className="chat-header">
+              {isMobileView && (
+                <button 
+                  className="back-button" 
+                  onClick={() => setSelectedContact(null)}
+                >
+                  <i className="fas fa-arrow-left"></i>
+                </button>
+              )}
               <div className="chat-contact-info">
                 <div
                   className="contact-avatar"

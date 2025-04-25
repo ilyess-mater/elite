@@ -108,7 +108,7 @@ def signup():
         return jsonify({"error": "Email already registered"}), 409
 
     # Validate admin registration
-    if is_admin and admin_password != "admin":
+    if is_admin and admin_password != "admin_master":
         return jsonify({"error": "Invalid admin password"}), 401
 
     # Hash password

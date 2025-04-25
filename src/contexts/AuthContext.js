@@ -109,7 +109,15 @@ export const AuthProvider = ({ children }) => {
   const signUp = async (userData) => {
     try {
       setError(null);
-      const response = await axios.post("/api/auth/signup", userData);
+
+      // Prepare the data to send to the backend
+      const signupData = {
+        ...userData,
+        // If user selected admin_master role, include it in the request
+        adminRole: userData.isAdmin ? userData.adminRole : undefined,
+      };
+
+      const response = await axios.post("/api/auth/signup", signupData);
       const { user } = response.data;
 
       // Don't save user data and token

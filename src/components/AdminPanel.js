@@ -36,6 +36,9 @@ function AdminPanel({ user }) {
       setLoading(false);
       return;
     }
+    
+    // Set window.user for admin role checks
+    window.user = user;
 
     const token = localStorage.getItem("token");
     if (!token) {
@@ -353,8 +356,8 @@ function AdminPanel({ user }) {
             </div>
             <div className="confirm-dialog-content">
               <p>
-                {confirmAction.action === "delete"
-                  === "ban" ? `Are you sure you want to ban user ${confirmAction.user.name}? This action cannot be undone.`
+                {(confirmAction.action === "delete") === "ban"
+                  ? `Are you sure you want to ban user ${confirmAction.user.name}? This action cannot be undone.`
                   : confirmAction.action === "promote"
                   ? `Are you sure you want to make ${confirmAction.user.name} an admin?`
                   : confirmAction.action === "demote"
@@ -551,13 +554,17 @@ function AdminPanel({ user }) {
                             <i className="fas fa-edit"></i>
                           </button>
                           {user.isAdmin ? (
-                            <button
-                              className="user-action-button"
-                              title="Remove Admin Rights"
-                              onClick={() => handleUserAction("demote", user)}
-                            >
-                              <i className="fas fa-level-down-alt"></i>
-                            </button>
+                            // Only show demote button if current user is admin_master
+                            user.id !== window.user?.id &&
+                            window.user?.adminRole === "admin_master" ? (
+                              <button
+                                className="user-action-button"
+                                title="Remove Admin Rights"
+                                onClick={() => handleUserAction("demote", user)}
+                              >
+                                <i className="fas fa-level-down-alt"></i>
+                              </button>
+                            ) : null
                           ) : (
                             <button
                               className="user-action-button"

@@ -10,6 +10,7 @@ function SignUpForm({ onSignUp }) {
     confirmPassword: "",
     isAdmin: false,
     adminPassword: "",
+    adminRole: "admin", // Default admin role
   });
 
   const [errors, setErrors] = useState({});
@@ -210,6 +211,28 @@ function SignUpForm({ onSignUp }) {
 
       {formData.isAdmin && (
         <>
+          <div className="admin-role-selection">
+            <label className="admin-role-option">
+              <input
+                type="radio"
+                name="adminRole"
+                value="admin"
+                checked={formData.adminRole === "admin"}
+                onChange={handleChange}
+              />
+              <span className="radio-text">Regular Admin</span>
+            </label>
+            <label className="admin-role-option">
+              <input
+                type="radio"
+                name="adminRole"
+                value="admin_master"
+                checked={formData.adminRole === "admin_master"}
+                onChange={handleChange}
+              />
+              <span className="radio-text">Admin Master</span>
+            </label>
+          </div>
           <div
             className={`input-field ${
               errors.adminPassword ? "input-error" : ""
@@ -221,7 +244,11 @@ function SignUpForm({ onSignUp }) {
               name="adminPassword"
               value={formData.adminPassword}
               onChange={handleChange}
-              placeholder="Admin Password"
+              placeholder={
+                formData.adminRole === "admin_master"
+                  ? "Admin Master Password"
+                  : "Admin Password"
+              }
             />
           </div>
           {errors.adminPassword && (

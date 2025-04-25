@@ -254,14 +254,14 @@ function ContactsPage({ user }) {
                       onClick={() => startConversation(contact)}
                       title="Start conversation"
                     >
-                      <i className="fas fa-comment"></i>
+                      <i className="fas fa-paper-plane fa-fw"></i>
                     </button>
                     <button
                       className="action-btn delete-btn"
                       onClick={(e) => handleDeleteClick(e, contact)}
                       title="Delete contact"
                     >
-                      <i className="fas fa-trash"></i>
+                      <i className="fas fa-trash-alt fa-fw"></i>
                     </button>
                   </div>
                 </td>

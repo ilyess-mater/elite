@@ -1,47 +1,80 @@
 from flask import Blueprint, request, jsonify, current_app
 from bson import ObjectId
-import os
 from datetime import datetime
+import json
+import os
 
 # Initialize Blueprint
 integration_routes = Blueprint('integration_routes', __name__)
 
-# OpenAI suggested replies endpoint
-@integration_routes.route('/api/suggested-replies', methods=['POST'])
-def get_suggested_replies():
+# Google integration routes
+@integration_routes.route('/api/integrations/google/auth', methods=['GET'])
+def google_auth():
+    """Endpoint to initiate Google OAuth flow"""
     try:
-        data = request.get_json()
-        message_text = data.get('message')
-        group_id = data.get('groupId')
-        
-        # Validate required fields
-        if not message_text:
-            return jsonify({"error": "Message text is required"}), 400
-            
-        # Get OpenAI client from extension
-        openai_client = current_app.extensions['openai'].client
-        
-        # Generate suggested replies using OpenAI
-        completion = openai_client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": "You are a helpful assistant that generates 3 short, natural-sounding reply suggestions for a message in a group chat. Each reply should be concise (max 5 words), conversational, and appropriate for a professional setting. Provide only the replies, separated by '|' characters without any additional text."},
-                {"role": "user", "content": f"Generate 3 short reply suggestions for this message: '{message_text}'"}
-            ],
-            max_tokens=100,
-            temperature=0.7
-        )
-        
-        # Extract and format the suggested replies
-        reply_text = completion.choices[0].message.content
-        suggested_replies = [reply.strip() for reply in reply_text.split('|')]
-        
-        # Filter out any empty replies and limit to 3
-        suggested_replies = [reply for reply in suggested_replies if reply]
-        suggested_replies = suggested_replies[:3]
-        
-        return jsonify({"suggestions": suggested_replies}), 200
-        
+        # This would typically redirect to Google's OAuth consent screen
+        # For now, just return a placeholder response
+        return jsonify({
+            "message": "Google authentication endpoint",
+            "status": "not_implemented"
+        }), 200
     except Exception as e:
-        print(f"Error generating suggested replies: {str(e)}")
-        return jsonify({"error": "Failed to generate suggested replies"}), 500
+        return jsonify({"error": str(e)}), 500
+
+@integration_routes.route('/api/integrations/google/callback', methods=['GET'])
+def google_callback():
+    """Callback endpoint for Google OAuth flow"""
+    try:
+        # This would handle the OAuth callback from Google
+        # For now, just return a placeholder response
+        return jsonify({
+            "message": "Google callback endpoint",
+            "status": "not_implemented"
+        }), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@integration_routes.route('/api/integrations/google/calendar', methods=['GET'])
+def get_calendar_events():
+    """Get user's Google Calendar events"""
+    try:
+        # This would fetch and return the user's calendar events
+        # For now, just return a placeholder response
+        return jsonify({
+            "message": "Google Calendar integration",
+            "status": "not_implemented",
+            "events": []
+        }), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@integration_routes.route('/api/integrations/google/drive', methods=['GET'])
+def get_drive_files():
+    """Get user's Google Drive files"""
+    try:
+        # This would fetch and return the user's drive files
+        # For now, just return a placeholder response
+        return jsonify({
+            "message": "Google Drive integration",
+            "status": "not_implemented",
+            "files": []
+        }), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# Generic integration status endpoint
+@integration_routes.route('/api/integrations/status', methods=['GET'])
+def get_integration_status():
+    """Get status of all integrations for the current user"""
+    try:
+        # This would check and return the status of all integrations
+        # For now, just return a placeholder response
+        return jsonify({
+            "google": {
+                "connected": False,
+                "scopes": []
+            },
+            "other_integrations": []
+        }), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500

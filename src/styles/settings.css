@@ -70,14 +70,24 @@
 /* Settings Card */
 .settings-card {
   background-color: white;
-  border-radius: 10px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  border-radius: 20px;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.06);
   overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.settings-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.08);
 }
 
 .dark-mode .settings-card {
   background-color: #2d2d2d;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+}
+
+.dark-mode .settings-card:hover {
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.25);
 }
 
 .settings-card-header {
@@ -139,7 +149,9 @@
 }
 
 .theme-option.active {
-  border-color: #4a6cf7;
+  border-color: #4481eb;
+  box-shadow: 0 5px 15px rgba(68, 129, 235, 0.2);
+  transform: translateY(-2px);
 }
 
 .theme-preview {
@@ -195,8 +207,9 @@
 }
 
 .font-size-option.active {
-  border-color: #4a6cf7;
-  box-shadow: 0 4px 8px rgba(74, 108, 247, 0.2);
+  border-color: #4481eb;
+  box-shadow: 0 5px 15px rgba(68, 129, 235, 0.2);
+  transform: translateY(-2px);
 }
 
 .font-size-preview {
@@ -275,16 +288,24 @@
 }
 
 .user-avatar-preview {
-  width: 60px;
-  height: 60px;
-  border-radius: 50%;
+  width: 65px;
+  height: 65px;
+  border-radius: 20px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 24px;
+  font-size: 26px;
   font-weight: bold;
   color: white;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
+  background-image: linear-gradient(145deg, #4481eb 0%, #04befe 100%);
+  box-shadow: 0 6px 18px rgba(68, 129, 235, 0.25);
+  transition: all 0.3s ease;
+}
+
+.user-avatar-preview:hover {
+  transform: scale(1.05);
+  box-shadow: 0 8px 22px rgba(68, 129, 235, 0.35);
 }
 
 .avatar-preview-label {
