@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit, join_room, leave_room
 from pymongo import MongoClient
@@ -12,6 +12,7 @@ from bson import ObjectId
 from task_routes import task_routes
 from integration_routes import integration_routes
 from flask_openai import OpenAI
+from file_utils import save_file, validate_file_size
 
 # Load environment variables
 load_dotenv()
@@ -48,6 +49,16 @@ openai.init_app(app)
 # Register blueprints
 app.register_blueprint(task_routes)
 app.register_blueprint(integration_routes)
+
+# Create uploads directory if it doesn't exist
+UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads')
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+# File serving endpoint
+@app.route('/api/files/<path:filename>', methods=['GET'])
+def serve_file(filename):
+    """Serve uploaded files"""
+    return send_from_directory(UPLOAD_FOLDER, filename)
 
 # Active users dictionary to track online status
 active_users = {}
@@ -115,11 +126,13 @@ def signup():
     hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
 
     # Create user document
+    admin_role = data.get('adminRole', 'admin') if is_admin else None
     user = {
         "name": username,
         "email": email,
         "password": hashed_password,
         "isAdmin": is_admin,
+        "adminRole": admin_role,
         "createdAt": datetime.utcnow(),
         "lastActive": datetime.utcnow()
     }
@@ -137,7 +150,8 @@ def signup():
             "id": str(user_id),
             "name": username,
             "email": email,
-            "isAdmin": is_admin
+            "isAdmin": is_admin,
+            "adminRole": admin_role
         },
         "token": token
     }), 201
@@ -176,7 +190,8 @@ def signin():
             "id": str(user["_id"]),
             "name": user["name"],
             "email": user["email"],
-            "isAdmin": user.get("isAdmin", False)
+            "isAdmin": user.get("isAdmin", False),
+            "adminRole": user.get("adminRole", None)
         },
         "token": token
     }), 200
@@ -185,34 +200,34 @@ def signin():
 def change_password():
     token = request.headers.get('Authorization', '').replace('Bearer ', '')
     user_id = verify_token(token)
-    
+
     if not user_id:
         return jsonify({"error": "Unauthorized"}), 401
-    
+
     data = request.get_json()
     current_password = data.get('currentPassword')
     new_password = data.get('newPassword')
-    
+
     if not current_password or not new_password:
         return jsonify({"error": "Both current and new password are required"}), 400
-    
+
     # Récupérer l'utilisateur
     user = users_collection.find_one({"_id": ObjectId(user_id)})
     if not user:
         return jsonify({"error": "User not found"}), 404
-    
+
     # Vérifier l'ancien mot de passe
     if not bcrypt.checkpw(current_password.encode('utf-8'), user['password']):
         return jsonify({"error": "Current password is incorrect"}), 401
-    
+
     # Hasher et enregistrer le nouveau mot de passe
     hashed_password = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt())
-    
+
     users_collection.update_one(
         {"_id": ObjectId(user_id)},
         {"$set": {"password": hashed_password}}
     )
-    
+
     return jsonify({"message": "Password changed successfully"}), 200
 
 # Contacts routes
@@ -220,13 +235,13 @@ def change_password():
 def get_contacts():
     token = request.headers.get('Authorization', '').replace('Bearer ', '')
     user_id = verify_token(token)
-    
+
     if not user_id:
         return jsonify({"error": "Unauthorized"}), 401
 
     # Find all contacts for the user
     user_contacts = contacts_collection.find({"userId": ObjectId(user_id)})
-    
+
     # Get contact details
     contacts_list = []
     for contact in user_contacts:
@@ -239,38 +254,38 @@ def get_contacts():
                 "department": contact.get("department", ""),
                 "isActive": str(contact_user["_id"]) in active_users
             })
-    
+
     return jsonify(contacts_list), 200
 
 @app.route('/api/contacts', methods=['POST'])
 def add_contact():
     token = request.headers.get('Authorization', '').replace('Bearer ', '')
     user_id = verify_token(token)
-    
+
     if not user_id:
         return jsonify({"error": "Unauthorized"}), 401
-    
+
     data = request.get_json()
     email = data.get('email')
     department = data.get('department', '')
-    
+
     if not email:
         return jsonify({"error": "Email is required"}), 400
-    
+
     # Check if the contact exists in the database
     contact_user = users_collection.find_one({"email": email})
     if not contact_user:
         return jsonify({"error": "This user is not registered on the platform"}), 404
-    
+
     # Check if contact is already added
     existing_contact = contacts_collection.find_one({
         "userId": ObjectId(user_id),
         "contactId": contact_user["_id"]
     })
-    
+
     if existing_contact:
         return jsonify({"error": "This contact is already added"}), 409
-    
+
     # Add the contact
     contact = {
         "userId": ObjectId(user_id),
@@ -278,9 +293,9 @@ def add_contact():
         "department": department,
         "createdAt": datetime.utcnow()
     }
-    
+
     contacts_collection.insert_one(contact)
-    
+
     return jsonify({
         "id": str(contact_user["_id"]),
         "name": contact_user["name"],
@@ -293,26 +308,26 @@ def add_contact():
 def delete_contact(contact_id):
     token = request.headers.get('Authorization', '').replace('Bearer ', '')
     user_id = verify_token(token)
-    
+
     if not user_id:
         return jsonify({"error": "Unauthorized"}), 401
-    
+
     try:
         # Vérifier que le contact existe et appartient à l'utilisateur
         contact = contacts_collection.find_one({
             "userId": ObjectId(user_id),
             "contactId": ObjectId(contact_id)
         })
-        
+
         if not contact:
             return jsonify({"error": "Contact not found"}), 404
-            
+
         # Supprimer le contact
         contacts_collection.delete_one({
             "userId": ObjectId(user_id),
             "contactId": ObjectId(contact_id)
         })
-        
+
         # Supprimer également les messages associés
         messages_collection.delete_many({
             "$or": [
@@ -320,9 +335,9 @@ def delete_contact(contact_id):
                 {"senderId": ObjectId(contact_id), "receiverId": ObjectId(user_id)}
             ]
         })
-        
+
         return jsonify({"message": "Contact deleted successfully"}), 200
-        
+
     except Exception as e:
         print(f"Error deleting contact: {e}")
         return jsonify({"error": "Failed to delete contact"}), 500
@@ -332,10 +347,10 @@ def delete_contact(contact_id):
 def get_messages(contact_id):
     token = request.headers.get('Authorization', '').replace('Bearer ', '')
     user_id = verify_token(token)
-    
+
     if not user_id:
         return jsonify({"error": "Unauthorized"}), 401
-    
+
     # Get messages between user and contact
     messages = messages_collection.find({
         "$or": [
@@ -343,7 +358,7 @@ def get_messages(contact_id):
             {"senderId": ObjectId(contact_id), "receiverId": ObjectId(user_id)}
         ]
     }).sort("timestamp", 1)
-    
+
     # Format messages for the frontend
     messages_list = []
     for msg in messages:
@@ -353,7 +368,7 @@ def get_messages(contact_id):
             "text": msg["text"],
             "timestamp": msg["timestamp"].isoformat()
         })
-    
+
     return jsonify(messages_list), 200
 
 # Admin routes
@@ -361,19 +376,19 @@ def get_messages(contact_id):
 def get_all_users():
     token = request.headers.get('Authorization', '').replace('Bearer ', '')
     user_id = verify_token(token)
-    
+
     if not user_id:
         return jsonify({"error": "Unauthorized"}), 401
-    
+
     # Check if user is admin
     user = users_collection.find_one({"_id": ObjectId(user_id)})
     if not user or not user.get("isAdmin", False):
         return jsonify({"error": "Forbidden"}), 403
-    
+
     # Get all users
     all_users = users_collection.find({})
     users_list = []
-    
+
     for user in all_users:
         users_list.append({
             "id": str(user["_id"]),
@@ -384,41 +399,41 @@ def get_all_users():
             "lastActive": user.get("lastActive", user.get("createdAt")).isoformat(),
             "createdAt": user.get("createdAt").isoformat() if "createdAt" in user else None
         })
-    
+
     return jsonify(users_list), 200
 
 @app.route('/api/admin/messages', methods=['GET'])
 def get_all_messages():
     token = request.headers.get('Authorization', '').replace('Bearer ', '')
     user_id = verify_token(token)
-    
+
     if not user_id:
         return jsonify({"error": "Unauthorized"}), 401
-    
+
     # Check if user is admin
     user = users_collection.find_one({"_id": ObjectId(user_id)})
     if not user or not user.get("isAdmin", False):
         return jsonify({"error": "Forbidden"}), 403
-    
+
     # Get all messages
     all_messages = messages_collection.find({}).sort("timestamp", -1).limit(100)
     messages_list = []
-    
+
     sender_cache = {}
     receiver_cache = {}
-    
+
     for msg in all_messages:
         sender_id = str(msg["senderId"])
         receiver_id = str(msg["receiverId"])
-        
+
         if sender_id not in sender_cache:
             sender = users_collection.find_one({"_id": ObjectId(sender_id)})
             sender_cache[sender_id] = sender["name"] if sender else "Unknown"
-        
+
         if receiver_id not in receiver_cache:
             receiver = users_collection.find_one({"_id": ObjectId(receiver_id)})
             receiver_cache[receiver_id] = receiver["name"] if receiver else "Unknown"
-        
+
         messages_list.append({
             "id": str(msg["_id"]),
             "senderId": sender_id,
@@ -428,41 +443,41 @@ def get_all_messages():
             "text": msg["text"],
             "timestamp": msg["timestamp"].isoformat()
         })
-    
+
     return jsonify(messages_list), 200
 
 @app.route('/api/admin/group-messages', methods=['GET'])
 def get_all_group_messages():
     token = request.headers.get('Authorization', '').replace('Bearer ', '')
     user_id = verify_token(token)
-    
+
     if not user_id:
         return jsonify({"error": "Unauthorized"}), 401
-    
+
     # Check if user is admin
     user = users_collection.find_one({"_id": ObjectId(user_id)})
     if not user or not user.get("isAdmin", False):
         return jsonify({"error": "Forbidden"}), 403
-    
+
     # Get all group messages
     all_messages = group_messages_collection.find({}).sort("timestamp", -1).limit(100)
     messages_list = []
-    
+
     sender_cache = {}
     group_cache = {}
-    
+
     for msg in all_messages:
         sender_id = str(msg["senderId"])
         group_id = str(msg["groupId"])
-        
+
         if sender_id not in sender_cache:
             sender = users_collection.find_one({"_id": ObjectId(sender_id)})
             sender_cache[sender_id] = sender["name"] if sender else "Unknown"
-        
+
         if group_id not in group_cache:
             group = groups_collection.find_one({"_id": ObjectId(group_id)})
             group_cache[group_id] = group["name"] if group else "Unknown Group"
-        
+
         messages_list.append({
             "id": str(msg["_id"]),
             "senderId": sender_id,
@@ -472,32 +487,32 @@ def get_all_group_messages():
             "text": msg["text"],
             "timestamp": msg["timestamp"].isoformat()
         })
-    
+
     return jsonify(messages_list), 200
 
 @app.route('/api/admin/users/<user_id>', methods=['DELETE'])
 def delete_user(user_id):
     token = request.headers.get('Authorization', '').replace('Bearer ', '')
     admin_id = verify_token(token)
-    
+
     if not admin_id:
         return jsonify({"error": "Unauthorized"}), 401
-    
+
     # Check if the requester is an admin
     admin = users_collection.find_one({"_id": ObjectId(admin_id)})
     if not admin or not admin.get("isAdmin", False):
         return jsonify({"error": "Forbidden"}), 403
-        
+
     try:
         # Check if user exists
         user = users_collection.find_one({"_id": ObjectId(user_id)})
         if not user:
             return jsonify({"error": "User not found"}), 404
-            
+
         # Don't allow deleting self
         if str(admin_id) == user_id:
             return jsonify({"error": "Cannot delete your own account"}), 403
-            
+
         # Delete user's contacts
         contacts_collection.delete_many({
             "$or": [
@@ -505,7 +520,7 @@ def delete_user(user_id):
                 {"contactId": ObjectId(user_id)}
             ]
         })
-        
+
         # Delete user's messages
         messages_collection.delete_many({
             "$or": [
@@ -513,24 +528,24 @@ def delete_user(user_id):
                 {"receiverId": ObjectId(user_id)}
             ]
         })
-        
+
         # Delete user's group messages
         group_messages_collection.delete_many({"senderId": ObjectId(user_id)})
-        
+
         # Remove user from all groups
         groups_collection.update_many(
             {"members.userId": ObjectId(user_id)},
             {"$pull": {"members": {"userId": ObjectId(user_id)}}}
         )
-        
+
         # Finally delete the user
         result = users_collection.delete_one({"_id": ObjectId(user_id)})
-        
+
         if result.deleted_count == 0:
             return jsonify({"error": "Failed to delete user"}), 500
-            
+
         return jsonify({"message": "User deleted successfully"}), 200
-        
+
     except Exception as e:
         print(f"Error deleting user: {e}")
         return jsonify({"error": "An error occurred while deleting the user"}), 500
@@ -539,74 +554,121 @@ def delete_user(user_id):
 def promote_user(user_id):
     token = request.headers.get('Authorization', '').replace('Bearer ', '')
     admin_id = verify_token(token)
-    
+
     if not admin_id:
         return jsonify({"error": "Unauthorized"}), 401
-    
+
     # Check if the requester is an admin
     admin = users_collection.find_one({"_id": ObjectId(admin_id)})
     if not admin or not admin.get("isAdmin", False):
         return jsonify({"error": "Forbidden"}), 403
-        
+
+    # Regular admins can only promote regular users to regular admin role
+    # Admin masters can promote any user to any role
+    target_user = users_collection.find_one({"_id": ObjectId(user_id)})
+
+    # If requester is not admin_master, they can only promote non-admin users to regular admin
+    if admin.get("adminRole") != "admin_master":
+        if target_user and target_user.get("isAdmin", False):
+            return jsonify({"error": "Forbidden - Regular admins cannot modify other admin roles"}), 403
+
     try:
         # Check if user exists
         user = users_collection.find_one({"_id": ObjectId(user_id)})
         if not user:
             return jsonify({"error": "User not found"}), 404
-            
+
         # Don't allow promoting self
         if str(admin_id) == user_id:
             return jsonify({"error": "Cannot promote yourself"}), 403
-        
+
         # Update user to admin
         result = users_collection.update_one(
             {"_id": ObjectId(user_id)},
-            {"$set": {"isAdmin": True}}
+            {"$set": {"isAdmin": True, "adminRole": "admin"}}
         )
-        
+
         if result.modified_count == 0:
             return jsonify({"error": "Failed to promote user"}), 500
-            
+
         return jsonify({"message": "User promoted to admin successfully"}), 200
-        
+
     except Exception as e:
         print(f"Error promoting user: {e}")
         return jsonify({"error": "An error occurred while promoting the user"}), 500
+
+@app.route('/api/admin-master/users/<user_id>/promote-master', methods=['POST'])
+def promote_user_to_master(user_id):
+    token = request.headers.get('Authorization', '').replace('Bearer ', '')
+    admin_id = verify_token(token)
+
+    if not admin_id:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    # Check if the requester is an admin master
+    admin = users_collection.find_one({"_id": ObjectId(admin_id)})
+    if not admin or not admin.get("isAdmin", False) or admin.get("adminRole") != "admin_master":
+        return jsonify({"error": "Forbidden - Only admin masters can promote to admin master"}), 403
+
+    try:
+        # Check if user exists
+        user = users_collection.find_one({"_id": ObjectId(user_id)})
+        if not user:
+            return jsonify({"error": "User not found"}), 404
+
+        # Don't allow promoting self
+        if str(admin_id) == user_id:
+            return jsonify({"error": "Cannot promote yourself"}), 403
+
+        # Update user to admin master
+        result = users_collection.update_one(
+            {"_id": ObjectId(user_id)},
+            {"$set": {"isAdmin": True, "adminRole": "admin_master"}}
+        )
+
+        if result.modified_count == 0:
+            return jsonify({"error": "Failed to promote user to admin master"}), 500
+
+        return jsonify({"message": "User promoted to admin master successfully"}), 200
+
+    except Exception as e:
+        print(f"Error promoting user to admin master: {e}")
+        return jsonify({"error": "An error occurred while promoting the user to admin master"}), 500
 
 @app.route('/api/admin/users/<user_id>/demote', methods=['POST'])
 def demote_user(user_id):
     token = request.headers.get('Authorization', '').replace('Bearer ', '')
     admin_id = verify_token(token)
-    
+
     if not admin_id:
         return jsonify({"error": "Unauthorized"}), 401
-    
-    # Check if the requester is an admin
+
+    # Check if the requester is an admin master - ONLY admin masters can demote users
     admin = users_collection.find_one({"_id": ObjectId(admin_id)})
-    if not admin or not admin.get("isAdmin", False):
-        return jsonify({"error": "Forbidden"}), 403
-        
+    if not admin or not admin.get("isAdmin", False) or admin.get("adminRole") != "admin_master":
+        return jsonify({"error": "Forbidden - Only admin masters can demote users"}), 403
+
     try:
         # Check if user exists
         user = users_collection.find_one({"_id": ObjectId(user_id)})
         if not user:
             return jsonify({"error": "User not found"}), 404
-            
+
         # Don't allow demoting self
         if str(admin_id) == user_id:
             return jsonify({"error": "Cannot demote yourself"}), 403
-        
+
         # Update user to remove admin status
         result = users_collection.update_one(
             {"_id": ObjectId(user_id)},
             {"$set": {"isAdmin": False}}
         )
-        
+
         if result.modified_count == 0:
             return jsonify({"error": "Failed to demote user"}), 500
-            
+
         return jsonify({"message": "User demoted successfully"}), 200
-        
+
     except Exception as e:
         print(f"Error demoting user: {e}")
         return jsonify({"error": "An error occurred while demoting the user"}), 500
@@ -617,21 +679,21 @@ def handle_connect():
     token = request.args.get('token')
     if not token:
         return False
-    
+
     user_id = verify_token(token)
     if not user_id:
         return False
-    
+
     # Join user's personal room
     join_room(user_id)
     active_users[user_id] = request.sid
-    
+
     # Update user's online status in database
     users_collection.update_one(
         {"_id": ObjectId(user_id)},
         {"$set": {"lastActive": datetime.utcnow(), "isOnline": True}}
     )
-    
+
     # Broadcast user online status to all users
     emit('user_status', {'userId': user_id, 'status': 'online'}, broadcast=True)
     return True
@@ -641,64 +703,114 @@ def handle_disconnect():
     for user_id, sid in list(active_users.items()):
         if sid == request.sid:
             active_users.pop(user_id)
-            
+
             # Update user's online status in database
             users_collection.update_one(
                 {"_id": ObjectId(user_id)},
                 {"$set": {"lastActive": datetime.utcnow(), "isOnline": False}}
             )
-            
+
             # Broadcast user offline status to all users
             emit('user_status', {'userId': user_id, 'status': 'offline'}, broadcast=True)
             break
 
 @socketio.on('send_message')
 def handle_send_message(data):
-    token = data.get('token')
-    user_id = verify_token(token)
-    
-    if not user_id:
-        return
-    
-    receiver_id = data.get('receiverId')
-    message_text = data.get('text')
-    
-    if not receiver_id or not message_text:
-        return
-    
-    # Create message record
-    message = {
-        "senderId": ObjectId(user_id),
-        "receiverId": ObjectId(receiver_id),
-        "text": message_text,
-        "timestamp": datetime.utcnow()
-    }
-    
-    # Save message to database
-    result = messages_collection.insert_one(message)
-    message_id = result.inserted_id
-    
-    # Format message for sending
-    message_data = {
-        "id": str(message_id),
-        "sender": user_id,
-        "text": message_text,
-        "timestamp": message["timestamp"].isoformat()
-    }
-    
-    # Send to sender's room
-    emit('receive_message', message_data, room=user_id)
-    
-    # Send to receiver's room if online
-    if receiver_id in active_users:
-        emit('receive_message', message_data, room=receiver_id)
+    try:
+        token = data.get('token')
+        user_id = verify_token(token)
 
-@socketio.on('send_group_message')
+        if not user_id:
+            return
+
+        receiver_id = data.get('receiverId')
+        message_text = data.get('text', '')
+        file_type = data.get('fileType')
+        file_name = data.get('fileName')
+        file_data = data.get('fileData')
+
+        if not receiver_id or (not message_text.strip() and not file_data):
+            return
+
+        # Determine message type
+        message_type = "text"
+        file_url = None
+
+        # Handle file upload if present
+        if file_data and file_type and file_name:
+            # Validate file size
+            is_valid, error_message = validate_file_size(file_data, file_type)
+            if not is_valid:
+                emit('error', {'message': error_message})
+                return
+
+            # Generate conversation ID for file storage
+            conversation_id = f"dm_{min(user_id, receiver_id)}_{max(user_id, receiver_id)}"
+
+            # Save file to server
+            file_url = save_file(file_data, file_type, file_name, conversation_id)
+
+            if not file_url:
+                emit('error', {'message': 'Failed to save file'})
+                return
+
+            # Set message type based on file type
+            if file_type.startswith('image/'):
+                message_type = "image"
+            elif file_type.startswith('video/'):
+                message_type = "video"
+            else:
+                message_type = "file"
+
+        # Create message record
+        message = {
+            "senderId": ObjectId(user_id),
+            "receiverId": ObjectId(receiver_id),
+            "text": message_text,
+            "timestamp": datetime.utcnow(),
+            "fileUrl": file_url,
+            "fileType": file_type,
+            "fileName": file_name,
+            "messageType": message_type
+        }
+
+        # Save message to database
+        result = messages_collection.insert_one(message)
+        message_id = result.inserted_id
+
+        # Get sender info
+        user = users_collection.find_one({"_id": ObjectId(user_id)})
+
+        # Format message for sending
+        message_data = {
+            "id": str(message_id),
+            "sender": user_id,
+            "receiver": receiver_id,
+            "text": message_text,
+            "timestamp": message["timestamp"].isoformat(),
+            "fileUrl": file_url,
+            "fileType": file_type,
+            "fileName": file_name,
+            "messageType": message_type,
+            "senderName": user["name"] if user else "Unknown"
+        }
+
+        # Send to sender's room
+        emit('receive_message', message_data, room=user_id)
+
+        # Send to receiver's room if online
+        if receiver_id in active_users:
+            emit('receive_message', message_data, room=receiver_id)
+    except Exception as e:
+        print(f"Error sending message: {e}")
+        emit('error', {'message': 'Failed to send message'})
+
+@socketio.on('group_message')
 def handle_group_message(data):
     try:
         token = data.get('token')
-        user = verify_token(token)
-        if not user:
+        user_id = verify_token(token)
+        if not user_id:
             return
 
         group_id = data.get('groupId')
@@ -707,30 +819,70 @@ def handle_group_message(data):
         file_type = data.get('fileType')
         file_name = data.get('fileName')
 
+        if not group_id or (not text.strip() and not file_data):
+            return
+
+        # Check if user is member of the group
+        group = groups_collection.find_one({
+            "_id": ObjectId(group_id),
+            "members": {"$elemMatch": {"userId": ObjectId(user_id)}}
+        })
+
+        if not group:
+            return
+
+        # Determine message type
+        message_type = "text"
+        file_url = None
+
+        # Handle file upload if present
+        if file_data and file_type and file_name:
+            # Validate file size
+            is_valid, error_message = validate_file_size(file_data, file_type)
+            if not is_valid:
+                emit('error', {'message': error_message})
+                return
+
+            # Save file to server with group ID as conversation ID
+            file_url = save_file(file_data, file_type, file_name, f"group_{group_id}")
+
+            if not file_url:
+                emit('error', {'message': 'Failed to save file'})
+                return
+
+            # Set message type based on file type
+            if file_type.startswith('image/'):
+                message_type = "image"
+            elif file_type.startswith('video/'):
+                message_type = "video"
+            else:
+                message_type = "file"
+
+        # Get user info
+        user = users_collection.find_one({"_id": ObjectId(user_id)})
+        if not user:
+            return
+
         # Generate a unique message ID
         message_id = str(ObjectId())
         timestamp = datetime.utcnow().isoformat()
 
-        # Store file if present
-        file_url = None
-        if file_data and file_type and file_name:
-            file_url = save_file(file_data, file_type, file_name)
-
         # Create message document
         message = {
             'id': message_id,
-            'sender': user['id'],
+            'sender': user_id,
             'senderName': user['name'],
             'groupId': group_id,
             'text': text,
             'timestamp': timestamp,
             'fileUrl': file_url,
             'fileType': file_type,
-            'fileName': file_name
+            'fileName': file_name,
+            'messageType': message_type
         }
 
         # Save message to database
-        db.messages.insert_one(message)
+        db.group_messages.insert_one(message)
 
         # Emit to all users in the group, including sender
         # Use room=f"group_{group_id}" to ensure all users in the group receive the message exactly once
@@ -749,10 +901,10 @@ def on_join_group(data):
             return
 
         group_id = data.get('groupId')
-        
+
         # Join the socket room
         join_room(group_id)
-        
+
         # Store room information for the session
         if not hasattr(request, 'rooms'):
             request.rooms = set()
@@ -800,10 +952,10 @@ def on_leave_group(data):
             return
 
         group_id = data.get('groupId')
-        
+
         # Leave the socket room
         leave_room(group_id)
-        
+
         # Remove room from session storage
         if hasattr(request, 'rooms'):
             request.rooms.discard(group_id)
@@ -837,26 +989,26 @@ def on_leave_group(data):
 def handle_join_group(data):
     token = data.get('token')
     user_id = verify_token(token)
-    
+
     if not user_id:
         return
-    
+
     group_id = data.get('groupId')
     if not group_id:
         return
-    
+
     # Check if user is member of the group
     group = groups_collection.find_one({
         "_id": ObjectId(group_id),
         "members": {"$elemMatch": {"userId": ObjectId(user_id)}}
     })
-    
+
     if not group:
         return
-    
+
     # Join group room
     join_room(f"group_{group_id}")
-    
+
     # Notify other members
     user = users_collection.find_one({"_id": ObjectId(user_id)})
     if user:
@@ -870,17 +1022,17 @@ def handle_join_group(data):
 def handle_leave_group(data):
     token = data.get('token')
     user_id = verify_token(token)
-    
+
     if not user_id:
         return
-    
+
     group_id = data.get('groupId')
     if not group_id:
         return
-    
+
     # Leave group room
     leave_room(f"group_{group_id}")
-    
+
     # Notify other members
     user = users_collection.find_one({"_id": ObjectId(user_id)})
     if user:
@@ -890,110 +1042,230 @@ def handle_leave_group(data):
             "userName": user["name"]
         }, room=f"group_{group_id}")
 
-@socketio.on('send_group_message')
-def handle_send_group_message(data):
+@socketio.on('edit_group_message')
+def handle_edit_group_message(data):
     token = data.get('token')
     user_id = verify_token(token)
-    
+
     if not user_id:
         return
-    
+
+    message_id = data.get('messageId')
     group_id = data.get('groupId')
-    message_text = data.get('text')
-    
-    if not group_id or not message_text:
+    new_text = data.get('newText')
+
+    if not message_id or not group_id or not new_text:
         return
-    
-    # Check if user is member of the group
-    group = groups_collection.find_one({
-        "_id": ObjectId(group_id),
-        "members": {"$elemMatch": {"userId": ObjectId(user_id)}}
+
+    # Find the message and verify ownership
+    message = db.group_messages.find_one({
+        "_id": ObjectId(message_id),
+        "senderId": ObjectId(user_id)
     })
-    
-    if not group:
+
+    if not message:
         return
-    
-    # Create message record
-    message = {
-        "groupId": ObjectId(group_id),
-        "senderId": ObjectId(user_id),
-        "text": message_text,
-        "timestamp": datetime.utcnow()
-    }
-    
-    # Save message to database (in a group_messages collection)
-    result = db.group_messages.insert_one(message)
-    message_id = result.inserted_id
-    
-    # Get sender info
-    user = users_collection.find_one({"_id": ObjectId(user_id)})
-    
-    # Format message for sending
-    message_data = {
-        "id": str(message_id),
+
+    # Update the message
+    db.group_messages.update_one(
+        {"_id": ObjectId(message_id)},
+        {"$set": {"text": new_text, "isEdited": True}}
+    )
+
+    # Notify all users in the group
+    emit('message_edited', {
+        "messageId": message_id,
         "groupId": group_id,
-        "sender": user_id,
-        "senderName": user["name"] if user else "Unknown",
-        "text": message_text,
-        "timestamp": message["timestamp"].isoformat()
-    }
-    
-    # Send to the group room
-    emit('receive_group_message', message_data, room=f"group_{group_id}")
+        "newText": new_text
+    }, room=f"group_{group_id}")
+
+@socketio.on('delete_group_message')
+def handle_delete_group_message(data):
+    token = data.get('token')
+    user_id = verify_token(token)
+
+    if not user_id:
+        return
+
+    message_id = data.get('messageId')
+    group_id = data.get('groupId')
+
+    if not message_id or not group_id:
+        return
+
+    # Find the message and verify ownership
+    message = db.group_messages.find_one({
+        "_id": ObjectId(message_id),
+        "senderId": ObjectId(user_id)
+    })
+
+    if not message:
+        return
+
+    # Mark the message as deleted
+    db.group_messages.update_one(
+        {"_id": ObjectId(message_id)},
+        {"$set": {
+            "isDeleted": True,
+            "text": "This message was deleted",
+            "fileUrl": None,
+            "fileType": None,
+            "fileName": None
+        }}
+    )
+
+    # Notify all users in the group
+    emit('message_deleted', {
+        "messageId": message_id,
+        "groupId": group_id
+    }, room=f"group_{group_id}")
+
+@socketio.on('send_group_message')
+def handle_send_group_message(data):
+    try:
+        token = data.get('token')
+        user_id = verify_token(token)
+
+        if not user_id:
+            return
+
+        group_id = data.get('groupId')
+        message_text = data.get('text', '')
+        file_type = data.get('fileType')
+        file_name = data.get('fileName')
+        file_data = data.get('fileData')
+
+        if not group_id or (not message_text.strip() and not file_data):
+            return
+
+        # Check if user is member of the group
+        group = groups_collection.find_one({
+            "_id": ObjectId(group_id),
+            "members": {"$elemMatch": {"userId": ObjectId(user_id)}}
+        })
+
+        if not group:
+            return
+
+        # Determine message type
+        message_type = "text"
+        file_url = None
+
+        # Handle file upload if present
+        if file_data and file_type and file_name:
+            # Validate file size
+            is_valid, error_message = validate_file_size(file_data, file_type)
+            if not is_valid:
+                emit('error', {'message': error_message})
+                return
+
+            # Save file to server with group ID as conversation ID
+            file_url = save_file(file_data, file_type, file_name, f"group_{group_id}")
+
+            if not file_url:
+                emit('error', {'message': 'Failed to save file'})
+                return
+
+            # Set message type based on file type
+            if file_type.startswith('image/'):
+                message_type = "image"
+            elif file_type.startswith('video/'):
+                message_type = "video"
+            else:
+                message_type = "file"
+
+        # Create message record
+        message = {
+            "groupId": ObjectId(group_id),
+            "senderId": ObjectId(user_id),
+            "text": message_text,
+            "timestamp": datetime.utcnow(),
+            "fileUrl": file_url,
+            "fileType": file_type,
+            "fileName": file_name,
+            "messageType": message_type
+        }
+
+        # Save message to database (in a group_messages collection)
+        result = db.group_messages.insert_one(message)
+        message_id = result.inserted_id
+
+        # Get sender info
+        user = users_collection.find_one({"_id": ObjectId(user_id)})
+
+        # Format message for sending
+        message_data = {
+            "id": str(message_id),
+            "groupId": group_id,
+            "sender": user_id,
+            "senderName": user["name"] if user else "Unknown",
+            "text": message_text,
+            "timestamp": message["timestamp"].isoformat(),
+            "fileUrl": file_url,
+            "fileType": file_type,
+            "fileName": file_name,
+            "messageType": message_type
+        }
+
+        # Send to the group room
+        emit('receive_group_message', message_data, room=f"group_{group_id}")
+    except Exception as e:
+        print(f"Error sending group message: {e}")
+        emit('error', {'message': 'Failed to send group message'})
 
 @app.route('/api/stats', methods=['GET'])
 def get_stats():
     token = request.headers.get('Authorization', '').replace('Bearer ', '')
     user_id = verify_token(token)
-    
+
     if not user_id:
         return jsonify({"error": "Unauthorized"}), 401
-    
+
     # Check if user is admin
     user = users_collection.find_one({"_id": ObjectId(user_id)})
     if not user or not user.get("isAdmin", False):
         return jsonify({"error": "Forbidden"}), 403
-    
+
     # Get statistics
     total_users = users_collection.count_documents({})
     active_users_count = len(active_users)
     total_private_messages = messages_collection.count_documents({})
     total_group_messages = group_messages_collection.count_documents({})
     total_messages = total_private_messages + total_group_messages
-    
+
     # Get messages per day for last 7 days
     today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
     daily_messages = []
-    
+
     for i in range(7):
         day = today - timedelta(days=i)
         next_day = day + timedelta(days=1)
-        
+
         # Compter les messages privés
         private_count = messages_collection.count_documents({
             "timestamp": {"$gte": day, "$lt": next_day}
         })
-        
+
         # Compter les messages de groupe
         group_count = group_messages_collection.count_documents({
             "timestamp": {"$gte": day, "$lt": next_day}
         })
-        
+
         # Combiner les deux types de messages
         total_count = private_count + group_count
-        
+
         daily_messages.append({
             "date": day.strftime("%Y-%m-%d"),
             "count": total_count,
             "privateCount": private_count,
             "groupCount": group_count
         })
-    
+
     # Get number of new users in last 7 days
     new_users = users_collection.count_documents({
         "createdAt": {"$gte": today - timedelta(days=7)}
     })
-    
+
     stats = {
         "totalUsers": total_users,
         "activeUsers": active_users_count,
@@ -1003,22 +1275,22 @@ def get_stats():
         "dailyMessages": daily_messages,
         "newUsers": new_users
     }
-    
+
     return jsonify(stats), 200
 
 @app.route('/api/groups', methods=['GET'])
 def get_groups():
     token = request.headers.get('Authorization', '').replace('Bearer ', '')
     user_id = verify_token(token)
-    
+
     if not user_id:
         return jsonify({"error": "Unauthorized"}), 401
-    
+
     # Get groups where user is a member
     user_groups = groups_collection.find({
         "members": {"$elemMatch": {"userId": ObjectId(user_id)}}
     })
-    
+
     groups_list = []
     for group in user_groups:
         # Get the last message for the group
@@ -1026,7 +1298,7 @@ def get_groups():
             {"groupId": group["_id"]},
             sort=[("timestamp", -1)]
         )
-        
+
         # Get full member details
         members = []
         for member in group["members"]:
@@ -1038,7 +1310,7 @@ def get_groups():
                     "role": member["role"],
                     "isActive": str(member_user["_id"]) in active_users,
                 })
-        
+
         groups_list.append({
             "id": str(group["_id"]),
             "name": group["name"],
@@ -1050,29 +1322,29 @@ def get_groups():
             "unreadCount": 0,
             "memberCount": len(members)
         })
-    
+
     return jsonify(groups_list), 200
 
 @app.route('/api/groups', methods=['POST'])
 def create_group():
     token = request.headers.get('Authorization', '').replace('Bearer ', '')
     user_id = verify_token(token)
-    
+
     if not user_id:
         return jsonify({"error": "Unauthorized"}), 401
-    
+
     data = request.get_json()
     name = data.get('name')
     description = data.get('description', '')
     member_ids = data.get('members', [])
-    
+
     if not name:
         return jsonify({"error": "Group name is required"}), 400
-    
+
     # Ensure creator is included in members
     if user_id not in member_ids:
         member_ids.append(user_id)
-    
+
     # Create member objects
     members = []
     for mid in member_ids:
@@ -1086,7 +1358,7 @@ def create_group():
             members.append(member)
         except:
             pass
-    
+
     # Create group
     group = {
         "name": name,
@@ -1095,9 +1367,9 @@ def create_group():
         "createdAt": datetime.utcnow(),
         "members": members
     }
-    
+
     result = groups_collection.insert_one(group)
-    
+
     return jsonify({
         "id": str(result.inserted_id),
         "name": name,
@@ -1109,24 +1381,24 @@ def create_group():
 def get_group_messages(group_id):
     token = request.headers.get('Authorization', '').replace('Bearer ', '')
     user_id = verify_token(token)
-    
+
     if not user_id:
         return jsonify({"error": "Unauthorized"}), 401
-    
+
     # Check if user is member of the group
     group = groups_collection.find_one({
         "_id": ObjectId(group_id),
         "members": {"$elemMatch": {"userId": ObjectId(user_id)}}
     })
-    
+
     if not group:
         return jsonify({"error": "Forbidden"}), 403
-    
+
     # Get messages for the group
     messages = db.group_messages.find({
         "groupId": ObjectId(group_id)
     }).sort("timestamp", 1)
-    
+
     # Update last read timestamp
     groups_collection.update_one(
         {
@@ -1135,18 +1407,18 @@ def get_group_messages(group_id):
         },
         {"$set": {"members.$.lastRead": datetime.utcnow()}}
     )
-    
+
     # Format messages for the frontend
     messages_list = []
     sender_cache = {}
-    
+
     for msg in messages:
         sender_id = str(msg["senderId"])
-        
+
         if sender_id not in sender_cache:
             sender = users_collection.find_one({"_id": ObjectId(sender_id)})
             sender_cache[sender_id] = sender["name"] if sender else "Unknown"
-        
+
         messages_list.append({
             "id": str(msg["_id"]),
             "sender": sender_id,
@@ -1154,26 +1426,26 @@ def get_group_messages(group_id):
             "text": msg["text"],
             "timestamp": msg["timestamp"].isoformat()
         })
-    
+
     return jsonify(messages_list), 200
 
 @app.route('/api/groups/<group_id>/messages', methods=['DELETE'])
 def delete_group_chat(group_id):
     token = request.headers.get('Authorization', '').replace('Bearer ', '')
     user_id = verify_token(token)
-    
+
     if not user_id:
         return jsonify({"error": "Unauthorized"}), 401
-    
+
     # Check if user is member of the group
     group = groups_collection.find_one({
         "_id": ObjectId(group_id),
         "members": {"$elemMatch": {"userId": ObjectId(user_id)}}
     })
-    
+
     if not group:
         return jsonify({"error": "Forbidden"}), 403
-    
+
     # Delete all messages in the group
     if delete_group_messages(group_id):
         return jsonify({"message": "Chat history deleted successfully"}), 200
@@ -1184,32 +1456,32 @@ def delete_group_chat(group_id):
 def leave_group(group_id):
     token = request.headers.get('Authorization', '').replace('Bearer ', '')
     user_id = verify_token(token)
-    
+
     if not user_id:
         return jsonify({"error": "Unauthorized"}), 401
-    
+
     try:
         # Remove user from group members
         result = groups_collection.update_one(
             {"_id": ObjectId(group_id)},
             {"$pull": {"members": {"userId": ObjectId(user_id)}}}
         )
-        
+
         if result.modified_count == 0:
             return jsonify({"error": "Group not found or user is not a member"}), 404
-        
+
         # Get user info for notification
         user = users_collection.find_one({"_id": ObjectId(user_id)})
-        
+
         # Emit socket event to notify other members
         socketio.emit('group_user_left', {
             "groupId": group_id,
             "userId": str(user_id),
             "userName": user["name"] if user else "Unknown"
         }, room=f"group_{group_id}")
-        
+
         return jsonify({"message": "Successfully left the group"}), 200
-        
+
     except Exception as e:
         print(f"Error leaving group: {e}")
         return jsonify({"error": "An error occurred while leaving the group"}), 500
@@ -1218,37 +1490,37 @@ def leave_group(group_id):
 def delete_group(group_id):
     token = request.headers.get('Authorization', '').replace('Bearer ', '')
     user_id = verify_token(token)
-    
+
     if not user_id:
         return jsonify({"error": "Unauthorized"}), 401
-    
+
     try:
         # Check if user is the creator of the group
         group = groups_collection.find_one({
             "_id": ObjectId(group_id),
             "createdBy": ObjectId(user_id)
         })
-        
+
         if not group:
             return jsonify({"error": "Only group creator can delete the group"}), 403
-        
+
         # Delete all messages in the group
         group_messages_collection.delete_many({"groupId": ObjectId(group_id)})
-        
+
         # Delete the group itself
         result = groups_collection.delete_one({"_id": ObjectId(group_id)})
-        
+
         if result.deleted_count == 0:
             return jsonify({"error": "Group not found"}), 404
-        
+
         # Notify all members via socket
         socketio.emit("group_deleted", {
             "groupId": group_id,
             "groupName": group["name"]
         }, room=f"group_{group_id}")
-        
+
         return jsonify({"message": "Group deleted successfully"}), 200
-        
+
     except Exception as e:
         print(f"Error deleting group: {e}")
         return jsonify({"error": "An error occurred while deleting the group"}), 500
@@ -1257,25 +1529,25 @@ def delete_group(group_id):
 def invite_to_group(group_id):
     token = request.headers.get('Authorization', '').replace('Bearer ', '')
     user_id = verify_token(token)
-    
+
     if not user_id:
         return jsonify({"error": "Unauthorized"}), 401
-    
+
     # Check if user is member of the group
     group = groups_collection.find_one({
         "_id": ObjectId(group_id),
         "members": {"$elemMatch": {"userId": ObjectId(user_id)}}
     })
-    
+
     if not group:
         return jsonify({"error": "Forbidden"}), 403
-    
+
     data = request.get_json()
     member_ids = data.get('members', [])
-    
+
     if not member_ids:
         return jsonify({"error": "No members specified"}), 400
-    
+
     try:
         # Add new members
         new_members = []
@@ -1287,16 +1559,16 @@ def invite_to_group(group_id):
                 "lastRead": datetime.utcnow()
             }
             new_members.append(member)
-        
+
         # Update group with new members
         result = groups_collection.update_one(
             {"_id": ObjectId(group_id)},
             {"$push": {"members": {"$each": new_members}}}
         )
-        
+
         if result.modified_count == 0:
             return jsonify({"error": "Failed to add members to group"}), 500
-        
+
         # Get member details for response
         added_members = []
         for mid in member_ids:
@@ -1307,20 +1579,20 @@ def invite_to_group(group_id):
                     "name": member_user["name"],
                     "isActive": str(member_user["_id"]) in active_users
                 })
-                
+
                 # Emit socket event to notify the new member
                 socketio.emit('group_invite', {
                     "groupId": group_id,
                     "groupName": group["name"],
                     "invitedBy": user_id
                 }, room=str(member_user["_id"]))
-        
+
         return jsonify({
             "success": True,
             "message": "Members invited successfully",
             "members": added_members
         }), 200
-        
+
     except Exception as e:
         print(f"Error inviting members to group: {e}")
         return jsonify({"error": "An error occurred while inviting members"}), 500
@@ -1329,35 +1601,35 @@ def invite_to_group(group_id):
 def invite_group_members(group_id):
     token = request.headers.get('Authorization', '').replace('Bearer ', '')
     user_id = verify_token(token)
-    
+
     if not user_id:
         return jsonify({"error": "Unauthorized"}), 401
-    
+
     try:
         data = request.get_json()
         members_to_invite = data.get('members', [])
-        
+
         if not members_to_invite:
             return jsonify({"error": "No members specified"}), 400
-            
+
         # Check if group exists and user is a member
         group = groups_collection.find_one({"_id": ObjectId(group_id)})
         if not group:
             return jsonify({"error": "Group not found"}), 404
-            
+
         # Check if user is in the group
         if ObjectId(user_id) not in [member["id"] for member in group.get("members", [])]:
             return jsonify({"error": "You must be a member of the group to invite others"}), 403
-        
+
         # Convert member IDs to ObjectIds and check if they exist
         member_ids = []
         for member_id in members_to_invite:
             if users_collection.find_one({"_id": ObjectId(member_id)}):
                 member_ids.append(ObjectId(member_id))
-        
+
         if not member_ids:
             return jsonify({"error": "No valid members to invite"}), 400
-            
+
         # Add new members to the group
         current_members = group.get("members", [])
         new_members = []
@@ -1369,16 +1641,16 @@ def invite_group_members(group_id):
                     "name": member["name"],
                     "isActive": str(member_id) in active_users
                 })
-        
+
         if not new_members:
             return jsonify({"error": "All specified users are already members"}), 400
-            
+
         # Update group with new members
         groups_collection.update_one(
             {"_id": ObjectId(group_id)},
             {"$push": {"members": {"$each": new_members}}}
         )
-        
+
         # Emit socket event for each new member
         for member in new_members:
             socketio.emit("group_user_joined", {
@@ -1390,7 +1662,7 @@ def invite_group_members(group_id):
                 },
                 "userName": member["name"]
             })
-        
+
         return jsonify({
             "success": True,
             "message": f"Successfully invited {len(new_members)} members to the group",
@@ -1400,10 +1672,263 @@ def invite_group_members(group_id):
                 "isActive": m["isActive"]
             } for m in new_members]
         }), 200
-        
+
     except Exception as e:
         print(f"Error inviting members to group: {e}")
         return jsonify({"error": "Failed to invite members"}), 500
+
+@socketio.on('edit_message')
+def handle_edit_message(data):
+    token = data.get('token')
+    user_id = verify_token(token)
+
+    if not user_id:
+        return
+
+    message_id = data.get('messageId')
+    new_text = data.get('text')
+
+    if not message_id or not new_text:
+        return
+
+    try:
+        # Find the message to edit
+        message = messages_collection.find_one({"_id": ObjectId(message_id)})
+
+        if not message:
+            # Check if it's a group message
+            message = db.group_messages.find_one({"_id": ObjectId(message_id)})
+            if not message:
+                return
+
+            # Verify sender is the same as the editor
+            if str(message["senderId"]) != user_id:
+                return
+
+            # Update the message text
+            db.group_messages.update_one(
+                {"_id": ObjectId(message_id)},
+                {"$set": {"text": new_text, "isEdited": True}}
+            )
+
+            # Get group ID
+            group_id = str(message["groupId"])
+
+            # Get sender name for notification
+            sender = users_collection.find_one({"_id": ObjectId(user_id)})
+            sender_name = sender["name"] if sender else "Unknown"
+
+            # Notify all users in the group
+            emit('message_edited', {
+                "groupId": group_id,
+                "messageId": message_id,
+                "newText": new_text,
+                "isEdited": True,
+                "senderName": sender_name,
+                "sender": user_id
+            }, room=f"group_{group_id}")
+
+        else:
+            # Verify sender is the same as the editor
+            if str(message["senderId"]) != user_id:
+                return
+
+            # Update the message text
+            messages_collection.update_one(
+                {"_id": ObjectId(message_id)},
+                {"$set": {"text": new_text, "isEdited": True}}
+            )
+
+            # Get sender and receiver IDs
+            sender_id = str(message["senderId"])
+            receiver_id = str(message["receiverId"])
+
+            # Prepare edited message data
+            edited_message = {
+                "id": message_id,
+                "sender": sender_id,
+                "receiver": receiver_id,
+                "text": new_text,
+                "isEdited": True
+            }
+
+            # Notify sender and receiver
+            emit('message_edited', edited_message, room=sender_id)
+            if receiver_id in active_users:
+                emit('message_edited', edited_message, room=receiver_id)
+
+    except Exception as e:
+        print(f"Error editing message: {e}")
+
+@socketio.on('edit_group_message')
+def handle_edit_group_message(data):
+    try:
+        token = data.get('token')
+        user_id = verify_token(token)
+
+        if not user_id:
+            return
+
+        message_id = data.get('messageId')
+        new_text = data.get('text')
+        group_id = data.get('groupId')
+
+        if not message_id or not new_text or not group_id:
+            return
+
+        # Find the message to edit
+        message = db.group_messages.find_one({"_id": ObjectId(message_id)})
+        if not message:
+            return
+
+        # Verify sender is the same as the editor
+        if str(message["senderId"]) != user_id:
+            return
+
+        # Update the message text
+        db.group_messages.update_one(
+            {"_id": ObjectId(message_id)},
+            {"$set": {"text": new_text, "isEdited": True}}
+        )
+
+        # Get sender name for notification
+        sender = users_collection.find_one({"_id": ObjectId(user_id)})
+        sender_name = sender["name"] if sender else "Unknown"
+
+        # Notify all users in the group
+        emit('message_edited', {
+            "groupId": group_id,
+            "messageId": message_id,
+            "newText": new_text,
+            "isEdited": True,
+            "senderName": sender_name,
+            "sender": user_id
+        }, room=f"group_{group_id}")
+    except Exception as e:
+        print(f"Error editing group message: {e}")
+        emit('error', {'message': 'Failed to edit message'})
+
+@socketio.on('delete_message')
+def handle_delete_message(data):
+    token = data.get('token')
+    user_id = verify_token(token)
+
+    if not user_id:
+        return
+
+    message_id = data.get('messageId')
+
+    if not message_id:
+        return
+
+    try:
+        # Find the message to delete
+        message = messages_collection.find_one({"_id": ObjectId(message_id)})
+
+        if not message:
+            # Check if it's a group message
+            message = db.group_messages.find_one({"_id": ObjectId(message_id)})
+            if not message:
+                return
+
+            # Verify sender is the same as the deleter
+            if str(message["senderId"]) != user_id:
+                return
+
+            # Mark the message as deleted
+            db.group_messages.update_one(
+                {"_id": ObjectId(message_id)},
+                {"$set": {"isDeleted": True, "fileUrl": None, "fileType": None, "fileName": None}}
+            )
+
+            # Get group ID
+            group_id = str(message["groupId"])
+
+            # Get sender name for notification
+            sender = users_collection.find_one({"_id": ObjectId(user_id)})
+            sender_name = sender["name"] if sender else "Unknown"
+
+            # Notify all users in the group
+            emit('message_deleted', {
+                "groupId": group_id,
+                "messageId": message_id,
+                "senderName": sender_name,
+                "sender": user_id
+            }, room=f"group_{group_id}")
+
+        else:
+            # Verify sender is the same as the deleter
+            if str(message["senderId"]) != user_id:
+                return
+
+            # Mark the message as deleted
+            messages_collection.update_one(
+                {"_id": ObjectId(message_id)},
+                {"$set": {"isDeleted": True, "fileUrl": None, "fileType": None, "fileName": None}}
+            )
+
+            # Get sender and receiver IDs
+            sender_id = str(message["senderId"])
+            receiver_id = str(message["receiverId"])
+
+            # Prepare deleted message data
+            deleted_message = {
+                "id": message_id,
+                "sender": sender_id,
+                "receiver": receiver_id
+            }
+
+            # Emit to both sender and receiver rooms
+            emit('message_deleted', deleted_message, room=f"user_{sender_id}")
+            emit('message_deleted', deleted_message, room=f"user_{receiver_id}")
+    except Exception as e:
+        print(f"Error deleting message: {e}")
+        emit('error', {'message': 'Failed to delete message'})
+
+@socketio.on('delete_group_message')
+def handle_delete_group_message(data):
+    try:
+        token = data.get('token')
+        user_id = verify_token(token)
+
+        if not user_id:
+            return
+
+        message_id = data.get('messageId')
+        group_id = data.get('groupId')
+
+        if not message_id or not group_id:
+            return
+
+        # Find the message to delete
+        message = db.group_messages.find_one({"_id": ObjectId(message_id)})
+        if not message:
+            return
+
+        # Verify sender is the same as the deleter
+        if str(message["senderId"]) != user_id:
+            return
+
+        # Mark the message as deleted
+        db.group_messages.update_one(
+            {"_id": ObjectId(message_id)},
+            {"$set": {"isDeleted": True, "fileUrl": None, "fileType": None, "fileName": None}}
+        )
+
+        # Get sender name for notification
+        sender = users_collection.find_one({"_id": ObjectId(user_id)})
+        sender_name = sender["name"] if sender else "Unknown"
+
+        # Notify all users in the group
+        emit('message_deleted', {
+            "groupId": group_id,
+            "messageId": message_id,
+            "senderName": sender_name,
+            "sender": user_id
+        }, room=f"group_{group_id}")
+    except Exception as e:
+        print(f"Error deleting group message: {e}")
+        emit('error', {'message': 'Failed to delete message'})
 
 if __name__ == '__main__':
     socketio.run(app, debug=True, host='0.0.0.0', port=5000)

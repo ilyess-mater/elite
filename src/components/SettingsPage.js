@@ -58,9 +58,16 @@ function SettingsPage({ user, darkMode, textSize, applySettings }) {
   const handleAvatarColorChange = (color) => {
     setSelectedColor(color);
     localStorage.setItem("avatarColor", color);
+    // Dispatch event to notify other components about the color change
     document.dispatchEvent(
       new CustomEvent("avatarColorChanged", { detail: { color } })
     );
+
+    // Apply the color change immediately to the preview
+    const avatarPreview = document.querySelector(".user-avatar-preview");
+    if (avatarPreview) {
+      avatarPreview.style.backgroundColor = color;
+    }
   };
 
   return (

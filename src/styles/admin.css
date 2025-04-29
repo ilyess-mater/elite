@@ -271,6 +271,38 @@
   gap: 10px;
 }
 
+.promote-options {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.admin-role-buttons {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
+.admin-master-btn {
+  background-color: #800080;
+  border-color: #800080;
+}
+
+.admin-master-btn:hover {
+  background-color: #6a006a;
+  border-color: #6a006a;
+}
+
+.dark-mode .admin-master-btn {
+  background-color: #9a009a;
+  border-color: #9a009a;
+}
+
+.dark-mode .admin-master-btn:hover {
+  background-color: #b000b0;
+  border-color: #b000b0;
+}
+
 .dark-mode .confirm-dialog-actions {
   border-top: 1px solid #3a3a48;
 }
@@ -528,6 +560,14 @@
   margin-bottom: 24px;
 }
 
+@media (max-width: 1200px) {
+  .users-table-container,
+  .messages-table-container {
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+}
+
 .dark-mode .users-table-container,
 .dark-mode .messages-table-container {
   background-color: #35354a;
@@ -538,6 +578,7 @@
 .messages-table {
   width: 100%;
   border-collapse: collapse;
+  min-width: 800px; /* Ensures table maintains minimum width when scrolling */
 }
 
 .users-table th,
@@ -617,9 +658,19 @@
   color: #dc3545;
 }
 
+.role-admin-master {
+  background-color: rgba(128, 0, 128, 0.15);
+  color: #800080;
+}
+
 .dark-mode .role-admin {
   background-color: rgba(220, 53, 69, 0.2);
   color: #ea868f;
+}
+
+.dark-mode .role-admin-master {
+  background-color: rgba(128, 0, 128, 0.2);
+  color: #d070d0;
 }
 
 .role-user {

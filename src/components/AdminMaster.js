@@ -4,7 +4,7 @@ import axios from "axios";
 import { useAuth } from "../contexts/AuthContext";
 import SearchBar from "./SearchBar";
 
-function AdminPanel({ user }) {
+function AdminMaster({ user }) {
   const [activeTab, setActiveTab] = useState("users");
   const [users, setUsers] = useState([]);
   const [allMessages, setAllMessages] = useState([]);
@@ -29,10 +29,12 @@ function AdminPanel({ user }) {
   const { getSocket } = useAuth();
   const socket = getSocket();
 
-  // Fetch admin data
+  // Fetch admin master data
   useEffect(() => {
-    if (!user || !user.isAdmin || user.adminRole === "admin_master") {
-      setError("You don't have permission to access this page");
+    if (!user || !user.isAdmin || user.adminRole !== "admin_master") {
+      setError(
+        "You don't have permission to access this page. Only Admin Masters can access this dashboard."
+      );
       setLoading(false);
       return;
     }
@@ -256,25 +258,8 @@ function AdminPanel({ user }) {
   }
 
   const handleUserAction = (action, userData) => {
-    // Regular admins cannot demote any users (only Admin Masters can demote)
-    if (action === "demote" && window.user?.adminRole !== "admin_master") {
-      setError("Only Admin Masters can demote users");
-      setTimeout(() => {
-        setError("");
-      }, 3000);
-      return;
-    }
-
-    // Regular admins can only promote normal users (not admins) to regular admin role
+    // Admin masters can promote users to regular admin
     if (action === "promote") {
-      if (userData.isAdmin) {
-        setError("Regular admins cannot modify other admin roles");
-        setTimeout(() => {
-          setError("");
-        }, 3000);
-        return;
-      }
-
       setConfirmAction({
         action: "promote",
         user: userData,
@@ -282,7 +267,6 @@ function AdminPanel({ user }) {
       return;
     }
 
-    // For other actions like ban
     setConfirmAction({
       action,
       user: userData,
@@ -310,20 +294,46 @@ function AdminPanel({ user }) {
           setError("");
         }
       } else if (action === "promote") {
-        await axios.post(`/api/admin/users/${userData.id}/promote`);
-        setUsers(
-          users.map((u) =>
-            u.id === userData.id
-              ? { ...u, isAdmin: true, adminRole: "admin" }
-              : u
-          )
-        );
-        setSuccessMessage(`${userData.name} has been promoted to admin`);
-        setTimeout(() => {
-          setSuccessMessage("");
-        }, 3000);
+        try {
+          console.log(`Promoting user ${userData.id} to admin`);
+          console.log("User data:", userData);
+
+          // Make sure we have a valid user ID
+          if (!userData.id) {
+            setError("Invalid user ID");
+            return;
+          }
+
+          const response = await axios.post(
+            `/api/admin/users/${userData.id}/promote`
+          );
+          console.log("Promotion response:", response);
+
+          if (response.status === 200) {
+            // Update local state
+            setUsers(
+              users.map((u) =>
+                u.id === userData.id
+                  ? { ...u, isAdmin: true, adminRole: "admin" }
+                  : u
+              )
+            );
+            setSuccessMessage(`${userData.name} has been promoted to admin`);
+            setTimeout(() => {
+              setSuccessMessage("");
+            }, 3000);
+          }
+        } catch (error) {
+          console.error("Error promoting user:", error);
+          setError(error.response?.data?.error || "Failed to promote user");
+          setTimeout(() => {
+            setError("");
+          }, 3000);
+        }
       } else if (action === "promote_admin_master") {
-        await axios.post(`/api/admin/users/${userData.id}/promote-master`);
+        await axios.post(
+          `/api/admin-master/users/${userData.id}/promote-master`
+        );
         setUsers(
           users.map((u) =>
             u.id === userData.id
@@ -346,9 +356,6 @@ function AdminPanel({ user }) {
         setTimeout(() => {
           setSuccessMessage("");
         }, 3000);
-      } else if (action === "promote_options") {
-        // This is handled in the render function with a different dialog
-        // No API call needed here
       }
     } catch (error) {
       console.error(`Error ${action} user:`, error);
@@ -377,7 +384,7 @@ function AdminPanel({ user }) {
       <div className="admin-container">
         <div className="loading-message">
           <div className="loader"></div>
-          <span>Loading admin panel...</span>
+          <span>Loading admin master panel...</span>
         </div>
       </div>
     );
@@ -402,87 +409,42 @@ function AdminPanel({ user }) {
               <h3>Confirm Action</h3>
             </div>
             <div className="confirm-dialog-content">
-              {confirmAction.action === "promote_options" ? (
-                <div className="promote-options">
-                  <p>Select admin role for {confirmAction.user.name}:</p>
-                  <div className="admin-role-buttons">
-                    <button
-                      className="btn btn-primary"
-                      onClick={() => {
-                        setConfirmAction({
-                          ...confirmAction,
-                          action: "promote",
-                        });
-                        confirmUserAction();
-                      }}
-                    >
-                      Regular Admin
-                    </button>
-                    <button
-                      className="btn btn-primary admin-master-btn"
-                      onClick={() => {
-                        setConfirmAction({
-                          ...confirmAction,
-                          action: "promote_admin_master",
-                        });
-                        confirmUserAction();
-                      }}
-                    >
-                      Admin Master
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <p>
-                  {confirmAction.action === "ban"
-                    ? `Are you sure you want to ban user ${confirmAction.user.name}? This action cannot be undone.`
-                    : confirmAction.action === "promote"
-                    ? `Are you sure you want to make ${confirmAction.user.name} a regular admin?`
-                    : confirmAction.action === "promote_admin_master"
-                    ? `Are you sure you want to make ${confirmAction.user.name} an admin master?`
-                    : confirmAction.action === "demote"
-                    ? `Are you sure you want to make ${confirmAction.user.name} a regular user?`
-                    : `Are you sure you want to ${confirmAction.action} ${confirmAction.user.name}?`}
-                </p>
-              )}
+              <p>
+                {confirmAction.action === "ban"
+                  ? `Are you sure you want to ban user ${confirmAction.user.name}? This action cannot be undone.`
+                  : confirmAction.action === "promote"
+                  ? `Are you sure you want to make ${confirmAction.user.name} a regular admin?`
+                  : confirmAction.action === "demote"
+                  ? `Are you sure you want to make ${confirmAction.user.name} a regular user?`
+                  : `Are you sure you want to ${confirmAction.action} ${confirmAction.user.name}?`}
+              </p>
             </div>
-            {confirmAction.action !== "promote_options" && (
-              <div className="confirm-dialog-actions">
-                <button
-                  className="btn btn-secondary"
-                  onClick={cancelConfirmation}
-                >
-                  Cancel
-                </button>
-                <button
-                  className={`btn ${
-                    confirmAction.action === "ban"
-                      ? "btn-danger"
-                      : "btn-primary"
-                  }`}
-                  onClick={confirmUserAction}
-                >
-                  {confirmAction.action === "ban" ? "Ban" : "Confirm"}
-                </button>
-              </div>
-            )}
-            {confirmAction.action === "promote_options" && (
-              <div className="confirm-dialog-actions">
-                <button
-                  className="btn btn-secondary"
-                  onClick={cancelConfirmation}
-                >
-                  Cancel
-                </button>
-              </div>
-            )}
+            <div className="confirm-dialog-actions">
+              <button
+                className="btn btn-secondary"
+                onClick={cancelConfirmation}
+              >
+                Cancel
+              </button>
+              <button
+                className={`btn ${
+                  confirmAction.action === "ban" ? "btn-danger" : "btn-primary"
+                }`}
+                onClick={confirmUserAction}
+              >
+                {confirmAction.action === "ban" ? "Ban" : "Confirm"}
+              </button>
+            </div>
           </div>
         </div>
       )}
 
       <div className="admin-panel-header">
-        <h1>Admin Panel Page</h1>
-        <p>Manage users, messages, and analytics</p>
+        <h1>Admin Master Page</h1>
+        <p>
+          Exclusive dashboard for Admin Masters with extended privileges and
+          system-wide control
+        </p>
       </div>
 
       {successMessage && (
@@ -657,12 +619,8 @@ function AdminPanel({ user }) {
                             <i className="fas fa-edit"></i>
                           </button>
                           {user.isAdmin ? (
-                            // Show demote button only if:
-                            // 1. Not the current user AND
-                            // 2. Current user is admin_master
-                            // (Regular admins should NOT see the demote button for other admins)
-                            user.id !== window.user?.id &&
-                            window.user?.adminRole === "admin_master" ? (
+                            // Only show demote button for admin masters and not for themselves
+                            user.id !== window.user?.id ? (
                               <button
                                 className="user-action-button"
                                 title="Make User"
@@ -1097,4 +1055,4 @@ function AdminPanel({ user }) {
   );
 }
 
-export default AdminPanel;
+export default AdminMaster;

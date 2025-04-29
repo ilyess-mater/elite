@@ -7,6 +7,7 @@ import SettingsPage from "./SettingsPage";
 import SecurityPage from "./SecurityPage";
 import GroupChatPage from "./GroupChatPage";
 import AdminPanel from "./AdminPanel";
+import AdminMaster from "./AdminMaster";
 
 function MainDashboard({ user, onLogout }) {
   const [activePage, setActivePage] = useState("messaging");
@@ -71,7 +72,11 @@ function MainDashboard({ user, onLogout }) {
       case "groups":
         return <GroupChatPage user={user} textSize={textSize} />;
       case "admin":
-        return <AdminPanel user={user} />;
+        return user.adminRole === "admin_master" ? (
+          <AdminMaster user={user} />
+        ) : (
+          <AdminPanel user={user} />
+        );
       default:
         return <MessagingPage user={user} textSize={textSize} />;
     }

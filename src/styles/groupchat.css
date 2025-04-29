@@ -255,6 +255,23 @@
   overflow: hidden;
   text-overflow: ellipsis;
   transition: color 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.unread-badge {
+  background-color: #4a6cf7;
+  color: white;
+  border-radius: 50%;
+  min-width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  margin-left: 8px;
+  padding: 0 4px;
 }
 
 .dark-mode .group-name {
@@ -451,6 +468,7 @@
   padding: 12px 15px;
   border-radius: 12px;
   position: relative;
+  cursor: pointer;
 }
 
 .message .sender-name {
@@ -484,6 +502,154 @@
   border-top-right-radius: 2px;
 }
 
+.message.deleted .message-text {
+  background-color: #f1f1f1;
+  color: #999;
+  font-style: italic;
+}
+
+.dark-mode .message.deleted .message-text {
+  background-color: #3a3a48;
+  color: #888;
+}
+
+/* Message options menu */
+.message-options {
+  position: absolute;
+  top: -40px;
+  right: 0;
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  display: flex;
+  overflow: hidden;
+  z-index: 10;
+}
+
+.message-options-vertical {
+  flex-direction: column;
+  top: -80px;
+  right: 10px;
+  width: auto;
+}
+
+.message-options-trigger {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  color: rgba(0, 0, 0, 0.5);
+  cursor: pointer;
+  padding: 5px;
+  font-size: 0.8rem;
+  border-radius: 50%;
+  display: none;
+}
+
+.message:hover .message-options-trigger {
+  display: block;
+}
+
+.dark-mode .message-options-trigger {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.dark-mode .message-options {
+  background-color: #2d2d3a;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+}
+
+.message-option-btn {
+  border: none;
+  background: none;
+  padding: 8px 12px;
+  cursor: pointer;
+  color: #333;
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  transition: background-color 0.2s;
+  flex-direction: row;
+}
+
+.dark-mode .message-option-btn {
+  color: #e9e9e9;
+}
+
+.message-option-btn:hover {
+  background-color: #f5f5f5;
+}
+
+.dark-mode .message-option-btn:hover {
+  background-color: #3a3a48;
+}
+
+.message-option-btn.delete {
+  color: #ff4757;
+}
+
+.dark-mode .message-option-btn.delete {
+  color: #ff6b81;
+}
+
+/* Edit message styles */
+.edit-message-container {
+  width: 100%;
+  margin-bottom: 5px;
+}
+
+.edit-message-input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  margin-bottom: 5px;
+}
+
+.dark-mode .edit-message-input {
+  background-color: #35354a;
+  border-color: #444;
+  color: #e9e9e9;
+}
+
+.edit-message-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.edit-save-btn,
+.edit-cancel-btn {
+  border: none;
+  padding: 5px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.edit-save-btn {
+  background-color: #4a6cf7;
+  color: white;
+}
+
+.dark-mode .edit-save-btn {
+  background-color: #4a6cf7;
+}
+
+.edit-cancel-btn {
+  background-color: #f1f1f1;
+  color: #666;
+}
+
+.dark-mode .edit-cancel-btn {
+  background-color: #3a3a48;
+  color: #ccc;
+}
+
 .dark-mode .message.outgoing {
   background-color: #5a77ff;
 }
@@ -497,6 +663,15 @@
   font-size: 0.7rem;
   opacity: 0.7;
   text-align: right;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.edited-label {
+  font-size: 0.65rem;
+  color: #999;
+  font-style: italic;
 }
 
 /* Quick Reply Buttons */

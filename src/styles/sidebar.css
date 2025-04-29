@@ -477,8 +477,8 @@
   min-width: 24px;
 }
 
-/* Logout Confirmation Dialog */
-.logout-confirm-overlay {
+/* Modal Dialog (for logout confirmation) */
+.modal-overlay {
   position: fixed;
   top: 0;
   left: 0;
@@ -492,7 +492,7 @@
   backdrop-filter: blur(5px);
 }
 
-.logout-confirm-dialog {
+.modal-dialog {
   background-color: white;
   border-radius: 24px;
   width: 340px;
@@ -514,35 +514,35 @@
   }
 }
 
-.dark-mode .logout-confirm-dialog {
+.dark-mode .modal-dialog {
   background-color: #2d2d3a;
   color: #e0e0e0;
   box-shadow: 0 15px 40px rgba(0, 0, 0, 0.4);
 }
 
-.logout-confirm-dialog h4 {
+.modal-dialog h4 {
   margin-top: 0;
   margin-bottom: 15px;
   font-size: 24px;
   color: #333;
 }
 
-.dark-mode .logout-confirm-dialog h4 {
+.dark-mode .modal-dialog h4 {
   color: #e0e0e0;
 }
 
-.logout-confirm-dialog p {
+.modal-dialog p {
   margin-bottom: 30px;
   color: #555;
   line-height: 1.6;
   font-size: 16px;
 }
 
-.dark-mode .logout-confirm-dialog p {
+.dark-mode .modal-dialog p {
   color: #b0b0b0;
 }
 
-.logout-confirm-actions {
+.modal-actions {
   display: flex;
   justify-content: center;
   gap: 15px;

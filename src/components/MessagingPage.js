@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef } from "react";
 import "../styles/messaging.css";
+import "../styles/emoji-picker.css";
 import axios from "axios";
 import { useAuth } from "../contexts/AuthContext";
+import EmojiPicker from "emoji-picker-react";
 
 function MessagingPage({ user, textSize }) {
   const [contacts, setContacts] = useState([]);
@@ -20,6 +22,13 @@ function MessagingPage({ user, textSize }) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [contactToDelete, setContactToDelete] = useState(null);
   const [isMobileView, setIsMobileView] = useState(window.innerWidth < 769);
+  const [showMessageOptions, setShowMessageOptions] = useState(null);
+  const [messageToEdit, setMessageToEdit] = useState(null);
+  const [editedMessageText, setEditedMessageText] = useState("");
+  const [showDeleteMessageConfirm, setShowDeleteMessageConfirm] =
+    useState(false);
+  const [messageToDelete, setMessageToDelete] = useState(null);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
 
   // Fetch contacts from API
   useEffect(() => {
@@ -37,11 +46,18 @@ function MessagingPage({ user, textSize }) {
           (contact) => !removedChats.includes(contact.id)
         );
 
-        // Generate avatar colors for the contacts
-        const contactsWithAvatars = filteredContacts.map((contact) => ({
-          ...contact,
-          avatar: generateAvatar(contact.name),
-        }));
+        // Generate avatar colors for the contacts and load unread counts from localStorage
+        const contactsWithAvatars = filteredContacts.map((contact) => {
+          // Get unread count from localStorage
+          const unreadKey = `unread_${contact.id}`;
+          const unreadCount = parseInt(localStorage.getItem(unreadKey) || "0");
+
+          return {
+            ...contact,
+            avatar: generateAvatar(contact.name),
+            unreadCount: unreadCount,
+          };
+        });
 
         setContacts(contactsWithAvatars);
       } catch (error) {
@@ -66,20 +82,43 @@ function MessagingPage({ user, textSize }) {
             ? newMessage.receiver
             : newMessage.sender;
 
-        // Skip if this is our own message that we've already added optimistically
+        const existingMessages = prevMessages[contactId] || [];
+
+        // Enhanced duplicate detection for all messages
+        const isDuplicate = existingMessages.some(
+          (msg) =>
+            // Check by ID (most reliable)
+            msg.id === newMessage.id ||
+            // Check by content, sender and timestamp proximity
+            (msg.text === newMessage.text &&
+              msg.sender === newMessage.sender &&
+              Math.abs(
+                new Date(msg.timestamp || 0) -
+                  new Date(newMessage.timestamp || 0)
+              ) < 1000)
+        );
+
+        if (isDuplicate) {
+          console.log(
+            "Duplicate message detected and prevented",
+            newMessage.id
+          );
+          return prevMessages;
+        }
+
+        // Handle optimistic messages (our own messages)
         if (newMessage.sender === user.id) {
-          const existingMessages = prevMessages[contactId] || [];
-          // Check if we already have this message (by comparing text and timestamp)
-          const messageExists = existingMessages.some(
+          // Check if we already have an optimistic version of this message
+          const hasOptimisticVersion = existingMessages.some(
             (msg) =>
+              msg._isOptimistic &&
               msg.text === newMessage.text &&
               Math.abs(
                 new Date(msg.timestamp) - new Date(newMessage.timestamp)
-              ) < 5000 &&
-              msg._isOptimistic
+              ) < 5000
           );
 
-          if (messageExists) {
+          if (hasOptimisticVersion) {
             // Replace the optimistic message with the confirmed one
             return {
               ...prevMessages,
@@ -99,20 +138,57 @@ function MessagingPage({ user, textSize }) {
         // Show notification if message is new and from someone else
         if (newMessage.sender !== user.id) {
           showNotification(newMessage);
-        }
 
-        // Update the contact's lastMessageTime to move it to the top
-        setContacts((prevContacts) => {
-          return prevContacts.map((contact) => {
-            if (contact.id === contactId) {
-              return {
-                ...contact,
-                lastMessageTime: newMessage.timestamp,
-              };
-            }
-            return contact;
+          // Increment unread count if the message is from someone else and not the selected contact
+          // Use a flag to prevent double counting
+          if (!newMessage._counted) {
+            setContacts((prevContacts) => {
+              return prevContacts.map((contact) => {
+                if (
+                  contact.id === contactId &&
+                  (!selectedContact || selectedContact.id !== contactId)
+                ) {
+                  // Store unread count in localStorage to persist across page changes
+                  const unreadKey = `unread_${contactId}`;
+                  const currentUnread = parseInt(
+                    localStorage.getItem(unreadKey) || "0"
+                  );
+                  localStorage.setItem(
+                    unreadKey,
+                    (currentUnread + 1).toString()
+                  );
+
+                  return {
+                    ...contact,
+                    lastMessageTime: newMessage.timestamp,
+                    unreadCount: currentUnread + 1,
+                  };
+                } else if (contact.id === contactId) {
+                  return {
+                    ...contact,
+                    lastMessageTime: newMessage.timestamp,
+                  };
+                }
+                return contact;
+              });
+            });
+            // Mark this message as counted to prevent double counting
+            newMessage._counted = true;
+          }
+        } else {
+          // Update the contact's lastMessageTime to move it to the top for our own messages
+          setContacts((prevContacts) => {
+            return prevContacts.map((contact) => {
+              if (contact.id === contactId) {
+                return {
+                  ...contact,
+                  lastMessageTime: newMessage.timestamp,
+                };
+              }
+              return contact;
+            });
           });
-        });
+        }
 
         // Create a new array with the updated messages
         const updatedMessages = [...(prevMessages[contactId] || [])];
@@ -152,10 +228,58 @@ function MessagingPage({ user, textSize }) {
       );
     });
 
+    // Listen for message edits
+    socket.on("message_edited", (editedMessage) => {
+      if (!editedMessage?.id) return;
+
+      setMessages((prevMessages) => {
+        const contactId =
+          editedMessage.sender === user.id
+            ? editedMessage.receiver
+            : editedMessage.sender;
+
+        const contactMessages = prevMessages[contactId] || [];
+
+        return {
+          ...prevMessages,
+          [contactId]: contactMessages.map((msg) =>
+            msg.id === editedMessage.id
+              ? { ...msg, text: editedMessage.text, isEdited: true }
+              : msg
+          ),
+        };
+      });
+    });
+
+    // Listen for message deletions
+    socket.on("message_deleted", (deletedMessage) => {
+      if (!deletedMessage?.id) return;
+
+      setMessages((prevMessages) => {
+        const contactId =
+          deletedMessage.sender === user.id
+            ? deletedMessage.receiver
+            : deletedMessage.sender;
+
+        const contactMessages = prevMessages[contactId] || [];
+
+        return {
+          ...prevMessages,
+          [contactId]: contactMessages.map((msg) =>
+            msg.id === deletedMessage.id
+              ? { ...msg, isDeleted: true, text: "This message was deleted" }
+              : msg
+          ),
+        };
+      });
+    });
+
     // Clean up listeners on unmount
     return () => {
       socket.off("receive_message");
       socket.off("user_status");
+      socket.off("message_edited");
+      socket.off("message_deleted");
     };
   }, [socket, user]);
 
@@ -316,6 +440,25 @@ function MessagingPage({ user, textSize }) {
 
   const handleContactSelect = (contact) => {
     setSelectedContact(contact);
+
+    // Reset unread count when selecting a contact
+    if (contact.unreadCount) {
+      // Clear the unread count in localStorage as well
+      const unreadKey = `unread_${contact.id}`;
+      localStorage.setItem(unreadKey, "0");
+
+      setContacts((prevContacts) => {
+        return prevContacts.map((c) => {
+          if (c.id === contact.id) {
+            return {
+              ...c,
+              unreadCount: 0,
+            };
+          }
+          return c;
+        });
+      });
+    }
   };
 
   const handleFileSelection = (e) => {
@@ -491,6 +634,11 @@ function MessagingPage({ user, textSize }) {
     fileInputRef.current.click();
   };
 
+  const handleEmojiClick = (emojiObject) => {
+    setMessage((prevMessage) => prevMessage + emojiObject.emoji);
+    setShowEmojiPicker(false);
+  };
+
   // Filter contacts based on search term
   const filteredContacts = contacts.filter(
     (contact) =>
@@ -536,7 +684,10 @@ function MessagingPage({ user, textSize }) {
     }
 
     try {
-      if (msg.fileType && msg.fileType.startsWith("image/")) {
+      if (
+        msg.messageType === "image" ||
+        (msg.fileType && msg.fileType.startsWith("image/"))
+      ) {
         return (
           <div className="message-image-container">
             <img
@@ -552,7 +703,10 @@ function MessagingPage({ user, textSize }) {
             />
           </div>
         );
-      } else if (msg.fileType && msg.fileType.startsWith("video/")) {
+      } else if (
+        msg.messageType === "video" ||
+        (msg.fileType && msg.fileType.startsWith("video/"))
+      ) {
         return (
           <div className="message-video-container">
             <video
@@ -567,7 +721,7 @@ function MessagingPage({ user, textSize }) {
             />
           </div>
         );
-      } else if (fileSource || msg.fileName) {
+      } else if (msg.messageType === "file" || fileSource || msg.fileName) {
         // For other file types
         return (
           <div
@@ -591,6 +745,130 @@ function MessagingPage({ user, textSize }) {
   const [showChatDetails, setShowChatDetails] = useState(false);
   const [showDeleteMessagesConfirm, setShowDeleteMessagesConfirm] =
     useState(false);
+
+  // Handle message options menu
+  const handleMessageOptions = (e, msg) => {
+    e.stopPropagation();
+    // Close any other open options first
+    setShowMessageOptions(null);
+    // Use setTimeout to ensure state is updated before opening new options
+    setTimeout(() => {
+      setShowMessageOptions(msg.id);
+    }, 10);
+  };
+
+  // Close message options when clicking outside
+  useEffect(() => {
+    const handleClickOutside = () => {
+      setShowMessageOptions(null);
+    };
+
+    document.addEventListener("click", handleClickOutside);
+    return () => {
+      document.removeEventListener("click", handleClickOutside);
+    };
+  }, []);
+
+  // Handle edit message
+  const handleEditMessage = (msg) => {
+    // First close the options menu
+    setShowMessageOptions(null);
+
+    // Use setTimeout to ensure state updates in the correct order
+    setTimeout(() => {
+      setMessageToEdit(msg);
+      setEditedMessageText(msg.text);
+    }, 10);
+  };
+
+  // Save edited message
+  const saveEditedMessage = () => {
+    if (!messageToEdit || !editedMessageText.trim()) return;
+
+    // Update message locally first (optimistic update)
+    setMessages((prevMessages) => {
+      const contactId = messageToEdit.receiver;
+      const contactMessages = prevMessages[contactId] || [];
+
+      return {
+        ...prevMessages,
+        [contactId]: contactMessages.map((msg) =>
+          msg.id === messageToEdit.id
+            ? { ...msg, text: editedMessageText, isEdited: true }
+            : msg
+        ),
+      };
+    });
+
+    // Send update to server via socket
+    if (socket) {
+      socket.emit("edit_message", {
+        token: localStorage.getItem("token"),
+        messageId: messageToEdit.id,
+        text: editedMessageText,
+      });
+    }
+
+    // Reset edit state
+    setMessageToEdit(null);
+    setEditedMessageText("");
+  };
+
+  // Cancel edit
+  const cancelEdit = () => {
+    setMessageToEdit(null);
+    setEditedMessageText("");
+  };
+
+  // Handle delete message confirmation
+  const handleDeleteMessageConfirm = (msg) => {
+    // First close the options menu
+    setShowMessageOptions(null);
+
+    // Use setTimeout to ensure state updates in the correct order
+    setTimeout(() => {
+      setMessageToDelete(msg);
+      setShowDeleteMessageConfirm(true);
+    }, 10);
+  };
+
+  // Delete message
+  const deleteMessage = () => {
+    if (!messageToDelete) return;
+
+    // Update message locally first (optimistic update)
+    setMessages((prevMessages) => {
+      const contactId = messageToDelete.receiver;
+      const contactMessages = prevMessages[contactId] || [];
+
+      return {
+        ...prevMessages,
+        [contactId]: contactMessages.map((msg) =>
+          msg.id === messageToDelete.id
+            ? { ...msg, isDeleted: true, text: "This message was deleted" }
+            : msg
+        ),
+      };
+    });
+
+    // Send delete to server via socket
+    if (socket) {
+      socket.emit("delete_message", {
+        token: localStorage.getItem("token"),
+        messageId: messageToDelete.id,
+      });
+    }
+
+    // Reset delete state
+    setShowDeleteMessageConfirm(false);
+    setMessageToDelete(null);
+  };
+
+  // Cancel delete
+  const cancelDeleteMessage = () => {
+    setShowDeleteMessageConfirm(false);
+    setMessageToDelete(null);
+  };
 
   // Handle delete messages
   const handleDeleteMessages = async () => {
@@ -619,7 +897,11 @@ function MessagingPage({ user, textSize }) {
 
   return (
     <div className="messaging-container">
-      <div className={`contacts-list ${isMobileView && selectedContact ? 'mobile-hidden' : ''}`}>
+      <div
+        className={`contacts-list ${
+          isMobileView && selectedContact ? "mobile-hidden" : ""
+        }`}
+      >
         <div className="contacts-header">
           <h2>Conversations</h2>
         </div>
@@ -678,7 +960,9 @@ function MessagingPage({ user, textSize }) {
                   </div>
                 )}
                 {contact.unreadCount > 0 && (
-                  <div className="unread-count">{contact.unreadCount}</div>
+                  <div className="unread-badge">
+                    {contact.unreadCount > 9 ? "9+" : contact.unreadCount}
+                  </div>
                 )}
               </div>
             </div>
@@ -686,13 +970,17 @@ function MessagingPage({ user, textSize }) {
         </div>
       </div>
 
-      <div className={`chat-area ${isMobileView && selectedContact ? 'mobile-visible' : ''}`}>
+      <div
+        className={`chat-area ${
+          isMobileView && selectedContact ? "mobile-visible" : ""
+        }`}
+      >
         {selectedContact ? (
           <>
             <div className="chat-header">
               {isMobileView && (
-                <button 
-                  className="back-button" 
+                <button
+                  className="back-button"
                   onClick={() => setSelectedContact(null)}
                 >
                   <i className="fas fa-arrow-left"></i>
@@ -729,18 +1017,85 @@ function MessagingPage({ user, textSize }) {
                   key={msg.id}
                   className={`message ${
                     msg.sender === user.id ? "outgoing" : "incoming"
-                  } ${msg._isOptimistic ? "optimistic" : ""}`}
+                  } ${msg._isOptimistic ? "optimistic" : ""} ${
+                    msg.isDeleted ? "deleted" : ""
+                  }`}
                 >
                   {renderFileContent(msg)}
-                  {msg.text && <div className="message-text">{msg.text}</div>}
+                  {messageToEdit && messageToEdit.id === msg.id ? (
+                    <div className="edit-message-container">
+                      <input
+                        type="text"
+                        value={editedMessageText}
+                        onChange={(e) => setEditedMessageText(e.target.value)}
+                        className="edit-message-input"
+                        autoFocus
+                      />
+                      <div className="edit-message-actions">
+                        <button
+                          onClick={saveEditedMessage}
+                          className="edit-save-btn"
+                        >
+                          <i className="fas fa-check"></i> Save
+                        </button>
+                        <button
+                          onClick={cancelEdit}
+                          className="edit-cancel-btn"
+                        >
+                          <i className="fas fa-times"></i> Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    msg.text && <div className="message-text">{msg.text}</div>
+                  )}
                   <div className="message-time">
                     {formatTime(msg.timestamp)}
+                    {msg.isEdited && !msg.isDeleted && (
+                      <span className="edited-label">Edited</span>
+                    )}
                     {msg._isOptimistic && (
                       <span className="message-status">
                         <i className="fas fa-check"></i>
                       </span>
                     )}
                   </div>
+                  {msg.sender === user.id &&
+                    !msg.isDeleted &&
+                    !messageToEdit && (
+                      <div
+                        className="message-options-trigger"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowMessageOptions(
+                            showMessageOptions === msg.id ? null : msg.id
+                          );
+                        }}
+                      >
+                        <i className="fas fa-ellipsis-v"></i>
+                      </div>
+                    )}
+                  {showMessageOptions === msg.id && (
+                    <div
+                      className="message-options message-options-vertical"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <button
+                        className="message-option-btn"
+                        onClick={() => handleEditMessage(msg)}
+                      >
+                        <i className="fas fa-edit"></i>
+                        <span>Edit</span>
+                      </button>
+                      <button
+                        className="message-option-btn delete"
+                        onClick={() => handleDeleteMessageConfirm(msg)}
+                      >
+                        <i className="fas fa-trash-alt"></i>
+                        <span>Delete</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
               ))}
               <div ref={messagesEndRef} />
@@ -779,6 +1134,15 @@ function MessagingPage({ user, textSize }) {
                 onChange={handleFileSelection}
                 accept="image/*,video/*,application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt"
               />
+              {showEmojiPicker && (
+                <div className="emoji-picker-container">
+                  <EmojiPicker
+                    onEmojiClick={handleEmojiClick}
+                    width={300}
+                    height={400}
+                  />
+                </div>
+              )}
               <div className="input-container">
                 <button
                   type="button"
@@ -787,6 +1151,14 @@ function MessagingPage({ user, textSize }) {
                   disabled={isUploading}
                 >
                   <i className="fas fa-paperclip"></i>
+                </button>
+                <button
+                  type="button"
+                  className="emoji-button"
+                  onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                  disabled={isUploading}
+                >
+                  <i className="far fa-smile"></i>
                 </button>
                 <input
                   type="text"
@@ -865,6 +1237,15 @@ function MessagingPage({ user, textSize }) {
                 >
                   <i className="fas fa-trash-alt"></i> Delete Messages
                 </button>
+                <button
+                  className="delete-messages-button"
+                  onClick={() => {
+                    setContactToDelete(selectedContact);
+                    setShowDeleteConfirm(true);
+                  }}
+                >
+                  <i className="fas fa-user-minus"></i> Remove from Conversation
+                </button>
               </div>
             </div>
           </div>
@@ -915,6 +1296,26 @@ function MessagingPage({ user, textSize }) {
               </button>
               <button className="btn-danger" onClick={handleDeleteMessages}>
                 Delete Messages
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDeleteMessageConfirm && (
+        <div className="confirm-dialog-overlay">
+          <div className="confirm-dialog">
+            <h4>Delete Message</h4>
+            <p>
+              Are you sure you want to delete this message? This action cannot
+              be undone.
+            </p>
+            <div className="confirm-dialog-actions">
+              <button className="btn-cancel" onClick={cancelDeleteMessage}>
+                Cancel
+              </button>
+              <button className="btn-danger" onClick={deleteMessage}>
+                Delete
               </button>
             </div>
           </div>

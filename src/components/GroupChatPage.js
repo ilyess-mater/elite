@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef } from "react";
 import "../styles/groupchat.css";
+import "../styles/emoji-picker.css";
 import axios from "axios";
 import { useAuth } from "../contexts/AuthContext";
 import TaskManagement from "./TaskManagement";
+import EmojiPicker from "emoji-picker-react";
 
 function GroupChatPage({ user, textSize }) {
   const [groups, setGroups] = useState([]);
@@ -40,6 +42,13 @@ function GroupChatPage({ user, textSize }) {
   const [inviteError, setInviteError] = useState("");
   const [activeTab, setActiveTab] = useState("chat"); // Added for task management
   const [isMobileView, setIsMobileView] = useState(window.innerWidth < 769);
+  const [showMessageOptions, setShowMessageOptions] = useState(null);
+  const [messageToEdit, setMessageToEdit] = useState(null);
+  const [editedMessageText, setEditedMessageText] = useState("");
+  const [showDeleteMessageConfirm, setShowDeleteMessageConfirm] =
+    useState(false);
+  const [messageToDelete, setMessageToDelete] = useState(null);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
 
   // Fetch groups from API
   useEffect(() => {
@@ -47,11 +56,18 @@ function GroupChatPage({ user, textSize }) {
       try {
         const response = await axios.get("/api/groups");
         // Generate avatars for groups and ensure members array exists
-        const groupsWithAvatars = response.data.map((group) => ({
-          ...group,
-          avatar: generateGroupAvatar(group.name),
-          members: Array.isArray(group.members) ? group.members : [],
-        }));
+        const groupsWithAvatars = response.data.map((group) => {
+          // Get unread count from localStorage
+          const unreadKey = `group_unread_${group.id}`;
+          const unreadCount = parseInt(localStorage.getItem(unreadKey) || "0");
+
+          return {
+            ...group,
+            avatar: generateGroupAvatar(group.name),
+            members: Array.isArray(group.members) ? group.members : [],
+            unreadCount: unreadCount,
+          };
+        });
         setGroups(groupsWithAvatars);
 
         // Initialize member counts safely
@@ -125,6 +141,65 @@ function GroupChatPage({ user, textSize }) {
   useEffect(() => {
     if (!socket) return;
 
+    // Listen for message edits
+    socket.on("message_edited", (editedMessage) => {
+      if (!editedMessage?.groupId) return;
+
+      setMessages((prevMessages) => {
+        const groupId = editedMessage.groupId;
+        const existingMessages = Array.isArray(prevMessages[groupId])
+          ? [...prevMessages[groupId]]
+          : [];
+
+        const updatedMessages = existingMessages.map((msg) => {
+          if (msg.id === editedMessage.messageId) {
+            return {
+              ...msg,
+              text: editedMessage.newText,
+              isEdited: true,
+            };
+          }
+          return msg;
+        });
+
+        return {
+          ...prevMessages,
+          [groupId]: updatedMessages,
+        };
+      });
+    });
+
+    // Listen for message deletions
+    socket.on("message_deleted", (deletedMessage) => {
+      if (!deletedMessage?.groupId) return;
+
+      setMessages((prevMessages) => {
+        const groupId = deletedMessage.groupId;
+        const existingMessages = Array.isArray(prevMessages[groupId])
+          ? [...prevMessages[groupId]]
+          : [];
+
+        const updatedMessages = existingMessages.map((msg) => {
+          if (msg.id === deletedMessage.messageId) {
+            return {
+              ...msg,
+              text: "This message was deleted",
+              isDeleted: true,
+              fileUrl: null,
+              fileData: null,
+              fileName: null,
+            };
+          }
+          return msg;
+        });
+
+        return {
+          ...prevMessages,
+          [groupId]: updatedMessages,
+        };
+      });
+    });
+
     socket.on("receive_group_message", (newMessage) => {
       if (!newMessage?.groupId) return;
 
@@ -176,10 +251,39 @@ function GroupChatPage({ user, textSize }) {
         };
       });
 
+      // Show notification if message is from another user
+      if (newMessage.sender !== user?.id) {
+        showNotification(newMessage);
+      }
+
       // Update the group's last message timestamp to move it to the top
       setGroups((prevGroups) => {
         return prevGroups.map((group) => {
           if (group.id === newMessage.groupId) {
+            // Increment unread count if the message is from someone else and not the selected group
+            if (
+              newMessage.sender !== user?.id &&
+              (!selectedGroup || selectedGroup.id !== newMessage.groupId)
+            ) {
+              // Use a flag to prevent double counting
+              if (!newMessage._counted) {
+                // Store unread count in localStorage to persist across page changes
+                const unreadKey = `group_unread_${newMessage.groupId}`;
+                const currentUnread = parseInt(
+                  localStorage.getItem(unreadKey) || "0"
+                );
+                localStorage.setItem(unreadKey, (currentUnread + 1).toString());
+
+                // Mark this message as counted to prevent double counting
+                newMessage._counted = true;
+
+                return {
+                  ...group,
+                  lastMessageTime: newMessage.timestamp,
+                  unreadCount: (group.unreadCount || 0) + 1,
+                };
+              }
+            }
             return {
               ...group,
               lastMessageTime: newMessage.timestamp,
@@ -211,11 +315,6 @@ function GroupChatPage({ user, textSize }) {
           return bTime - aTime;
         });
       });
-
-      // Show notification if message is from another user
-      if (newMessage.sender !== user?.id) {
-        showNotification(newMessage);
-      }
     });
 
     socket.on("group_user_joined", (data) => {
@@ -384,8 +483,8 @@ function GroupChatPage({ user, textSize }) {
       setIsMobileView(window.innerWidth < 769);
     };
 
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
   }, []);
 
   // Generate avatar color based on name
@@ -441,9 +540,27 @@ function GroupChatPage({ user, textSize }) {
           const response = await axios.get(
             `/api/groups/${selectedGroup.id}/messages`
           );
+
+          // Process messages to ensure we don't have duplicate join messages
+          const processedMessages = response.data;
+
+          // Create a Set to track unique join message texts
+          const joinMessages = new Set();
+
+          // Filter out duplicate join messages, keeping only the first occurrence
+          const filteredMessages = processedMessages.filter((msg) => {
+            if (msg.isSystem && msg.text.includes("has joined the group")) {
+              if (joinMessages.has(msg.text)) {
+                return false; // Skip duplicate join messages
+              }
+              joinMessages.add(msg.text);
+            }
+            return true;
+          });
+
           setMessages((prev) => ({
             ...prev,
-            [selectedGroup.id]: response.data,
+            [selectedGroup.id]: filteredMessages,
           }));
         } catch (error) {
           console.error("Error fetching group messages:", error);
@@ -474,8 +591,25 @@ function GroupChatPage({ user, textSize }) {
   const handleGroupSelect = (group) => {
     setSelectedGroup(group);
     setShowGroupDetails(false);
-    // No longer updating lastMessageTime on group selection
-    // Groups should only move to top when messages are sent/received
+
+    // Reset unread count when selecting a group
+    if (group.unreadCount) {
+      // Clear the unread count in localStorage as well
+      const unreadKey = `group_unread_${group.id}`;
+      localStorage.setItem(unreadKey, "0");
+
+      setGroups((prevGroups) => {
+        return prevGroups.map((g) => {
+          if (g.id === group.id) {
+            return {
+              ...g,
+              unreadCount: 0,
+            };
+          }
+          return g;
+        });
+      });
+    }
   };
 
   const handleFileSelection = (e) => {
@@ -762,6 +896,112 @@ function GroupChatPage({ user, textSize }) {
     fileInputRef.current.click();
   };
 
+  const handleEmojiClick = (emojiObject) => {
+    setMessage((prevMessage) => prevMessage + emojiObject.emoji);
+    setShowEmojiPicker(false);
+  };
+
+  // Handle edit message
+  const handleEditMessage = (msg) => {
+    setMessageToEdit(msg);
+    setEditedMessageText(msg.text);
+    setShowMessageOptions(null);
+  };
+
+  // Save edited message
+  const saveEditedMessage = () => {
+    if (!messageToEdit || !editedMessageText.trim()) return;
+
+    // Update message locally first (optimistic update)
+    setMessages((prev) => {
+      const groupMessages = [...(prev[selectedGroup.id] || [])];
+      const messageIndex = groupMessages.findIndex(
+        (msg) => msg.id === messageToEdit.id
+      );
+
+      if (messageIndex !== -1) {
+        groupMessages[messageIndex] = {
+          ...groupMessages[messageIndex],
+          text: editedMessageText,
+          isEdited: true,
+        };
+      }
+
+      return {
+        ...prev,
+        [selectedGroup.id]: groupMessages,
+      };
+    });
+
+    // Send update to server via socket
+    if (socket) {
+      socket.emit("edit_message", {
+        token: localStorage.getItem("token"),
+        messageId: messageToEdit.id,
+        text: editedMessageText,
+      });
+    }
+
+    // Reset edit state
+    setMessageToEdit(null);
+    setEditedMessageText("");
+  };
+
+  // Handle delete message click
+  const handleDeleteMessageClick = (msg) => {
+    setMessageToDelete(msg);
+    setShowDeleteMessageConfirm(true);
+    setShowMessageOptions(null);
+  };
+
+  // Cancel delete message
+  const cancelDeleteMessage = () => {
+    setShowDeleteMessageConfirm(false);
+    setMessageToDelete(null);
+  };
+
+  // Delete message
+  const deleteMessage = () => {
+    if (!messageToDelete) return;
+
+    // Update messages locally first (optimistic update)
+    setMessages((prev) => {
+      const groupMessages = [...(prev[selectedGroup.id] || [])];
+      const messageIndex = groupMessages.findIndex(
+        (msg) => msg.id === messageToDelete.id
+      );
+
+      if (messageIndex !== -1) {
+        groupMessages[messageIndex] = {
+          ...groupMessages[messageIndex],
+          text: "This message was deleted",
+          isDeleted: true,
+          fileUrl: null,
+          fileData: null,
+          fileName: null,
+        };
+      }
+
+      return {
+        ...prev,
+        [selectedGroup.id]: groupMessages,
+      };
+    });
+
+    // Send delete to server via socket
+    if (socket) {
+      socket.emit("delete_group_message", {
+        token: localStorage.getItem("token"),
+        messageId: messageToDelete.id,
+        groupId: selectedGroup.id,
+      });
+    }
+
+    // Reset delete state
+    setShowDeleteMessageConfirm(false);
+    setMessageToDelete(null);
+  };
+
   const handleLeaveGroup = async () => {
     if (!selectedGroup) return;
 
@@ -862,7 +1102,10 @@ function GroupChatPage({ user, textSize }) {
     }
 
     try {
-      if (msg.fileType && msg.fileType.startsWith("image/")) {
+      if (
+        msg.messageType === "image" ||
+        (msg.fileType && msg.fileType.startsWith("image/"))
+      ) {
         return (
           <div className="message-image-container">
             <img
@@ -878,7 +1121,10 @@ function GroupChatPage({ user, textSize }) {
             />
           </div>
         );
-      } else if (msg.fileType && msg.fileType.startsWith("video/")) {
+      } else if (
+        msg.messageType === "video" ||
+        (msg.fileType && msg.fileType.startsWith("video/"))
+      ) {
         return (
           <div className="message-video-container">
             <video
@@ -893,7 +1139,7 @@ function GroupChatPage({ user, textSize }) {
             />
           </div>
         );
-      } else if (fileSource || msg.fileName) {
+      } else if (msg.messageType === "file" || fileSource || msg.fileName) {
         // For other file types
         return (
           <div
@@ -978,7 +1224,11 @@ function GroupChatPage({ user, textSize }) {
 
   return (
     <div className="group-chat-container">
-      <div className={`groups-sidebar ${isMobileView && selectedGroup ? 'mobile-hidden' : ''}`}>
+      <div
+        className={`groups-sidebar ${
+          isMobileView && selectedGroup ? "mobile-hidden" : ""
+        }`}
+      >
         <div className="groups-header">
           <h2>Group Chats</h2>
           <button
@@ -1015,7 +1265,14 @@ function GroupChatPage({ user, textSize }) {
                 {group.name.charAt(0)}
               </div>
               <div className="group-info">
-                <div className="group-name">{group.name}</div>
+                <div className="group-name">
+                  {group.name}
+                  {group.unreadCount > 0 && (
+                    <span className="unread-badge">
+                      {group.unreadCount > 9 ? "9+" : group.unreadCount}
+                    </span>
+                  )}
+                </div>
                 <div className="group-last-message">
                   {messages[group.id]?.length > 0
                     ? messages[group.id][messages[group.id].length - 1].text ||
@@ -1043,14 +1300,18 @@ function GroupChatPage({ user, textSize }) {
         </div>
       </div>
 
-      <div className={`chat-area ${isMobileView && selectedGroup ? 'mobile-visible' : ''}`}>
+      <div
+        className={`chat-area ${
+          isMobileView && selectedGroup ? "mobile-visible" : ""
+        }`}
+      >
         {selectedGroup ? (
           <>
             <div className="chat-header">
               <div className="chat-group-info">
                 {isMobileView && (
-                  <button 
-                    className="back-button" 
+                  <button
+                    className="back-button"
                     onClick={() => setSelectedGroup(null)}
                   >
                     <i className="fas fa-arrow-left"></i>
@@ -1118,8 +1379,72 @@ function GroupChatPage({ user, textSize }) {
                         <div className="sender-name">{msg.senderName}</div>
                       )}
                       {renderFileContent(msg)}
-                      {msg.text && (
-                        <div className="message-text">{msg.text}</div>
+                      {messageToEdit && messageToEdit.id === msg.id ? (
+                        <div className="edit-message-container">
+                          <input
+                            type="text"
+                            className="edit-message-input"
+                            value={editedMessageText}
+                            onChange={(e) =>
+                              setEditedMessageText(e.target.value)
+                            }
+                            autoFocus
+                          />
+                          <div className="edit-message-actions">
+                            <button
+                              className="edit-cancel-btn"
+                              onClick={() => {
+                                setMessageToEdit(null);
+                                setEditedMessageText("");
+                              }}
+                            >
+                              <i className="fas fa-times"></i> Cancel
+                            </button>
+                            <button
+                              className="edit-save-btn"
+                              onClick={() => saveEditedMessage()}
+                            >
+                              <i className="fas fa-check"></i> Save
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        msg.text && (
+                          <div className="message-text">{msg.text}</div>
+                        )
+                      )}
+                      {msg.sender === user.id &&
+                        !msg.isSystem &&
+                        !messageToEdit && (
+                          <div
+                            className="message-options-trigger"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setShowMessageOptions(
+                                showMessageOptions === msg.id ? null : msg.id
+                              );
+                            }}
+                          >
+                            <i className="fas fa-ellipsis-v"></i>
+                          </div>
+                        )}
+                      {showMessageOptions === msg.id && (
+                        <div className="message-options message-options-vertical">
+                          <button
+                            className="message-option-btn"
+                            onClick={() => handleEditMessage(msg)}
+                          >
+                            <i className="fas fa-edit"></i>
+                            <span>Edit</span>
+                          </button>
+                          <button
+                            className="message-option-btn delete"
+                            onClick={() => handleDeleteMessageClick(msg)}
+                          >
+                            <i className="fas fa-trash-alt"></i>
+                            <span>Delete</span>
+                          </button>
+                        </div>
                       )}
                       {msg.text &&
                         msg.sender !== user.id &&
@@ -1230,6 +1555,15 @@ function GroupChatPage({ user, textSize }) {
                     onChange={handleFileSelection}
                     accept="image/*,video/*,application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt"
                   />
+                  {showEmojiPicker && (
+                    <div className="emoji-picker-container">
+                      <EmojiPicker
+                        onEmojiClick={handleEmojiClick}
+                        width={300}
+                        height={400}
+                      />
+                    </div>
+                  )}
                   <div className="input-container">
                     <button
                       type="button"
@@ -1238,6 +1572,14 @@ function GroupChatPage({ user, textSize }) {
                       disabled={isUploading}
                     >
                       <i className="fas fa-paperclip"></i>
+                    </button>
+                    <button
+                      type="button"
+                      className="emoji-button"
+                      onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                      disabled={isUploading}
+                    >
+                      <i className="far fa-smile"></i>
                     </button>
                     <input
                       type="text"
@@ -1573,6 +1915,26 @@ function GroupChatPage({ user, textSize }) {
               </button>
               <button className="btn-danger" onClick={handleDeleteMessages}>
                 Delete Messages
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDeleteMessageConfirm && (
+        <div className="confirm-dialog-overlay">
+          <div className="confirm-dialog">
+            <h4>Delete Message</h4>
+            <p>
+              Are you sure you want to delete this message? This action cannot
+              be undone.
+            </p>
+            <div className="confirm-dialog-actions">
+              <button className="btn-cancel" onClick={cancelDeleteMessage}>
+                Cancel
+              </button>
+              <button className="btn-danger" onClick={deleteMessage}>
+                Delete
               </button>
             </div>
           </div>
