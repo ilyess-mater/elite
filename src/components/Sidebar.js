@@ -5,13 +5,14 @@ function Sidebar({ activePage, setActivePage, isAdmin, onLogout, userName }) {
   const [avatarColor, setAvatarColor] = useState(
     localStorage.getItem("avatarColor") || "#4a6cf7"
   );
+
   const [expanded, setExpanded] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [hoverEnabled, setHoverEnabled] = useState(
     localStorage.getItem("sidebarHoverExpand") === "true"
   );
 
-  // Listen for avatar color changes
+  // Listen for avatar color and profile picture changes
   useEffect(() => {
     const handleAvatarColorChange = (event) => {
       setAvatarColor(event.detail.color);
@@ -36,14 +37,13 @@ function Sidebar({ activePage, setActivePage, isAdmin, onLogout, userName }) {
 
     // Update avatar color from localStorage on mount
     const storedColor = localStorage.getItem("avatarColor");
-    if (storedColor) {
-      setAvatarColor(storedColor);
-      // Force update the avatar color in the DOM on mount
-      const userAvatar = document.querySelector(".user-avatar");
-      if (userAvatar) {
-        userAvatar.style.background = storedColor;
-        userAvatar.style.backgroundImage = "none";
-      }
+
+    // Force update the avatar in the DOM on mount
+    const userAvatar = document.querySelector(".user-avatar");
+    if (userAvatar && storedColor) {
+      userAvatar.style.backgroundColor = storedColor;
+      userAvatar.style.backgroundImage = "none";
+      userAvatar.innerHTML = userName ? userName.charAt(0).toUpperCase() : "U";
     }
 
     // Setup storage event listener to detect changes from other tabs/windows
@@ -53,8 +53,11 @@ function Sidebar({ activePage, setActivePage, isAdmin, onLogout, userName }) {
         // Force update the avatar color in the DOM when changed from another tab
         const userAvatar = document.querySelector(".user-avatar");
         if (userAvatar) {
-          userAvatar.style.background = e.newValue;
+          userAvatar.style.backgroundColor = e.newValue;
           userAvatar.style.backgroundImage = "none";
+          userAvatar.innerHTML = userName
+            ? userName.charAt(0).toUpperCase()
+            : "U";
         }
       }
     };
@@ -71,7 +74,7 @@ function Sidebar({ activePage, setActivePage, isAdmin, onLogout, userName }) {
       );
       window.removeEventListener("storage", handleStorageChange);
     };
-  }, []);
+  }, [avatarColor, userName]);
 
   const handleLogout = () => {
     setShowLogoutConfirm(true);
@@ -138,9 +141,12 @@ function Sidebar({ activePage, setActivePage, isAdmin, onLogout, userName }) {
           <div
             className="user-avatar"
             style={{
-              background: avatarColor || generateAvatarColor(userName),
-              backgroundImage: "none",
+              backgroundColor: avatarColor || generateAvatarColor(userName),
+              backgroundSize: "cover",
+              backgroundPosition: "center",
             }}
+            onClick={() => setActivePage("settings")}
+            title="Profile Settings"
           >
             {userName ? userName.charAt(0).toUpperCase() : "U"}
           </div>
@@ -156,7 +162,7 @@ function Sidebar({ activePage, setActivePage, isAdmin, onLogout, userName }) {
               onClick={() => setActivePage("messaging")}
               title="Messages"
             >
-              <i className="fas fa-comment-alt"></i>
+              <i className="far fa-comment-dots"></i>
               <span className="sidebar-text">Messages</span>
             </li>
 
@@ -167,7 +173,7 @@ function Sidebar({ activePage, setActivePage, isAdmin, onLogout, userName }) {
               onClick={() => setActivePage("contacts")}
               title="Contacts"
             >
-              <i className="fas fa-address-book"></i>
+              <i className="far fa-address-card"></i>
               <span className="sidebar-text">Contacts</span>
             </li>
 
@@ -178,7 +184,7 @@ function Sidebar({ activePage, setActivePage, isAdmin, onLogout, userName }) {
               onClick={() => setActivePage("groups")}
               title="Group Chats"
             >
-              <i className="fas fa-users"></i>
+              <i className="fas fa-user-friends"></i>
               <span className="sidebar-text">Group Chats</span>
             </li>
 
@@ -189,7 +195,7 @@ function Sidebar({ activePage, setActivePage, isAdmin, onLogout, userName }) {
               onClick={() => setActivePage("settings")}
               title="Settings"
             >
-              <i className="fas fa-sliders-h"></i>
+              <i className="fas fa-cog"></i>
               <span className="sidebar-text">Settings</span>
             </li>
 
@@ -200,7 +206,7 @@ function Sidebar({ activePage, setActivePage, isAdmin, onLogout, userName }) {
               onClick={() => setActivePage("security")}
               title="Security"
             >
-              <i className="fas fa-shield-alt"></i>
+              <i className="fas fa-lock"></i>
               <span className="sidebar-text">Security</span>
             </li>
 
@@ -218,7 +224,7 @@ function Sidebar({ activePage, setActivePage, isAdmin, onLogout, userName }) {
                     : "Admin Panel"
                 }
               >
-                <i className="fas fa-user-shield"></i>
+                <i className="fas fa-user-cog"></i>
                 <span className="sidebar-text">
                   {userName &&
                   window.user &&
@@ -237,7 +243,7 @@ function Sidebar({ activePage, setActivePage, isAdmin, onLogout, userName }) {
             onClick={handleLogout}
             title="Logout"
           >
-            <i className="fas fa-sign-out-alt"></i>
+            <i className="fas fa-power-off"></i>
             <span className="sidebar-text">Logout</span>
           </button>
         </div>

@@ -1,10 +1,13 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import "../styles/settings.css";
+import { ChromePicker } from "react-color";
 
 function SettingsPage({ user, darkMode, textSize, applySettings }) {
   const [selectedColor, setSelectedColor] = useState(
     localStorage.getItem("avatarColor") || "#4a6cf7"
   );
+  const [showColorPicker, setShowColorPicker] = useState(false);
+  const colorPickerRef = useRef(null);
   const [settings, setSettings] = useState({
     theme: darkMode ? "dark" : "light",
     fontSize: textSize || "medium",
@@ -26,6 +29,18 @@ function SettingsPage({ user, darkMode, textSize, applySettings }) {
     "#FF6347", // Tomato
     "#4682B4", // Steel Blue
     "#32CD32", // Lime Green
+    "#E91E63", // Pink
+    "#9C27B0", // Purple
+    "#673AB7", // Deep Purple
+    "#3F51B5", // Indigo
+    "#2196F3", // Blue
+    "#03A9F4", // Light Blue
+    "#00BCD4", // Cyan
+    "#009688", // Teal
+    "#4CAF50", // Green
+    "#8BC34A", // Light Green
+    "#CDDC39", // Lime
+    "#FFEB3B", // Yellow
   ];
 
   // Apply font size changes in real-time
@@ -33,6 +48,23 @@ function SettingsPage({ user, darkMode, textSize, applySettings }) {
     document.body.classList.remove("text-small", "text-medium", "text-large");
     document.body.classList.add(`text-${settings.fontSize}`);
   }, [settings.fontSize]);
+
+  // Handle click outside of color picker to close it
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (
+        colorPickerRef.current &&
+        !colorPickerRef.current.contains(event.target)
+      ) {
+        setShowColorPicker(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [colorPickerRef]);
 
   const handleThemeChange = (theme) => {
     setSettings({ ...settings, theme });
@@ -62,13 +94,39 @@ function SettingsPage({ user, darkMode, textSize, applySettings }) {
     document.dispatchEvent(
       new CustomEvent("avatarColorChanged", { detail: { color } })
     );
+  };
 
-    // Apply the color change immediately to the preview
-    const avatarPreview = document.querySelector(".user-avatar-preview");
-    if (avatarPreview) {
-      avatarPreview.style.backgroundColor = color;
+  // Handle color change from the color picker
+  const handleColorPickerChange = (color) => {
+    const hexColor = color.hex;
+    handleAvatarColorChange(hexColor);
+  };
+
+  // Toggle color picker visibility
+  const toggleColorPicker = () => {
+    setShowColorPicker(!showColorPicker);
+
+    // Add/remove backdrop class to body for mobile
+    if (!showColorPicker) {
+      document.body.classList.add("color-picker-open");
+    } else {
+      document.body.classList.remove("color-picker-open");
     }
   };
+
+  // Remove backdrop when component unmounts or color picker closes
+  useEffect(() => {
+    return () => {
+      document.body.classList.remove("color-picker-open");
+    };
+  }, []);
+
+  // Remove backdrop when color picker closes
+  useEffect(() => {
+    if (!showColorPicker) {
+      document.body.classList.remove("color-picker-open");
+    }
+  }, [showColorPicker]);
 
   return (
     <div className="settings-container">
@@ -172,6 +230,34 @@ function SettingsPage({ user, darkMode, textSize, applySettings }) {
                   </div>
                 ))}
               </div>
+
+              <div className="custom-color-option">
+                <button
+                  className="custom-color-button"
+                  onClick={toggleColorPicker}
+                >
+                  <i className="fas fa-palette"></i> Custom Color
+                </button>
+                {showColorPicker && (
+                  <div className="color-picker-container" ref={colorPickerRef}>
+                    <div className="color-picker-header">
+                      <span>Choose a color</span>
+                      <button
+                        className="color-picker-close"
+                        onClick={() => setShowColorPicker(false)}
+                      >
+                        <i className="fas fa-times"></i>
+                      </button>
+                    </div>
+                    <ChromePicker
+                      color={selectedColor}
+                      onChange={handleColorPickerChange}
+                      disableAlpha={true}
+                    />
+                  </div>
+                )}
+              </div>
+
               <div className="avatar-preview">
                 <div
                   className="user-avatar-preview"

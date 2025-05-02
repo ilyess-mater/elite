@@ -109,7 +109,7 @@ function MessagingPage({ user, textSize }) {
         // Handle optimistic messages (our own messages)
         if (newMessage.sender === user.id) {
           // Check if we already have an optimistic version of this message
-          const hasOptimisticVersion = existingMessages.some(
+          const optimisticIndex = existingMessages.findIndex(
             (msg) =>
               msg._isOptimistic &&
               msg.text === newMessage.text &&
@@ -118,21 +118,23 @@ function MessagingPage({ user, textSize }) {
               ) < 5000
           );
 
-          if (hasOptimisticVersion) {
+          if (optimisticIndex !== -1) {
             // Replace the optimistic message with the confirmed one
+            const updatedMessages = [...existingMessages];
+            updatedMessages[optimisticIndex] = {
+              ...newMessage,
+              id: newMessage.id || updatedMessages[optimisticIndex].id,
+            };
+
             return {
               ...prevMessages,
-              [contactId]: existingMessages.map((msg) =>
-                msg._isOptimistic &&
-                msg.text === newMessage.text &&
-                Math.abs(
-                  new Date(msg.timestamp) - new Date(newMessage.timestamp)
-                ) < 5000
-                  ? { ...newMessage, id: newMessage.id || msg.id }
-                  : msg
-              ),
+              [contactId]: updatedMessages,
             };
           }
+
+          // If we get here and it's our own message but no optimistic version found,
+          // it might be a duplicate, so return without adding
+          return prevMessages;
         }
 
         // Show notification if message is new and from someone else
@@ -190,12 +192,19 @@ function MessagingPage({ user, textSize }) {
           });
         }
 
-        // Create a new array with the updated messages
-        const updatedMessages = [...(prevMessages[contactId] || [])];
+        // For messages from other users, add them to the state
+        // Ensure fileData is properly set for rendering
+        if (newMessage.fileUrl) {
+          // For received messages, set fileData to the full URL
+          const baseUrl = window.location.origin;
+          newMessage.fileData = newMessage.fileUrl.startsWith("http")
+            ? newMessage.fileUrl
+            : `${baseUrl}${newMessage.fileUrl}`;
 
-        // Ensure fileData is properly set
-        if (newMessage.fileUrl && !newMessage.fileData) {
-          newMessage.fileData = newMessage.fileUrl;
+          console.log("File URL processed:", {
+            original: newMessage.fileUrl,
+            processed: newMessage.fileData,
+          });
         }
 
         // For debugging
@@ -207,11 +216,10 @@ function MessagingPage({ user, textSize }) {
           });
         }
 
-        updatedMessages.push(newMessage);
-
+        // Create a new array with the updated messages
         return {
           ...prevMessages,
-          [contactId]: updatedMessages,
+          [contactId]: [...(prevMessages[contactId] || []), newMessage],
         };
       });
     });
@@ -728,7 +736,7 @@ function MessagingPage({ user, textSize }) {
             className="message-file-container"
             onClick={() => fileSource && window.open(fileSource, "_blank")}
           >
-            <i className="fas fa-file"></i>
+            <i className="far fa-file-alt"></i>
             <span className="file-name">{msg.fileName || "File"}</span>
           </div>
         );
@@ -1007,7 +1015,7 @@ function MessagingPage({ user, textSize }) {
                   className="chat-action-button"
                   onClick={() => setShowChatDetails(!showChatDetails)}
                 >
-                  <i className="fas fa-info-circle"></i>
+                  <i className="fas fa-ellipsis-h"></i>
                 </button>
               </div>
             </div>
@@ -1072,7 +1080,7 @@ function MessagingPage({ user, textSize }) {
                           );
                         }}
                       >
-                        <i className="fas fa-ellipsis-v"></i>
+                        <i className="fas fa-ellipsis-h"></i>
                       </div>
                     )}
                   {showMessageOptions === msg.id && (
@@ -1084,14 +1092,14 @@ function MessagingPage({ user, textSize }) {
                         className="message-option-btn"
                         onClick={() => handleEditMessage(msg)}
                       >
-                        <i className="fas fa-edit"></i>
+                        <i className="far fa-edit"></i>
                         <span>Edit</span>
                       </button>
                       <button
                         className="message-option-btn delete"
                         onClick={() => handleDeleteMessageConfirm(msg)}
                       >
-                        <i className="fas fa-trash-alt"></i>
+                        <i className="far fa-trash-alt"></i>
                         <span>Delete</span>
                       </button>
                     </div>
@@ -1113,7 +1121,7 @@ function MessagingPage({ user, textSize }) {
                   </div>
                 ) : (
                   <div className="file-icon-preview">
-                    <i className="fas fa-file"></i>
+                    <i className="far fa-file-alt"></i>
                     <span>{filePreview.name}</span>
                   </div>
                 )}
@@ -1158,7 +1166,7 @@ function MessagingPage({ user, textSize }) {
                   onClick={() => setShowEmojiPicker(!showEmojiPicker)}
                   disabled={isUploading}
                 >
-                  <i className="far fa-smile"></i>
+                  <i className="far fa-grin-alt"></i>
                 </button>
                 <input
                   type="text"
@@ -1175,7 +1183,7 @@ function MessagingPage({ user, textSize }) {
                   className="send-button"
                   disabled={isUploading}
                 >
-                  <i className="fas fa-paper-plane"></i>
+                  <i className="far fa-paper-plane"></i>
                 </button>
               </div>
             </form>
@@ -1183,7 +1191,7 @@ function MessagingPage({ user, textSize }) {
         ) : (
           <div className="no-chat-selected">
             <div className="no-chat-icon">
-              <i className="fas fa-comments"></i>
+              <i className="far fa-comment-dots"></i>
             </div>
             <h3>Select a conversation</h3>
             <p>Choose a contact to start messaging</p>
@@ -1235,7 +1243,7 @@ function MessagingPage({ user, textSize }) {
                   className="delete-messages-button"
                   onClick={() => setShowDeleteMessagesConfirm(true)}
                 >
-                  <i className="fas fa-trash-alt"></i> Delete Messages
+                  <i className="far fa-trash-alt"></i> Delete Messages
                 </button>
                 <button
                   className="delete-messages-button"
@@ -1244,7 +1252,7 @@ function MessagingPage({ user, textSize }) {
                     setShowDeleteConfirm(true);
                   }}
                 >
-                  <i className="fas fa-user-minus"></i> Remove from Conversation
+                  <i className="fas fa-user-slash"></i> Remove from Conversation
                 </button>
               </div>
             </div>

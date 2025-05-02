@@ -219,9 +219,9 @@
 }
 
 .action-btn {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
   border: none;
   display: flex;
   align-items: center;
@@ -229,36 +229,37 @@
   cursor: pointer;
   color: white;
   transition: all 0.3s ease;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  font-size: 1rem;
 }
 
 .action-btn:hover {
-  transform: translateY(-3px) scale(1.05);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+  transform: translateY(-3px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 .action-btn.message-btn {
-  background-image: linear-gradient(145deg, #4481eb, #04befe);
+  background-color: #3a86ff;
 }
 
 .action-btn.message-btn:hover {
-  background-image: linear-gradient(145deg, #3b74d9, #04a9e2);
+  background-color: #2a75f0;
 }
 
 .action-btn.edit-btn {
-  background-image: linear-gradient(145deg, #ffb846, #ffa000);
+  background-color: #ffc857;
 }
 
 .action-btn.edit-btn:hover {
-  background-image: linear-gradient(145deg, #f5a520, #f59500);
+  background-color: #f0b846;
 }
 
 .action-btn.delete-btn {
-  background-image: linear-gradient(145deg, #ff5252, #f44336);
+  background-color: #ef476f;
 }
 
 .action-btn.delete-btn:hover {
-  background-image: linear-gradient(145deg, #e04747, #d32f2f);
+  background-color: #e03a62;
 }
 
 .modal-overlay {

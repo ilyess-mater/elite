@@ -1,5 +1,5 @@
 import React, { createContext, useState, useEffect, useContext } from "react";
-import axios from "axios";
+import axios from "../utils/axiosConfig";
 import { io } from "socket.io-client";
 
 // Create the context
@@ -28,7 +28,7 @@ export const AuthProvider = ({ children }) => {
           setUser(JSON.parse(storedUser));
 
           // Initialize socket connection with token for authentication
-          socket = io("/", {
+          socket = io("http://localhost:5000", {
             query: { token: storedToken },
           });
 
@@ -91,7 +91,7 @@ export const AuthProvider = ({ children }) => {
       setUser(user);
 
       // Initialize socket connection
-      socket = io("/", {
+      socket = io("http://localhost:5000", {
         query: { token },
       });
 

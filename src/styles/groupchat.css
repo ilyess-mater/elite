@@ -261,7 +261,7 @@
 }
 
 .unread-badge {
-  background-color: #4a6cf7;
+  background-color: #ff4757;
   color: white;
   border-radius: 50%;
   min-width: 20px;
@@ -272,6 +272,8 @@
   font-size: 12px;
   margin-left: 8px;
   padding: 0 4px;
+  font-weight: bold;
+  box-shadow: 0 2px 4px rgba(255, 71, 87, 0.3);
 }
 
 .dark-mode .group-name {
@@ -1273,21 +1275,44 @@
   display: flex;
   align-items: center;
   background-color: #e9ecef;
-  padding: 5px 10px;
-  border-radius: 15px;
+  padding: 5px 10px 5px 15px;
+  border-radius: 20px;
   font-size: 0.85rem;
   color: #495057;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  transition: all 0.2s ease;
+}
+
+.selected-member:hover {
+  background-color: #e2e6ea;
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.08);
 }
 
 .dark-mode .selected-member {
   background-color: #3a3a4a;
   color: #a7a7b3;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.dark-mode .selected-member:hover {
+  background-color: #444454;
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.25);
 }
 
 .remove-member {
+  background: none;
+  border: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   margin-left: 8px;
   cursor: pointer;
   color: #6c757d;
+  transition: all 0.3s ease;
+  font-size: 0.9rem;
 }
 
 .dark-mode .remove-member {
@@ -1295,11 +1320,14 @@
 }
 
 .remove-member:hover {
-  color: #dc3545;
+  color: #4a6cf7;
+  transform: rotate(90deg);
+  background-color: rgba(74, 108, 247, 0.1);
 }
 
 .dark-mode .remove-member:hover {
-  color: #ea868f;
+  color: #7a9fff;
+  background-color: rgba(122, 159, 255, 0.1);
 }
 
 .suggested-members {

@@ -220,11 +220,7 @@ function GroupChatPage({ user, textSize }) {
               Math.abs(
                 new Date(msg?.timestamp || 0) -
                   new Date(newMessage.timestamp || 0)
-              ) < 2000) ||
-            // Check optimistic messages that might have been replaced
-            (msg?._isOptimistic &&
-              msg?.text === newMessage.text &&
-              msg?.sender === newMessage.sender)
+              ) < 2000)
         );
 
         if (isDuplicate) {
@@ -235,19 +231,56 @@ function GroupChatPage({ user, textSize }) {
           return prevMessages;
         }
 
-        // Remove any optimistic version of this message if it exists
-        const filteredMessages = existingMessages.filter(
-          (msg) =>
-            !(
+        // Handle optimistic messages (our own messages)
+        if (newMessage.sender === user?.id) {
+          // Check if we already have an optimistic version of this message
+          const optimisticIndex = existingMessages.findIndex(
+            (msg) =>
               msg?._isOptimistic &&
               msg?.text === newMessage.text &&
-              msg?.sender === newMessage.sender
-            )
-        );
+              Math.abs(
+                new Date(msg?.timestamp || 0) -
+                  new Date(newMessage.timestamp || 0)
+              ) < 5000
+          );
+
+          if (optimisticIndex !== -1) {
+            // Replace the optimistic message with the confirmed one
+            const updatedMessages = [...existingMessages];
+            updatedMessages[optimisticIndex] = {
+              ...newMessage,
+              id: newMessage.id || updatedMessages[optimisticIndex].id,
+            };
+
+            return {
+              ...prevMessages,
+              [groupId]: updatedMessages,
+            };
+          }
+
+          // If we get here and it's our own message but no optimistic version found,
+          // it might be a duplicate, so return without adding
+          return prevMessages;
+        }
+
+        // For messages from other users, add them to the state
+        // Ensure fileData is properly set for rendering
+        if (newMessage.fileUrl) {
+          // For received messages, set fileData to the full URL
+          const baseUrl = window.location.origin;
+          newMessage.fileData = newMessage.fileUrl.startsWith("http")
+            ? newMessage.fileUrl
+            : `${baseUrl}${newMessage.fileUrl}`;
+
+          console.log("Group file URL processed:", {
+            original: newMessage.fileUrl,
+            processed: newMessage.fileData,
+          });
+        }
 
         return {
           ...prevMessages,
-          [groupId]: [...filteredMessages, newMessage],
+          [groupId]: [...existingMessages, newMessage],
         };
       });
 
@@ -256,7 +289,7 @@ function GroupChatPage({ user, textSize }) {
         showNotification(newMessage);
       }
 
-      // Update the group's last message timestamp to move it to the top
+      // Update the group's last message timestamp and unread count
       setGroups((prevGroups) => {
         return prevGroups.map((group) => {
           if (group.id === newMessage.groupId) {
@@ -265,24 +298,23 @@ function GroupChatPage({ user, textSize }) {
               newMessage.sender !== user?.id &&
               (!selectedGroup || selectedGroup.id !== newMessage.groupId)
             ) {
-              // Use a flag to prevent double counting
-              if (!newMessage._counted) {
-                // Store unread count in localStorage to persist across page changes
-                const unreadKey = `group_unread_${newMessage.groupId}`;
-                const currentUnread = parseInt(
-                  localStorage.getItem(unreadKey) || "0"
-                );
-                localStorage.setItem(unreadKey, (currentUnread + 1).toString());
+              // Store unread count in localStorage to persist across page changes
+              const unreadKey = `group_unread_${newMessage.groupId}`;
+              const currentUnread = parseInt(
+                localStorage.getItem(unreadKey) || "0"
+              );
+              const newUnreadCount = currentUnread + 1;
+              localStorage.setItem(unreadKey, newUnreadCount.toString());
 
-                // Mark this message as counted to prevent double counting
-                newMessage._counted = true;
+              console.log(
+                `Incrementing unread count for group ${group.id} to ${newUnreadCount}`
+              );
 
-                return {
-                  ...group,
-                  lastMessageTime: newMessage.timestamp,
-                  unreadCount: (group.unreadCount || 0) + 1,
-                };
-              }
+              return {
+                ...group,
+                lastMessageTime: newMessage.timestamp,
+                unreadCount: newUnreadCount,
+              };
             }
             return {
               ...group,
@@ -425,6 +457,8 @@ function GroupChatPage({ user, textSize }) {
       socket.off("receive_group_message");
       socket.off("group_user_joined");
       socket.off("group_user_left");
+      socket.off("message_edited");
+      socket.off("message_deleted");
     };
   }, [socket, user?.id, showNotification]);
 
@@ -935,10 +969,11 @@ function GroupChatPage({ user, textSize }) {
 
     // Send update to server via socket
     if (socket) {
-      socket.emit("edit_message", {
+      socket.emit("edit_group_message", {
         token: localStorage.getItem("token"),
         messageId: messageToEdit.id,
-        text: editedMessageText,
+        groupId: selectedGroup.id,
+        newText: editedMessageText,
       });
     }
 
@@ -1235,7 +1270,7 @@ function GroupChatPage({ user, textSize }) {
             className="create-group-btn"
             onClick={() => setShowCreateGroup(true)}
           >
-            <i className="fas fa-plus"></i> Create New Group
+            <i className="fas fa-user-plus"></i> Create New Group
           </button>
         </div>
         <div className="groups-search">
@@ -1340,7 +1375,7 @@ function GroupChatPage({ user, textSize }) {
                   className="chat-action-button"
                   onClick={() => setShowGroupDetails(!showGroupDetails)}
                 >
-                  <i className="fas fa-info-circle"></i>
+                  <i className="fas fa-ellipsis-h"></i>
                 </button>
               </div>
             </div>
@@ -1351,13 +1386,13 @@ function GroupChatPage({ user, textSize }) {
                 className={`tab-btn ${activeTab === "chat" ? "active" : ""}`}
                 onClick={() => setActiveTab("chat")}
               >
-                <i className="fas fa-comment-alt"></i> Chat
+                <i className="far fa-comment-dots"></i> Chat
               </button>
               <button
                 className={`tab-btn ${activeTab === "tasks" ? "active" : ""}`}
                 onClick={() => setActiveTab("tasks")}
               >
-                <i className="fas fa-tasks"></i> Tasks
+                <i className="fas fa-clipboard-list"></i> Tasks
               </button>
             </div>
 
@@ -1579,7 +1614,7 @@ function GroupChatPage({ user, textSize }) {
                       onClick={() => setShowEmojiPicker(!showEmojiPicker)}
                       disabled={isUploading}
                     >
-                      <i className="far fa-smile"></i>
+                      <i className="far fa-grin-alt"></i>
                     </button>
                     <input
                       type="text"
@@ -1596,7 +1631,7 @@ function GroupChatPage({ user, textSize }) {
                       className="send-button"
                       disabled={isUploading}
                     >
-                      <i className="fas fa-paper-plane"></i>
+                      <i className="far fa-paper-plane"></i>
                     </button>
                   </div>
                 </form>

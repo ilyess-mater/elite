@@ -10,7 +10,7 @@ function SignUpForm({ onSignUp }) {
     confirmPassword: "",
     isAdmin: false,
     adminPassword: "",
-    adminRole: "admin", // Default admin role
+    adminRole: "admin_master", // Only admin master role is available
   });
 
   const [errors, setErrors] = useState({});
@@ -87,7 +87,7 @@ function SignUpForm({ onSignUp }) {
         // Show success message
         setSuccessMessage(
           `Account created successfully! ${
-            user.isAdmin ? "(Admin)" : ""
+            user.isAdmin ? "(Admin Master)" : ""
           } Please sign in.`
         );
 
@@ -99,6 +99,7 @@ function SignUpForm({ onSignUp }) {
           confirmPassword: "",
           isAdmin: false,
           adminPassword: "",
+          adminRole: "admin_master",
         });
 
         // After successful registration, switch to sign in mode after a short delay
@@ -205,34 +206,12 @@ function SignUpForm({ onSignUp }) {
             checked={formData.isAdmin}
             onChange={handleChange}
           />
-          <span className="checkbox-text">Register as Admin</span>
+          <span className="checkbox-text">Register as Admin Master</span>
         </label>
       </div>
 
       {formData.isAdmin && (
         <>
-          <div className="admin-role-selection">
-            <label className="admin-role-option">
-              <input
-                type="radio"
-                name="adminRole"
-                value="admin"
-                checked={formData.adminRole === "admin"}
-                onChange={handleChange}
-              />
-              <span className="radio-text">Regular Admin</span>
-            </label>
-            <label className="admin-role-option">
-              <input
-                type="radio"
-                name="adminRole"
-                value="admin_master"
-                checked={formData.adminRole === "admin_master"}
-                onChange={handleChange}
-              />
-              <span className="radio-text">Admin Master</span>
-            </label>
-          </div>
           <div
             className={`input-field ${
               errors.adminPassword ? "input-error" : ""
@@ -244,11 +223,7 @@ function SignUpForm({ onSignUp }) {
               name="adminPassword"
               value={formData.adminPassword}
               onChange={handleChange}
-              placeholder={
-                formData.adminRole === "admin_master"
-                  ? "Admin Master Password"
-                  : "Admin Password"
-              }
+              placeholder="Admin Master Password"
             />
           </div>
           {errors.adminPassword && (

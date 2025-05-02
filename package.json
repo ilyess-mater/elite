@@ -11,6 +11,7 @@
     "axios": "^1.8.4",
     "emoji-picker-react": "^4.12.2",
     "react": "^19.1.0",
+    "react-color": "^2.19.3",
     "react-dom": "^19.1.0",
     "react-helmet": "^6.1.0",
     "react-router-dom": "^6.20.0",
