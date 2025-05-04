@@ -403,12 +403,30 @@ function MessagingPage({ user, textSize }) {
   // Generate random avatar color based on user name
   function generateAvatar(name) {
     const colors = [
-      "#FF5733",
-      "#33FF57",
-      "#3357FF",
-      "#F333FF",
-      "#FF33F3",
-      "#33FFF3",
+      "#FF5733", // Orange/Red
+      "#33FF57", // Green
+      "#3357FF", // Blue
+      "#F333FF", // Purple
+      "#FF33F3", // Pink
+      "#33FFF3", // Cyan
+      "#FFD700", // Gold
+      "#9370DB", // Medium Purple
+      "#20B2AA", // Light Sea Green
+      "#FF6347", // Tomato
+      "#4682B4", // Steel Blue
+      "#32CD32", // Lime Green
+      "#E91E63", // Pink
+      "#9C27B0", // Purple
+      "#673AB7", // Deep Purple
+      "#3F51B5", // Indigo
+      "#2196F3", // Blue
+      "#03A9F4", // Light Blue
+      "#00BCD4", // Cyan
+      "#009688", // Teal
+      "#4CAF50", // Green
+      "#8BC34A", // Light Green
+      "#CDDC39", // Lime
+      "#FFEB3B", // Yellow
     ];
     let hash = 0;
     for (let i = 0; i < name.length; i++) {
@@ -935,11 +953,13 @@ function MessagingPage({ user, textSize }) {
               }`}
               onClick={() => handleContactSelect(contact)}
             >
-              <div
-                className="contact-avatar"
-                style={{ backgroundColor: contact.avatar }}
-              >
-                {contact.name.charAt(0)}
+              <div className="contact-avatar-wrapper">
+                <div
+                  className="contact-avatar"
+                  style={{ backgroundColor: contact.avatar }}
+                >
+                  {contact.name.charAt(0)}
+                </div>
                 <div
                   className={`contact-status ${
                     contact.isActive ? "active" : ""
@@ -995,11 +1015,18 @@ function MessagingPage({ user, textSize }) {
                 </button>
               )}
               <div className="chat-contact-info">
-                <div
-                  className="contact-avatar"
-                  style={{ backgroundColor: selectedContact.avatar }}
-                >
-                  {selectedContact.name.charAt(0)}
+                <div className="contact-avatar-wrapper">
+                  <div
+                    className="contact-avatar"
+                    style={{ backgroundColor: selectedContact.avatar }}
+                  >
+                    {selectedContact.name.charAt(0)}
+                  </div>
+                  <div
+                    className={`contact-status ${
+                      selectedContact.isActive ? "active" : ""
+                    }`}
+                  ></div>
                 </div>
                 <div className="chat-contact-details">
                   <div className="chat-contact-name">
@@ -1212,11 +1239,18 @@ function MessagingPage({ user, textSize }) {
           </div>
           <div className="chat-details-content">
             <div className="contact-profile">
-              <div
-                className="contact-avatar large"
-                style={{ backgroundColor: selectedContact.avatar }}
-              >
-                {selectedContact.name.charAt(0)}
+              <div className="contact-avatar-wrapper">
+                <div
+                  className="contact-avatar large"
+                  style={{ backgroundColor: selectedContact.avatar }}
+                >
+                  {selectedContact.name.charAt(0)}
+                </div>
+                <div
+                  className={`contact-status ${
+                    selectedContact.isActive ? "active" : ""
+                  }`}
+                ></div>
               </div>
               <h4 className="contact-name">{selectedContact.name}</h4>
               <div className="contact-status-text">

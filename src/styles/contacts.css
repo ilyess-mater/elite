@@ -73,6 +73,70 @@
   color: #777;
 }
 
+.department-filter {
+  position: relative;
+}
+
+.department-select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-color: #f5f5f5;
+  border: 1px solid #e0e0e0;
+  border-radius: 20px;
+  padding: 0 35px 0 15px;
+  height: 40px;
+  width: 200px;
+  color: #333;
+  font-size: 0.95rem;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23777' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 15px center;
+  background-size: 15px;
+  transition: all 0.3s ease;
+}
+
+.department-select:focus {
+  outline: none;
+  border-color: #4481eb;
+  box-shadow: 0 0 0 2px rgba(68, 129, 235, 0.2);
+}
+
+.dark-mode .department-select {
+  background-color: #2c2c2c;
+  border-color: #444;
+  color: white;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23aaa' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+}
+
+.department-select option {
+  font-weight: 500;
+  background-color: white;
+  color: #333;
+}
+
+.dark-mode .department-select option {
+  background-color: #333;
+  color: white;
+}
+
+.department-note {
+  color: #666;
+  font-size: 0.9rem;
+  margin: 0;
+  padding: 10px;
+  background-color: #f8f9fa;
+  border-radius: 5px;
+  border-left: 3px solid #4481eb;
+}
+
+.dark-mode .department-note {
+  color: #ccc;
+  background-color: #333;
+  border-left-color: #4481eb;
+}
+
 .add-contact-btn {
   background-image: linear-gradient(to right, #4481eb, #04befe);
   color: white;
@@ -174,15 +238,130 @@
   justify-content: center;
   font-weight: 500;
   color: white;
-  font-size: 1.1rem;
-  background-image: linear-gradient(145deg, #4481eb 0%, #04befe 100%);
-  box-shadow: 0 4px 10px rgba(68, 129, 235, 0.2);
+  font-size: 1rem;
+  /* background-image removed to allow custom colors */
+  box-shadow: 0 4px 10px rgba(68, 129, 235, 0.3),
+    0 0 12px rgba(68, 129, 235, 0.2);
   transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+  animation: contact-avatar-glow 4s ease-in-out infinite;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+}
+
+.contact-avatar::before {
+  content: "";
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(
+    45deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.2) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  transform: rotate(45deg);
+  animation: contact-wave-shine 6s linear infinite,
+    contact-wave-pulse 8s ease-in-out infinite;
+  z-index: 1;
+}
+
+.contact-avatar::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    145deg,
+    rgba(255, 255, 255, 0.3) 0%,
+    rgba(255, 255, 255, 0) 60%
+  );
+  border-radius: 14px;
+  z-index: 0;
+  animation: contact-wave-ripple 10s ease-in-out infinite;
 }
 
 .contact-avatar:hover {
   transform: scale(1.05);
-  box-shadow: 0 6px 15px rgba(68, 129, 235, 0.3);
+  box-shadow: 0 6px 15px rgba(68, 129, 235, 0.4),
+    0 0 15px rgba(68, 129, 235, 0.3);
+  animation: contact-avatar-glow-hover 2s ease-in-out infinite;
+}
+
+@keyframes contact-wave-shine {
+  0% {
+    transform: translateX(-100%) translateY(-100%) rotate(45deg);
+  }
+  100% {
+    transform: translateX(100%) translateY(100%) rotate(45deg);
+  }
+}
+
+@keyframes contact-avatar-glow {
+  0% {
+    box-shadow: 0 4px 10px rgba(68, 129, 235, 0.3),
+      0 0 12px rgba(68, 129, 235, 0.2);
+  }
+  50% {
+    box-shadow: 0 6px 15px rgba(68, 129, 235, 0.5),
+      0 0 18px rgba(68, 129, 235, 0.4);
+  }
+  100% {
+    box-shadow: 0 4px 10px rgba(68, 129, 235, 0.3),
+      0 0 12px rgba(68, 129, 235, 0.2);
+  }
+}
+
+@keyframes contact-avatar-glow-hover {
+  0% {
+    box-shadow: 0 6px 15px rgba(68, 129, 235, 0.4),
+      0 0 15px rgba(68, 129, 235, 0.3);
+  }
+  50% {
+    box-shadow: 0 8px 20px rgba(68, 129, 235, 0.6),
+      0 0 20px rgba(68, 129, 235, 0.5);
+  }
+  100% {
+    box-shadow: 0 6px 15px rgba(68, 129, 235, 0.4),
+      0 0 15px rgba(68, 129, 235, 0.3);
+  }
+}
+
+@keyframes contact-wave-pulse {
+  0% {
+    opacity: 0.7;
+    width: 200%;
+    height: 200%;
+  }
+  50% {
+    opacity: 0.9;
+    width: 220%;
+    height: 220%;
+  }
+  100% {
+    opacity: 0.7;
+    width: 200%;
+    height: 200%;
+  }
+}
+
+@keyframes contact-wave-ripple {
+  0% {
+    transform: scale(1);
+    opacity: 0.7;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 0.7;
+  }
 }
 
 .status-indicator {
@@ -213,6 +392,73 @@
   color: #aaa;
 }
 
+/* Department badge styles */
+.department-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: white;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
+}
+
+.department-badge:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* Department-specific colors */
+.department-badge.human-resources {
+  background-color: #ff6b6b;
+}
+
+.department-badge.marketing {
+  background-color: #4ecdc4;
+}
+
+.department-badge.finance {
+  background-color: #45b7d1;
+}
+
+.department-badge.it {
+  background-color: #7367f0;
+}
+
+.department-badge.operations {
+  background-color: #ff9f43;
+}
+
+.department-badge.sales {
+  background-color: #28c76f;
+}
+
+.department-badge.customer-service {
+  background-color: #ea5455;
+}
+
+.department-badge.research-development {
+  background-color: #9f44d3;
+}
+
+.department-badge.development {
+  background-color: #5a8dee;
+}
+
+.department-badge.legal {
+  background-color: #a66a2c;
+}
+
+.department-badge.executive {
+  background-color: #475f7b;
+}
+
+/* Dark mode adjustments */
+.dark-mode .department-badge {
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
 .contact-actions {
   display: flex;
   gap: 8px;
@@ -221,7 +467,7 @@
 .action-btn {
   width: 38px;
   height: 38px;
-  border-radius: 12px;
+  border-radius: 13px;
   border: none;
   display: flex;
   align-items: center;

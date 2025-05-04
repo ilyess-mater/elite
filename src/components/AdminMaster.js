@@ -240,12 +240,30 @@ function AdminMaster({ user }) {
     if (!name) return "#777";
 
     const colors = [
-      "#FF5733",
-      "#33FF57",
-      "#3357FF",
-      "#F333FF",
-      "#FF33F3",
-      "#33FFF3",
+      "#FF5733", // Orange/Red
+      "#33FF57", // Green
+      "#3357FF", // Blue
+      "#F333FF", // Purple
+      "#FF33F3", // Pink
+      "#33FFF3", // Cyan
+      "#FFD700", // Gold
+      "#9370DB", // Medium Purple
+      "#20B2AA", // Light Sea Green
+      "#FF6347", // Tomato
+      "#4682B4", // Steel Blue
+      "#32CD32", // Lime Green
+      "#E91E63", // Pink
+      "#9C27B0", // Purple
+      "#673AB7", // Deep Purple
+      "#3F51B5", // Indigo
+      "#2196F3", // Blue
+      "#03A9F4", // Light Blue
+      "#00BCD4", // Cyan
+      "#009688", // Teal
+      "#4CAF50", // Green
+      "#8BC34A", // Light Green
+      "#CDDC39", // Lime
+      "#FFEB3B", // Yellow
     ];
 
     let hash = 0;

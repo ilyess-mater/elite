@@ -209,14 +209,37 @@
   font-weight: 600;
   color: #fff;
   flex-shrink: 0;
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15), 0 0 12px rgba(68, 129, 235, 0.25);
   position: relative;
   transition: all 0.3s ease;
-  background-image: linear-gradient(145deg, #4481eb 0%, #04befe 100%);
+  overflow: hidden;
+  animation: contact-avatar-glow 4s ease-in-out infinite;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  /* Remove default background-image to allow custom colors */
 }
 
 .contact-item:hover .contact-avatar {
   transform: scale(1.05);
+  animation: contact-avatar-glow-hover 2s ease-in-out infinite;
+}
+
+.contact-avatar::before {
+  content: "";
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(
+    45deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.2) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  transform: rotate(45deg);
+  animation: contact-wave-shine 6s linear infinite,
+    contact-wave-pulse 8s ease-in-out infinite;
+  z-index: 1;
 }
 
 .contact-avatar::after {
@@ -228,37 +251,45 @@
   bottom: 0;
   background: linear-gradient(
     145deg,
-    rgba(255, 255, 255, 0.2) 0%,
+    rgba(255, 255, 255, 0.3) 0%,
     rgba(255, 255, 255, 0) 60%
   );
-  border-radius: 16px;
+  border-radius: 18px;
+  z-index: 0;
+  animation: contact-wave-ripple 10s ease-in-out infinite;
+}
+
+.contact-avatar-wrapper {
+  position: relative;
+  margin-right: 16px;
 }
 
 .contact-status {
   position: absolute;
-  bottom: 2px;
-  right: 2px;
-  width: 14px;
-  height: 14px;
+  bottom: -2px;
+  right: 7px;
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
   border: 2px solid #fff;
   background-color: #ccc;
   transition: all 0.3s ease;
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.1);
+  z-index: 2;
 }
 
 .dark-mode .contact-status {
   border-color: #2a2a3a;
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.2);
 }
 
 .contact-status.active {
   background-color: #4caf50;
-  box-shadow: 0 0 0 1px rgba(76, 175, 80, 0.3), 0 0 0 3px rgba(76, 175, 80, 0.1);
+  box-shadow: 0 0 4px rgba(76, 175, 80, 0.4);
 }
 
 .contact-item.active .contact-status.active {
-  box-shadow: 0 0 0 1px rgba(76, 175, 80, 0.5), 0 0 0 3px rgba(76, 175, 80, 0.2);
+  box-shadow: 0 0 5px rgba(76, 175, 80, 0.5);
 }
 
 .contact-info {
@@ -415,6 +446,75 @@
   }
 }
 
+@keyframes contact-wave-shine {
+  0% {
+    transform: translateX(-100%) translateY(-100%) rotate(45deg);
+  }
+  100% {
+    transform: translateX(100%) translateY(100%) rotate(45deg);
+  }
+}
+
+@keyframes contact-avatar-glow {
+  0% {
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15),
+      0 0 12px rgba(68, 129, 235, 0.25);
+  }
+  50% {
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2), 0 0 18px rgba(68, 129, 235, 0.4);
+  }
+  100% {
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15),
+      0 0 12px rgba(68, 129, 235, 0.25);
+  }
+}
+
+@keyframes contact-avatar-glow-hover {
+  0% {
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15), 0 0 15px rgba(68, 129, 235, 0.3);
+  }
+  50% {
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.25),
+      0 0 20px rgba(68, 129, 235, 0.5);
+  }
+  100% {
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15), 0 0 15px rgba(68, 129, 235, 0.3);
+  }
+}
+
+@keyframes contact-wave-pulse {
+  0% {
+    opacity: 0.7;
+    width: 200%;
+    height: 200%;
+  }
+  50% {
+    opacity: 0.9;
+    width: 220%;
+    height: 220%;
+  }
+  100% {
+    opacity: 0.7;
+    width: 200%;
+    height: 200%;
+  }
+}
+
+@keyframes contact-wave-ripple {
+  0% {
+    transform: scale(1);
+    opacity: 0.7;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 0.7;
+  }
+}
+
 .dark-mode .chat-details-sidebar {
   background-color: #2d2d3a;
   border-left: 1px solid #3a3a48;
@@ -502,7 +602,75 @@
   height: 80px;
   border-radius: 24px;
   font-size: 32px;
-  margin-bottom: 15px;
+  animation: contact-avatar-large-glow 4s ease-in-out infinite;
+  overflow: hidden;
+}
+
+.contact-profile .contact-avatar-wrapper {
+  margin: 0 auto 15px;
+  position: relative;
+  width: 80px;
+  height: 80px;
+}
+
+.contact-profile .contact-status {
+  width: 16px;
+  height: 16px;
+  border: 2px solid #fff;
+  bottom: -1px;
+  right: -1px;
+}
+
+.dark-mode .contact-profile .contact-status {
+  border-color: #2a2a3a;
+}
+
+.contact-avatar.large::before {
+  content: "";
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(
+    45deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.1) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  transform: rotate(45deg);
+  animation: contact-wave-shine 6s linear infinite,
+    contact-wave-pulse 8s ease-in-out infinite;
+  z-index: 1;
+}
+
+.contact-avatar.large::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    145deg,
+    rgba(255, 255, 255, 0.2) 0%,
+    rgba(255, 255, 255, 0) 60%
+  );
+  border-radius: 24px;
+  z-index: 0;
+  animation: contact-wave-ripple 10s ease-in-out infinite;
+}
+
+@keyframes contact-avatar-large-glow {
+  0% {
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+  }
+  50% {
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.25);
+  }
+  100% {
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+  }
 }
 
 .contact-profile .contact-name {

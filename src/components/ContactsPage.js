@@ -13,9 +13,11 @@ function ContactsPage({ user }) {
     department: "",
   });
   const [searchTerm, setSearchTerm] = useState("");
+  const [departmentFilter, setDepartmentFilter] = useState("");
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [departments, setDepartments] = useState([]);
 
   // Fetch contacts from API
   useEffect(() => {
@@ -23,6 +25,17 @@ function ContactsPage({ user }) {
       try {
         const response = await axios.get("/api/contacts");
         setContacts(response.data);
+
+        // Extract unique departments from contacts
+        const uniqueDepartments = [
+          ...new Set(
+            response.data
+              .map((contact) => contact.department)
+              .filter((dept) => dept && dept.trim() !== "")
+          ),
+        ].sort();
+
+        setDepartments(uniqueDepartments);
       } catch (error) {
         console.error("Error fetching contacts:", error);
         setError("Failed to load contacts. Please try again.");
@@ -35,12 +48,30 @@ function ContactsPage({ user }) {
   // Generate random avatar color based on user name
   function generateAvatar(name) {
     const colors = [
-      "#FF5733",
-      "#33FF57",
-      "#3357FF",
-      "#F333FF",
-      "#FF33F3",
-      "#33FFF3",
+      "#FF5733", // Orange/Red
+      "#33FF57", // Green
+      "#3357FF", // Blue
+      "#F333FF", // Purple
+      "#FF33F3", // Pink
+      "#33FFF3", // Cyan
+      "#FFD700", // Gold
+      "#9370DB", // Medium Purple
+      "#20B2AA", // Light Sea Green
+      "#FF6347", // Tomato
+      "#4682B4", // Steel Blue
+      "#32CD32", // Lime Green
+      "#E91E63", // Pink
+      "#9C27B0", // Purple
+      "#673AB7", // Deep Purple
+      "#3F51B5", // Indigo
+      "#2196F3", // Blue
+      "#03A9F4", // Light Blue
+      "#00BCD4", // Cyan
+      "#009688", // Teal
+      "#4CAF50", // Green
+      "#8BC34A", // Light Green
+      "#CDDC39", // Lime
+      "#FFEB3B", // Yellow
     ];
     let hash = 0;
     for (let i = 0; i < name.length; i++) {
@@ -79,7 +110,6 @@ function ContactsPage({ user }) {
       // Send request to add contact
       const response = await axios.post("/api/contacts", {
         email: newContact.email,
-        department: newContact.department,
       });
 
       // Add new contact to the state
@@ -167,13 +197,20 @@ function ContactsPage({ user }) {
     window.location.href = "/messaging";
   };
 
-  const filteredContacts = contacts.filter(
-    (contact) =>
+  const filteredContacts = contacts.filter((contact) => {
+    // First filter by department if a department filter is selected
+    if (departmentFilter && contact.department !== departmentFilter) {
+      return false;
+    }
+
+    // Then filter by search term
+    return (
       contact.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       contact.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (contact.department &&
         contact.department.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+    );
+  });
 
   return (
     <div className="contacts-page-container">
@@ -190,6 +227,22 @@ function ContactsPage({ user }) {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
+
+          <div className="department-filter">
+            <select
+              value={departmentFilter}
+              onChange={(e) => setDepartmentFilter(e.target.value)}
+              className="department-select"
+            >
+              <option value="">All Departments</option>
+              {departments.map((dept, index) => (
+                <option key={index} value={dept}>
+                  {dept}
+                </option>
+              ))}
+            </select>
+          </div>
+
           <button
             className="add-contact-btn"
             onClick={() => setShowAddContact(true)}
@@ -237,7 +290,19 @@ function ContactsPage({ user }) {
                   </div>
                 </td>
                 <td>{contact.email}</td>
-                <td>{contact.department || "-"}</td>
+                <td>
+                  {contact.department ? (
+                    <span
+                      className={`department-badge ${contact.department
+                        .toLowerCase()
+                        .replace(/[&\s]+/g, "-")}`}
+                    >
+                      {contact.department}
+                    </span>
+                  ) : (
+                    "-"
+                  )}
+                </td>
                 <td>
                   <span
                     className={`status-indicator ${
@@ -307,14 +372,10 @@ function ContactsPage({ user }) {
               </div>
 
               <div className="form-group">
-                <label>Department (Optional)</label>
-                <input
-                  type="text"
-                  name="department"
-                  value={newContact.department}
-                  onChange={handleInputChange}
-                  placeholder="Enter department"
-                />
+                <p className="department-note">
+                  <i className="fas fa-info-circle"></i> Department will be
+                  automatically retrieved from the user's profile.
+                </p>
               </div>
             </div>
 

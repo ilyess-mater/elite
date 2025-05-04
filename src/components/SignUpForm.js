@@ -8,10 +8,27 @@ function SignUpForm({ onSignUp }) {
     email: "",
     password: "",
     confirmPassword: "",
+    department: "",
     isAdmin: false,
     adminPassword: "",
     adminRole: "admin_master", // Only admin master role is available
   });
+
+  // Department options
+  const departments = [
+    "Select Department",
+    "Human Resources",
+    "Marketing",
+    "Finance",
+    "IT",
+    "Operations",
+    "Sales",
+    "Customer Service",
+    "Research & Development",
+    "Development",
+    "Legal",
+    "Executive",
+  ];
 
   const [errors, setErrors] = useState({});
   const [successMessage, setSuccessMessage] = useState("");
@@ -67,6 +84,10 @@ function SignUpForm({ onSignUp }) {
       newErrors.confirmPassword = "Passwords do not match";
     }
 
+    if (!formData.department || formData.department === "Select Department") {
+      newErrors.department = "Please select a department";
+    }
+
     if (formData.isAdmin && !formData.adminPassword.trim()) {
       newErrors.adminPassword = "Admin password is required";
     }
@@ -97,6 +118,7 @@ function SignUpForm({ onSignUp }) {
           email: "",
           password: "",
           confirmPassword: "",
+          department: "",
           isAdmin: false,
           adminPassword: "",
           adminRole: "admin_master",
@@ -167,6 +189,28 @@ function SignUpForm({ onSignUp }) {
         />
       </div>
       {errors.email && <div className="error-message">{errors.email}</div>}
+
+      <div className={`input-field ${errors.department ? "input-error" : ""}`}>
+        <i className="fas fa-building"></i>
+        <select
+          name="department"
+          value={formData.department}
+          onChange={handleChange}
+          className="department-select"
+        >
+          {departments.map((dept, index) => (
+            <option
+              key={index}
+              value={dept === "Select Department" ? "" : dept}
+            >
+              {dept}
+            </option>
+          ))}
+        </select>
+      </div>
+      {errors.department && (
+        <div className="error-message">{errors.department}</div>
+      )}
 
       <div className={`input-field ${errors.password ? "input-error" : ""}`}>
         <i className="fas fa-lock"></i>

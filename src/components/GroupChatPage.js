@@ -22,6 +22,8 @@ function GroupChatPage({ user, textSize }) {
   const [newGroup, setNewGroup] = useState({
     name: "",
     description: "",
+    isDepartmentGroup: false,
+    department: "",
   });
   const [selectedMembers, setSelectedMembers] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -49,6 +51,21 @@ function GroupChatPage({ user, textSize }) {
     useState(false);
   const [messageToDelete, setMessageToDelete] = useState(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+
+  // Department options (same as in SignUpForm)
+  const departments = [
+    "Human Resources",
+    "Marketing",
+    "Finance",
+    "IT",
+    "Operations",
+    "Sales",
+    "Customer Service",
+    "Research & Development",
+    "Development",
+    "Legal",
+    "Executive",
+  ];
 
   // Fetch groups from API
   useEffect(() => {
@@ -352,24 +369,38 @@ function GroupChatPage({ user, textSize }) {
     socket.on("group_user_joined", (data) => {
       if (!data?.groupId || !data?.userName) return;
 
-      // Add system message
-      const systemMessage = {
-        id: `system-${Date.now()}`,
-        groupId: data.groupId,
-        text: `${data.userName} has joined the group`,
-        isSystem: true,
-        timestamp: new Date().toISOString(),
-      };
+      // Check if we already have this join message to prevent duplicates
+      const joinMessageText = `${data.userName} has joined the group`;
 
-      setMessages((prevMessages) => ({
-        ...prevMessages,
-        [data.groupId]: [
-          ...(Array.isArray(prevMessages[data.groupId])
-            ? prevMessages[data.groupId]
-            : []),
-          systemMessage,
-        ],
-      }));
+      setMessages((prevMessages) => {
+        const existingMessages = Array.isArray(prevMessages[data.groupId])
+          ? prevMessages[data.groupId]
+          : [];
+
+        // Check if this join message already exists
+        const hasJoinMessage = existingMessages.some(
+          (msg) => msg.isSystem && msg.text === joinMessageText
+        );
+
+        // Only add the system message if it doesn't already exist
+        if (!hasJoinMessage) {
+          const systemMessage = {
+            id: `system-${Date.now()}`,
+            groupId: data.groupId,
+            text: joinMessageText,
+            isSystem: true,
+            timestamp: new Date().toISOString(),
+          };
+
+          return {
+            ...prevMessages,
+            [data.groupId]: [...existingMessages, systemMessage],
+          };
+        }
+
+        // If the message already exists, don't add it again
+        return prevMessages;
+      });
 
       // Update groups and member counts safely
       setGroups((prevGroups) => {
@@ -524,12 +555,30 @@ function GroupChatPage({ user, textSize }) {
   // Generate avatar color based on name
   function generateAvatar(name) {
     const colors = [
-      "#FF5733",
-      "#33FF57",
-      "#3357FF",
-      "#F333FF",
-      "#FF33F3",
-      "#33FFF3",
+      "#FF5733", // Orange/Red
+      "#33FF57", // Green
+      "#3357FF", // Blue
+      "#F333FF", // Purple
+      "#FF33F3", // Pink
+      "#33FFF3", // Cyan
+      "#FFD700", // Gold
+      "#9370DB", // Medium Purple
+      "#20B2AA", // Light Sea Green
+      "#FF6347", // Tomato
+      "#4682B4", // Steel Blue
+      "#32CD32", // Lime Green
+      "#E91E63", // Pink
+      "#9C27B0", // Purple
+      "#673AB7", // Deep Purple
+      "#3F51B5", // Indigo
+      "#2196F3", // Blue
+      "#03A9F4", // Light Blue
+      "#00BCD4", // Cyan
+      "#009688", // Teal
+      "#4CAF50", // Green
+      "#8BC34A", // Light Green
+      "#CDDC39", // Lime
+      "#FFEB3B", // Yellow
     ];
     let hash = 0;
     for (let i = 0; name && i < name.length; i++) {
@@ -578,16 +627,22 @@ function GroupChatPage({ user, textSize }) {
           // Process messages to ensure we don't have duplicate join messages
           const processedMessages = response.data;
 
-          // Create a Set to track unique join message texts
-          const joinMessages = new Set();
+          // Create a Map to track unique join messages by username
+          const joinMessagesByUser = new Map();
 
-          // Filter out duplicate join messages, keeping only the first occurrence
+          // Filter out duplicate join messages, keeping only the most recent one for each user
           const filteredMessages = processedMessages.filter((msg) => {
             if (msg.isSystem && msg.text.includes("has joined the group")) {
-              if (joinMessages.has(msg.text)) {
-                return false; // Skip duplicate join messages
+              // Extract username from the message
+              const username = msg.text.replace(" has joined the group", "");
+
+              // If we've seen this user's join message before, skip this one
+              if (joinMessagesByUser.has(username)) {
+                return false;
               }
-              joinMessages.add(msg.text);
+
+              // Otherwise, record this as the first join message for this user
+              joinMessagesByUser.set(username, true);
             }
             return true;
           });
@@ -819,17 +874,35 @@ function GroupChatPage({ user, textSize }) {
       return;
     }
 
-    if (selectedMembers.length === 0) {
+    // For regular group creation, require members
+    if (!newGroup.isDepartmentGroup && selectedMembers.length === 0) {
       setError("Select at least one member for the group");
       return;
     }
 
+    // For department group creation, require department selection
+    if (newGroup.isDepartmentGroup && !newGroup.department) {
+      setError("Please select a department");
+      return;
+    }
+
     try {
-      const response = await axios.post("/api/groups", {
+      // Prepare request data
+      const requestData = {
         name: newGroup.name,
         description: newGroup.description,
-        members: selectedMembers.map((member) => member.id),
-      });
+      };
+
+      // If it's a department group, send the department info
+      if (newGroup.isDepartmentGroup) {
+        requestData.isDepartmentGroup = true;
+        requestData.department = newGroup.department;
+      } else {
+        // Otherwise, send the selected members
+        requestData.members = selectedMembers.map((member) => member.id);
+      }
+
+      const response = await axios.post("/api/groups", requestData);
 
       const newGroupWithAvatar = {
         ...response.data,
@@ -840,7 +913,12 @@ function GroupChatPage({ user, textSize }) {
       setGroups([...groups, newGroupWithAvatar]);
 
       // Clear form and close modal
-      setNewGroup({ name: "", description: "" });
+      setNewGroup({
+        name: "",
+        description: "",
+        isDepartmentGroup: false,
+        department: "",
+      });
       setSelectedMembers([]);
       setShowCreateGroup(false);
 
@@ -897,6 +975,41 @@ function GroupChatPage({ user, textSize }) {
           [selectedGroup.id]:
             (prev[selectedGroup.id] || 0) + membersToInvite.length,
         }));
+
+        // Add system messages for each invited member
+        membersToInvite.forEach((member) => {
+          const joinMessageText = `${member.name} has joined the group`;
+          const systemMessage = {
+            id: `system-${Date.now()}-${member.id}`,
+            groupId: selectedGroup.id,
+            text: joinMessageText,
+            isSystem: true,
+            timestamp: new Date().toISOString(),
+          };
+
+          // Add the system message to the messages state
+          setMessages((prevMessages) => {
+            const existingMessages = Array.isArray(
+              prevMessages[selectedGroup.id]
+            )
+              ? prevMessages[selectedGroup.id]
+              : [];
+
+            // Check if this join message already exists
+            const hasJoinMessage = existingMessages.some(
+              (msg) => msg.isSystem && msg.text === joinMessageText
+            );
+
+            // Only add if it doesn't exist
+            if (!hasJoinMessage) {
+              return {
+                ...prevMessages,
+                [selectedGroup.id]: [...existingMessages, systemMessage],
+              };
+            }
+            return prevMessages;
+          });
+        });
 
         setShowInviteMembers(false);
         setSelectedMembers([]);
@@ -1204,6 +1317,7 @@ function GroupChatPage({ user, textSize }) {
         <div className="confirm-dialog members-dialog">
           <div className="members-dialog-header">
             <div className="members-dialog-title">
+              <i className="fas fa-users"></i>
               Group Members ({members.length})
             </div>
             <button
@@ -1217,7 +1331,12 @@ function GroupChatPage({ user, textSize }) {
             {members.map((member) => {
               if (!member?.name) return null;
               return (
-                <div className="member-item" key={member.id}>
+                <div
+                  className={`member-item ${
+                    member.id === selectedGroup.createdBy ? "admin" : ""
+                  }`}
+                  key={member.id}
+                >
                   <div
                     className="member-avatar"
                     style={{ backgroundColor: generateAvatar(member.name) }}
@@ -1226,10 +1345,14 @@ function GroupChatPage({ user, textSize }) {
                   </div>
                   <div className="member-info">
                     <div className="member-name">{member.name}</div>
-                    <div className="member-role">
+                    <div
+                      className={`member-role ${
+                        member.id === selectedGroup.createdBy ? "admin" : ""
+                      }`}
+                    >
                       {member.id === selectedGroup.createdBy ? (
                         <>
-                          <i className="fas fa-crown"></i> Admin
+                          <i className="fas fa-shield-alt"></i> Admin
                         </>
                       ) : (
                         <>
@@ -1300,14 +1423,7 @@ function GroupChatPage({ user, textSize }) {
                 {group.name.charAt(0)}
               </div>
               <div className="group-info">
-                <div className="group-name">
-                  {group.name}
-                  {group.unreadCount > 0 && (
-                    <span className="unread-badge">
-                      {group.unreadCount > 9 ? "9+" : group.unreadCount}
-                    </span>
-                  )}
-                </div>
+                <div className="group-name">{group.name}</div>
                 <div className="group-last-message">
                   {messages[group.id]?.length > 0
                     ? messages[group.id][messages[group.id].length - 1].text ||
@@ -1326,6 +1442,11 @@ function GroupChatPage({ user, textSize }) {
                   </div>
                 )}
                 <div className="group-members-count">
+                  {group.unreadCount > 0 && (
+                    <div className="group-unread-badge">
+                      {group.unreadCount > 9 ? "9+" : group.unreadCount}
+                    </div>
+                  )}
                   <i className="fas fa-users"></i>
                   <span>{groupMemberCounts[group.id] || 0}</span>
                 </div>
@@ -1708,7 +1829,12 @@ function GroupChatPage({ user, textSize }) {
                 className="modal-close"
                 onClick={() => {
                   setShowCreateGroup(false);
-                  setNewGroup({ name: "", description: "" });
+                  setNewGroup({
+                    name: "",
+                    description: "",
+                    isDepartmentGroup: false,
+                    department: "",
+                  });
                   setSelectedMembers([]);
                   setError("");
                 }}
@@ -1747,66 +1873,123 @@ function GroupChatPage({ user, textSize }) {
                 ></textarea>
               </div>
 
-              <div className="add-members-section">
-                <div className="add-members-header">
-                  <h4>Add Members</h4>
+              {/* Admin-only department group option */}
+              {user && user.isAdmin && (
+                <div className="form-group">
+                  <label className="department-group-option">
+                    <input
+                      type="checkbox"
+                      checked={newGroup.isDepartmentGroup}
+                      onChange={(e) =>
+                        setNewGroup({
+                          ...newGroup,
+                          isDepartmentGroup: e.target.checked,
+                          department: e.target.checked
+                            ? newGroup.department
+                            : "",
+                        })
+                      }
+                    />
+                    <span>Auto-create group chat for a department</span>
+                  </label>
                 </div>
-                <div className="members-search">
-                  <i className="fas fa-search"></i>
-                  <input
-                    type="text"
-                    placeholder="Search contacts..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                  />
-                </div>
+              )}
 
-                {selectedMembers.length > 0 && (
-                  <div className="selected-members">
-                    {selectedMembers.map((member) => (
-                      <div className="selected-member" key={member.id}>
-                        <span>{member.name}</span>
-                        <button
-                          className="remove-member"
-                          onClick={() => toggleMemberSelection(member)}
+              {/* Department selection for department groups */}
+              {newGroup.isDepartmentGroup && (
+                <div className="form-group">
+                  <label>Select Department</label>
+                  <select
+                    value={newGroup.department}
+                    onChange={(e) =>
+                      setNewGroup({ ...newGroup, department: e.target.value })
+                    }
+                    className="department-select"
+                  >
+                    <option value="">Select a department</option>
+                    {departments.map((dept, index) => (
+                      <option key={index} value={dept}>
+                        {dept}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Manual member selection (only shown if not a department group) */}
+              {!newGroup.isDepartmentGroup && (
+                <div className="add-members-section">
+                  <div className="add-members-header">
+                    <h4>Add Members</h4>
+                  </div>
+                  <div className="members-search">
+                    <i className="fas fa-search"></i>
+                    <input
+                      type="text"
+                      placeholder="Search contacts..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                  </div>
+
+                  {selectedMembers.length > 0 && (
+                    <div className="selected-members">
+                      {selectedMembers.map((member) => (
+                        <div className="selected-member" key={member.id}>
+                          <span>{member.name}</span>
+                          <button
+                            className="remove-member"
+                            onClick={() => toggleMemberSelection(member)}
+                          >
+                            <i className="fas fa-times"></i>
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="suggested-members">
+                    {filteredContacts.map((contact) => (
+                      <div
+                        className="suggested-member"
+                        key={contact.id}
+                        onClick={() => toggleMemberSelection(contact)}
+                      >
+                        <div
+                          className="suggested-member-avatar"
+                          style={{
+                            backgroundColor: generateAvatar(contact.name),
+                          }}
                         >
-                          <i className="fas fa-times"></i>
-                        </button>
+                          {contact.name.charAt(0)}
+                        </div>
+                        <div className="suggested-member-name">
+                          {contact.name}
+                        </div>
                       </div>
                     ))}
                   </div>
-                )}
-
-                <div className="suggested-members">
-                  {filteredContacts.map((contact) => (
-                    <div
-                      className="suggested-member"
-                      key={contact.id}
-                      onClick={() => toggleMemberSelection(contact)}
-                    >
-                      <div
-                        className="suggested-member-avatar"
-                        style={{
-                          backgroundColor: generateAvatar(contact.name),
-                        }}
-                      >
-                        {contact.name.charAt(0)}
-                      </div>
-                      <div className="suggested-member-name">
-                        {contact.name}
-                      </div>
-                    </div>
-                  ))}
                 </div>
-              </div>
+              )}
             </div>
             <div className="modal-footer">
               <button
-                className="btn-primary"
+                className={`btn-primary ${
+                  newGroup.isDepartmentGroup && newGroup.department
+                    ? "department-group-btn"
+                    : ""
+                }`}
                 onClick={handleCreateGroup}
-                disabled={!newGroup.name || selectedMembers.length === 0}
+                disabled={
+                  !newGroup.name ||
+                  (!newGroup.isDepartmentGroup &&
+                    selectedMembers.length === 0) ||
+                  (newGroup.isDepartmentGroup && !newGroup.department)
+                }
               >
-                Create Group
+                {newGroup.isDepartmentGroup
+                  ? "Create Department Group"
+                  : "Create Group"}
               </button>
             </div>
           </div>

@@ -243,16 +243,6 @@ function SecurityPage({ user }) {
           </form>
         </div>
       </div>
-
-      <div className="security-card">
-        <div className="security-card-content">
-          <div className="security-info-text">
-            For security reasons, if you forget your password, you will need to
-            verify your identity through verification methods. Please ensure
-            your contact information is up to date in your profile settings.
-          </div>
-        </div>
-      </div>
     </div>
   );
 }

@@ -129,12 +129,22 @@ function Sidebar({ activePage, setActivePage, isAdmin, onLogout, userName }) {
         onMouseLeave={handleMouseLeave}
       >
         <div className="logo-container">
-          <img
-            src="/shield.png"
-            alt="Secure Messages"
-            className="sidebar-logo"
-          />
-          <h3 className="logo-text">Secure Messages</h3>
+          <div className="logo-text">
+            <span className="logo-word" data-text="Nex">
+              Nex
+            </span>
+            <span className="logo-word" data-text="Message">
+              Message
+            </span>
+          </div>
+          <div className="logo-short">
+            <span className="logo-word" data-text="N">
+              N
+            </span>
+            <span className="logo-word" data-text="M">
+              M
+            </span>
+          </div>
         </div>
 
         <div className="user-profile">

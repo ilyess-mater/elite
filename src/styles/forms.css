@@ -121,6 +121,43 @@ form {
   font-weight: 500;
 }
 
+.input-field select {
+  background-color: #f0f0f0;
+  outline: none;
+  border: none;
+  line-height: 1;
+  font-weight: 600;
+  font-size: 1.1rem;
+  color: #333;
+  width: 100%;
+  height: 100%;
+  padding-right: 15px;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23acacac' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 15px;
+}
+
+.dark-mode .input-field select {
+  background-color: #333;
+  color: white;
+}
+
+.input-field select option {
+  font-weight: 500;
+  background-color: white;
+  color: #333;
+}
+
+.dark-mode .input-field select option {
+  background-color: #333;
+  color: white;
+}
+
 .btn {
   width: 150px;
   height: 49px;

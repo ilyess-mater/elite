@@ -127,12 +127,14 @@ def signup():
 
     # Create user document
     admin_role = data.get('adminRole', 'admin') if is_admin else None
+    department = data.get('department', '')
     user = {
         "name": username,
         "email": email,
         "password": hashed_password,
         "isAdmin": is_admin,
         "adminRole": admin_role,
+        "department": department,
         "createdAt": datetime.utcnow(),
         "lastActive": datetime.utcnow()
     }
@@ -151,7 +153,8 @@ def signup():
             "name": username,
             "email": email,
             "isAdmin": is_admin,
-            "adminRole": admin_role
+            "adminRole": admin_role,
+            "department": department
         },
         "token": token
     }), 201
@@ -191,7 +194,8 @@ def signin():
             "name": user["name"],
             "email": user["email"],
             "isAdmin": user.get("isAdmin", False),
-            "adminRole": user.get("adminRole", None)
+            "adminRole": user.get("adminRole", None),
+            "department": user.get("department", "")
         },
         "token": token
     }), 200
@@ -251,7 +255,7 @@ def get_contacts():
                 "id": str(contact_user["_id"]),
                 "name": contact_user["name"],
                 "email": contact_user["email"],
-                "department": contact.get("department", ""),
+                "department": contact_user.get("department", ""),
                 "isActive": str(contact_user["_id"]) in active_users
             })
 
@@ -267,7 +271,6 @@ def add_contact():
 
     data = request.get_json()
     email = data.get('email')
-    department = data.get('department', '')
 
     if not email:
         return jsonify({"error": "Email is required"}), 400
@@ -286,6 +289,9 @@ def add_contact():
     if existing_contact:
         return jsonify({"error": "This contact is already added"}), 409
 
+    # Get the department from the contact's user profile
+    department = contact_user.get("department", "")
+
     # Add the contact
     contact = {
         "userId": ObjectId(user_id),
@@ -300,7 +306,7 @@ def add_contact():
         "id": str(contact_user["_id"]),
         "name": contact_user["name"],
         "email": contact_user["email"],
-        "department": department,
+        "department": contact_user.get("department", ""),
         "isActive": str(contact_user["_id"]) in active_users
     }), 201
 
@@ -939,6 +945,8 @@ def on_join_group(data):
                     'isActive': True
                 }
             }, room=group_id)
+        # If user is already a member, we don't emit any event
+        # This prevents the "User has joined the group" message from appearing every time
 
     except Exception as e:
         print(f"Error joining group: {str(e)}")
@@ -1009,14 +1017,8 @@ def handle_join_group(data):
     # Join group room
     join_room(f"group_{group_id}")
 
-    # Notify other members
-    user = users_collection.find_one({"_id": ObjectId(user_id)})
-    if user:
-        emit('group_user_joined', {
-            "groupId": group_id,
-            "userId": user_id,
-            "userName": user["name"]
-        }, room=f"group_{group_id}")
+    # We don't emit group_user_joined here anymore
+    # This is just for joining the socket room, not for notifying about new members
 
 @socketio.on('leave_group')
 def handle_leave_group(data):
@@ -1336,14 +1338,35 @@ def create_group():
     data = request.get_json()
     name = data.get('name')
     description = data.get('description', '')
-    member_ids = data.get('members', [])
+    is_department_group = data.get('isDepartmentGroup', False)
+
+    # Check if user is admin for department group creation
+    if is_department_group:
+        user = users_collection.find_one({"_id": ObjectId(user_id)})
+        if not user or not user.get("isAdmin", False):
+            return jsonify({"error": "Only admins can create department groups"}), 403
+
+        department = data.get('department')
+        if not department:
+            return jsonify({"error": "Department is required for department groups"}), 400
+
+        # Find all users in the specified department
+        department_users = users_collection.find({"department": department})
+        member_ids = [str(user["_id"]) for user in department_users]
+
+        # Make sure creator is included
+        if user_id not in member_ids:
+            member_ids.append(user_id)
+    else:
+        # Regular group creation
+        member_ids = data.get('members', [])
+
+        # Ensure creator is included in members
+        if user_id not in member_ids:
+            member_ids.append(user_id)
 
     if not name:
         return jsonify({"error": "Group name is required"}), 400
-
-    # Ensure creator is included in members
-    if user_id not in member_ids:
-        member_ids.append(user_id)
 
     # Create member objects
     members = []
@@ -1365,16 +1388,25 @@ def create_group():
         "description": description,
         "createdBy": ObjectId(user_id),
         "createdAt": datetime.utcnow(),
-        "members": members
+        "members": members,
+        "isDepartmentGroup": is_department_group
     }
 
+    # Add department info if it's a department group
+    if is_department_group:
+        group["department"] = data.get('department')
+
     result = groups_collection.insert_one(group)
+
+    # No automatic system message for department groups
 
     return jsonify({
         "id": str(result.inserted_id),
         "name": name,
         "description": description,
-        "memberCount": len(members)
+        "memberCount": len(members),
+        "isDepartmentGroup": is_department_group,
+        "department": data.get('department') if is_department_group else None
     }), 201
 
 @app.route('/api/groups/<group_id>/messages', methods=['GET'])
