@@ -156,7 +156,19 @@ function MessagingPage({ user, textSize }) {
 
         // Show notification if message is new and from someone else
         if (newMessage.sender !== user.id) {
+          // Find sender info for notification
+          const sender = contacts.find(
+            (contact) => contact.id === newMessage.sender
+          );
+          const senderName = sender ? sender.name : "Someone";
+
+          // Show browser notification
           showNotification(newMessage);
+
+          // Update page title with sender name
+          if (document.hidden) {
+            updateTitle(`New message from ${senderName}`, true, 1);
+          }
 
           // Increment unread count if the message is from someone else and not the selected contact
           // Use a flag to prevent double counting
@@ -212,11 +224,16 @@ function MessagingPage({ user, textSize }) {
         // For messages from other users, add them to the state
         // Ensure fileData is properly set for rendering
         if (newMessage.fileUrl) {
-          // For received messages, set fileData to the full URL
+          // For received messages, ensure the URL is absolute
           const baseUrl = window.location.origin;
-          newMessage.fileData = newMessage.fileUrl.startsWith("http")
-            ? newMessage.fileUrl
-            : `${baseUrl}${newMessage.fileUrl}`;
+
+          // If the URL is relative (starts with /), make it absolute
+          if (newMessage.fileUrl.startsWith("/")) {
+            newMessage.fileUrl = `${baseUrl}${newMessage.fileUrl}`;
+          }
+
+          // Set fileData to the same URL for rendering
+          newMessage.fileData = newMessage.fileUrl;
 
           console.log("File URL processed:", {
             original: newMessage.fileUrl,
@@ -227,8 +244,8 @@ function MessagingPage({ user, textSize }) {
         // For debugging
         if (newMessage.fileUrl || newMessage.fileData) {
           console.log("Message contains file:", {
-            fileUrl: newMessage.fileUrl ? "Yes" : "No",
-            fileData: newMessage.fileData ? "Yes" : "No",
+            fileUrl: newMessage.fileUrl ? newMessage.fileUrl : "No",
+            fileData: newMessage.fileData ? newMessage.fileData : "No",
             fileType: newMessage.fileType,
           });
         }
@@ -410,6 +427,63 @@ function MessagingPage({ user, textSize }) {
     }
   };
 
+  // Title management functions
+  const originalTitle = document.title;
+  let titleInterval = null;
+  let unreadCount = 0;
+
+  // Update the page title to show a notification
+  const updateTitle = (message, flash = true, count = 1) => {
+    // Only update title if the page is not visible
+    if (document.hidden) {
+      // Clear any existing interval
+      if (titleInterval) {
+        clearInterval(titleInterval);
+      }
+
+      // Increment unread count by the specified amount (default 1)
+      // Can also be negative to decrement the counter
+      unreadCount += count;
+
+      // Ensure unreadCount is never negative
+      if (unreadCount < 0) unreadCount = 0;
+
+      // Only update title if we have a message or unread count
+      if (message || unreadCount > 0) {
+        // Create the new title with unread count
+        const newTitle =
+          unreadCount > 0 ? `(${unreadCount}) ${message}` : originalTitle;
+
+        // Set the title immediately
+        document.title = newTitle;
+
+        // If flash is true and we have unread messages, alternate between the new title and original title
+        if (flash && unreadCount > 0) {
+          let isOriginal = false;
+          titleInterval = setInterval(() => {
+            document.title = isOriginal ? newTitle : originalTitle;
+            isOriginal = !isOriginal;
+          }, 1000);
+        }
+      }
+    }
+  };
+
+  // Reset the page title to the original title
+  const resetTitle = () => {
+    // Clear any existing interval
+    if (titleInterval) {
+      clearInterval(titleInterval);
+      titleInterval = null;
+    }
+
+    // Reset unread count
+    unreadCount = 0;
+
+    // Reset the title
+    document.title = originalTitle;
+  };
+
   // Request notification permission on component mount
   useEffect(() => {
     if (
@@ -419,6 +493,23 @@ function MessagingPage({ user, textSize }) {
     ) {
       Notification.requestPermission();
     }
+
+    // Setup visibility change listener to reset title when page becomes visible
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        resetTitle();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      // Clear any interval when component unmounts
+      if (titleInterval) {
+        clearInterval(titleInterval);
+      }
+    };
   }, []);
 
   // Handle window resize to detect mobile view
@@ -533,7 +624,19 @@ function MessagingPage({ user, textSize }) {
     const file = e.target.files[0];
     if (!file) return;
 
+    // Check file size before uploading
+    const maxSize = file.type.startsWith("image/")
+      ? 5 * 1024 * 1024 // 5MB for images
+      : 25 * 1024 * 1024; // 25MB for other files
+
+    if (file.size > maxSize) {
+      const maxSizeMB = maxSize / (1024 * 1024);
+      alert(`File size exceeds the maximum allowed size of ${maxSizeMB}MB.`);
+      return;
+    }
+
     setSelectedFile(file);
+    setIsUploading(true);
 
     // Generate preview for images and videos
     if (file.type.startsWith("image/") || file.type.startsWith("video/")) {
@@ -554,6 +657,50 @@ function MessagingPage({ user, textSize }) {
         name: file.name,
       });
     }
+
+    // Upload the file immediately to the server
+    uploadFile(file);
+  };
+
+  const uploadFile = async (file) => {
+    try {
+      // Create form data
+      const formData = new FormData();
+      formData.append("file", file);
+
+      // Add conversation ID if we have a selected contact
+      if (selectedContact) {
+        const conversationId = `dm_${Math.min(
+          user.id,
+          selectedContact.id
+        )}_${Math.max(user.id, selectedContact.id)}`;
+        formData.append("conversation_id", conversationId);
+      }
+
+      // Upload the file
+      const response = await axios.post("/api/upload", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+      });
+
+      // Update the file preview with the server URL
+      if (response.data && response.data.fileUrl) {
+        setSelectedFile({
+          ...file,
+          url: response.data.fileUrl,
+          uploaded: true,
+        });
+      }
+
+      setIsUploading(false);
+    } catch (error) {
+      console.error("Error uploading file:", error);
+      alert("Failed to upload file. Please try again.");
+      cancelFileUpload();
+      setIsUploading(false);
+    }
   };
 
   const cancelFileUpload = () => {
@@ -562,16 +709,6 @@ function MessagingPage({ user, textSize }) {
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
-  };
-
-  // Handle file uploads and conversion
-  const fileToBase64 = (file) => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = () => resolve(reader.result);
-      reader.onerror = (error) => reject(error);
-    });
   };
 
   const handleSendMessage = async (e) => {
@@ -591,45 +728,12 @@ function MessagingPage({ user, textSize }) {
     let fileUrl = null;
     let fileType = null;
     let fileName = null;
-    let fileData = null;
 
-    // Handle file upload if a file is selected
-    if (selectedFile) {
-      try {
-        setIsUploading(true);
-
-        // Convert file to base64 for transmission via socket
-        fileData = await fileToBase64(selectedFile);
-
-        if (!fileData) {
-          throw new Error("Failed to convert file to base64");
-        }
-
-        // Show optimistic preview with local URL
-        fileUrl = filePreview.url;
-        fileType = selectedFile.type;
-        fileName = selectedFile.name;
-
-        console.log("File prepared for sending:", {
-          fileName,
-          fileType,
-          fileDataLength: fileData ? fileData.length : 0,
-        });
-
-        // Reset file selection
-        setSelectedFile(null);
-        setFilePreview(null);
-        if (fileInputRef.current) {
-          fileInputRef.current.value = "";
-        }
-      } catch (error) {
-        console.error("Error uploading file:", error);
-        alert(
-          "Failed to upload file. Please try again with a smaller file or different format."
-        );
-        setIsUploading(false);
-        return;
-      }
+    // Check if we have an uploaded file
+    if (selectedFile && selectedFile.uploaded) {
+      fileUrl = selectedFile.url;
+      fileType = selectedFile.type;
+      fileName = selectedFile.name;
     }
 
     // Create optimistic message
@@ -642,7 +746,6 @@ function MessagingPage({ user, textSize }) {
       fileUrl: fileUrl,
       fileType: fileType,
       fileName: fileName,
-      fileData: fileData,
       _isOptimistic: true, // Flag to identify optimistic messages
     };
 
@@ -677,13 +780,25 @@ function MessagingPage({ user, textSize }) {
         fileUrl: fileUrl,
         fileType: fileType,
         fileName: fileName,
-        fileData: fileData, // Send the base64 data to server
       });
 
+      // Decrement the notification counter by 1 to counteract the duplicate counting
+      if (document.hidden) {
+        // Use negative count to subtract from the counter
+        updateTitle("", false, -1);
+      }
+
       console.log("Message sent successfully:", {
-        hasFile: fileData ? true : false,
+        hasFile: fileUrl ? true : false,
         textLength: message.length,
       });
+
+      // Reset file selection
+      setSelectedFile(null);
+      setFilePreview(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
     } catch (error) {
       console.error("Error sending message:", error);
       alert("Failed to send message. Please try again.");
@@ -1039,12 +1154,30 @@ function MessagingPage({ user, textSize }) {
   const renderFileContent = (msg) => {
     if (!msg.fileUrl && !msg.fileData) return null;
 
-    // Use fileData (base64) if available, otherwise fall back to fileUrl
-    let fileSource = msg.fileData || msg.fileUrl;
+    // Use fileUrl as the primary source
+    let fileSource = msg.fileUrl;
+
+    // If fileUrl is not available, fall back to fileData
+    if (!fileSource) {
+      fileSource = msg.fileData;
+    }
 
     if (!fileSource) {
       console.error("Missing file source for message:", msg.id);
       return <div className="file-error">File could not be displayed</div>;
+    }
+
+    // Ensure the URL is absolute
+    if (fileSource.startsWith("/")) {
+      const baseUrl = window.location.origin;
+      fileSource = `${baseUrl}${fileSource}`;
+      console.log("Converted relative URL to absolute:", fileSource);
+    }
+
+    // Add a cache-busting parameter to prevent browser caching issues
+    if (!fileSource.includes("?") && !isGoFileUrl(fileSource)) {
+      fileSource = `${fileSource}?t=${new Date().getTime()}`;
+      console.log("Added cache-busting parameter:", fileSource);
     }
 
     // Check if it's a GoFile.io URL and get direct download URL
@@ -1052,23 +1185,63 @@ function MessagingPage({ user, textSize }) {
       fileSource = getDirectGoFileUrl(fileSource);
     }
 
+    console.log(
+      "Rendering file with source:",
+      fileSource,
+      "type:",
+      msg.fileType,
+      "message:",
+      msg
+    );
+
     try {
       if (
         msg.messageType === "image" ||
         (msg.fileType && msg.fileType.startsWith("image/"))
       ) {
+        // For images, we can't use useState here since this isn't a component
+        // Instead, use a simpler approach
         return (
           <div className="message-image-container">
+            <div className="image-loading">Loading image...</div>
             <img
               src={fileSource}
-              alt="Sent"
+              alt="Sent image"
               className="message-image"
               onClick={() => window.open(fileSource, "_blank")}
-              onError={(e) => {
-                console.error("Image failed to load:", e);
-                e.target.src = "/placeholder-image.png"; // Fallback image
-                e.target.alt = "Image failed to load";
+              onLoad={(e) => {
+                console.log("Image loaded successfully:", fileSource);
+                // Hide the loading indicator when image loads
+                const loadingEl =
+                  e.target.parentNode.querySelector(".image-loading");
+                if (loadingEl) loadingEl.style.display = "none";
+                // Show the image
+                e.target.style.display = "block";
               }}
+              onError={(e) => {
+                console.error("Image failed to load:", e, fileSource);
+                // Hide the loading indicator
+                const loadingEl =
+                  e.target.parentNode.querySelector(".image-loading");
+                if (loadingEl) loadingEl.textContent = "Image failed to load";
+
+                // Try to reload the image with a different URL format
+                if (!e.target.retryAttempted) {
+                  e.target.retryAttempted = true;
+
+                  // Try with a different cache-busting approach
+                  const retryUrl =
+                    fileSource.split("?")[0] + "?nocache=" + Math.random();
+                  console.log("Retrying with URL:", retryUrl);
+                  e.target.src = retryUrl;
+                } else {
+                  // If retry failed, show placeholder
+                  e.target.src = "/placeholder-image.png";
+                  e.target.alt = "Image failed to load";
+                  e.target.style.display = "block";
+                }
+              }}
+              style={{ display: "none" }} // Initially hidden until loaded
             />
             {isGoFileUrl(fileSource) && (
               <div className="gofile-badge">
@@ -1088,7 +1261,7 @@ function MessagingPage({ user, textSize }) {
               controls
               className="message-video"
               onError={(e) => {
-                console.error("Video failed to load:", e);
+                console.error("Video failed to load:", e, fileSource);
                 e.target.parentNode.innerHTML =
                   '<div class="video-error">Video could not be played</div>';
               }}
@@ -1539,6 +1712,7 @@ function MessagingPage({ user, textSize }) {
               <input
                 type="file"
                 ref={fileInputRef}
+                id="file-input"
                 className="file-input"
                 onChange={handleFileSelection}
                 accept="image/*,video/*,application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt"
@@ -1557,6 +1731,14 @@ function MessagingPage({ user, textSize }) {
                 </div>
               )}
               <div className="input-container">
+                <label
+                  htmlFor="file-input"
+                  className="attachment-button"
+                  title="Upload a file from your device"
+                  style={{ cursor: isUploading ? "not-allowed" : "pointer" }}
+                >
+                  <i className="fas fa-paperclip"></i>
+                </label>
                 <button
                   type="button"
                   className="attachment-button"

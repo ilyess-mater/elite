@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from bson import ObjectId
 from task_routes import task_routes
-from file_utils import save_file, validate_file_size
+from file_upload import file_upload_bp
 
 # Load environment variables
 load_dotenv()
@@ -44,16 +44,136 @@ tasks_collection = db.tasks
 
 # Register blueprints
 app.register_blueprint(task_routes)
+app.register_blueprint(file_upload_bp)
 
 # Create uploads directory if it doesn't exist
 UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config['MAX_CONTENT_LENGTH'] = 25 * 1024 * 1024  # 25MB max file size
 
-# File serving endpoint
-@app.route('/api/files/<path:filename>', methods=['GET'])
-def serve_file(filename):
-    """Serve uploaded files"""
-    return send_from_directory(UPLOAD_FOLDER, filename)
+# Import file utility functions from file_upload
+from file_upload import allowed_file, get_file_type_category
+
+# Helper function for file validation and saving (for socket.io)
+def validate_file_size(file_data, file_type):
+    """Validate file size against limits"""
+    if not file_data:
+        return False, "No file data provided"
+
+    # Get file category
+    category = 'image' if file_type.startswith('image/') else 'video' if file_type.startswith('video/') else 'file'
+
+    # Calculate file size (base64 data)
+    if ',' in file_data:
+        file_data = file_data.split(',', 1)[1]
+
+    # Estimate file size (base64 is ~4/3 the size of binary)
+    file_size = len(file_data) * 3 / 4
+
+    # File size limits in bytes
+    FILE_SIZE_LIMITS = {
+        "image": 5 * 1024 * 1024,  # 5MB
+        "video": 25 * 1024 * 1024,  # 25MB
+        "file": 25 * 1024 * 1024,   # 25MB
+    }
+
+    # Check against limits
+    if file_size > FILE_SIZE_LIMITS.get(category, FILE_SIZE_LIMITS['file']):
+        max_mb = FILE_SIZE_LIMITS.get(category, FILE_SIZE_LIMITS['file']) / (1024 * 1024)
+        return False, f"File exceeds maximum size of {max_mb}MB for {category} files"
+
+    return True, None
+
+def save_file(file_data, file_type, file_name, conversation_id=None):
+    """Save a file from base64 data (for socket.io)"""
+    import base64
+    import uuid
+    from werkzeug.utils import secure_filename
+
+    try:
+        print(f"Saving file: {file_name}, type: {file_type}, conversation_id: {conversation_id}")
+
+        # Determine file category and target directory
+        category = 'image' if file_type.startswith('image/') else 'video' if file_type.startswith('video/') else 'file'
+        print(f"File category determined: {category}")
+
+        if category == 'image':
+            target_dir = os.path.join(UPLOAD_FOLDER, 'images')
+        elif category == 'video':
+            target_dir = os.path.join(UPLOAD_FOLDER, 'videos')
+        else:
+            target_dir = os.path.join(UPLOAD_FOLDER, 'files')
+
+        # Create target directory if it doesn't exist
+        os.makedirs(target_dir, exist_ok=True)
+        print(f"Base target directory: {target_dir}")
+
+        # Create conversation subdirectory if provided
+        if conversation_id:
+            target_dir = os.path.join(target_dir, str(conversation_id))
+            os.makedirs(target_dir, exist_ok=True)
+            print(f"Conversation directory created: {target_dir}")
+
+        # Generate a unique filename
+        secure_name = secure_filename(file_name)
+        unique_filename = f"{uuid.uuid4()}_{secure_name}"
+        file_path = os.path.join(target_dir, unique_filename)
+        print(f"File will be saved to: {file_path}")
+
+        # Extract the base64 data (remove data URL prefix if present)
+        if ',' in file_data:
+            print("Extracting base64 data from data URL")
+            file_data = file_data.split(',', 1)[1]
+
+        # Decode and save the file
+        try:
+            decoded_data = base64.b64decode(file_data)
+            print(f"Decoded data length: {len(decoded_data)} bytes")
+
+            with open(file_path, 'wb') as f:
+                f.write(decoded_data)
+
+            print(f"File saved successfully to {file_path}")
+
+            # Verify the file was created
+            if os.path.exists(file_path):
+                file_size = os.path.getsize(file_path)
+                print(f"Verified file exists, size: {file_size} bytes")
+            else:
+                print(f"WARNING: File was not created at {file_path}")
+                return None
+        except Exception as e:
+            print(f"Error writing file: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return None
+
+        # Generate relative URL path - make sure it's consistent with the file_upload.py
+        # We want to create a URL path that starts with /api/files/images/ or /api/files/videos/ etc.
+        try:
+            # Extract the part of the path after 'uploads/'
+            rel_path = file_path.split('uploads' + os.sep)[1]
+            url_path = f"/api/files/{rel_path.replace(os.sep, '/')}"
+            print(f"Generated URL path: {url_path}")
+            return url_path
+        except Exception as e:
+            print(f"Error generating URL path: {str(e)}")
+            # Fallback method for path generation
+            try:
+                rel_path = os.path.relpath(file_path, UPLOAD_FOLDER)
+                url_path = f"/api/files/{rel_path.replace(os.sep, '/')}"
+                print(f"Generated fallback URL path: {url_path}")
+                return url_path
+            except Exception as e2:
+                print(f"Error generating fallback URL path: {str(e2)}")
+                return None
+
+    except Exception as e:
+        print(f"Error in save_file: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return None
 
 # Active users dictionary to track online status
 active_users = {}
@@ -767,16 +887,22 @@ def handle_send_message(data):
         file_type = data.get('fileType')
         file_name = data.get('fileName')
         file_data = data.get('fileData')
+        file_url = data.get('fileUrl')  # Get fileUrl directly from data
 
-        if not receiver_id or (not message_text.strip() and not file_data):
+        print(f"Message data received: receiverId={receiver_id}, hasText={bool(message_text.strip())}, "
+              f"fileType={file_type}, fileName={file_name}, hasFileData={bool(file_data)}, fileUrl={file_url}")
+
+        if not receiver_id or (not message_text.strip() and not file_data and not file_url):
+            print("Missing required data for message")
             return
 
         # Determine message type
         message_type = "text"
-        file_url = None
 
         # Handle file upload if present
+        # Case 1: We have file_data (base64) to process
         if file_data and file_type and file_name:
+            print(f"Processing file data for {file_name} of type {file_type}")
             # Validate file size
             is_valid, error_message = validate_file_size(file_data, file_type)
             if not is_valid:
@@ -793,6 +919,18 @@ def handle_send_message(data):
                 emit('error', {'message': 'Failed to save file'})
                 return
 
+            print(f"File saved successfully, URL: {file_url}")
+
+            # Set message type based on file type
+            if file_type.startswith('image/'):
+                message_type = "image"
+            elif file_type.startswith('video/'):
+                message_type = "video"
+            else:
+                message_type = "file"
+        # Case 2: We already have a fileUrl from a previous upload
+        elif file_url and file_type and file_name:
+            print(f"Using pre-uploaded file: {file_url}")
             # Set message type based on file type
             if file_type.startswith('image/'):
                 message_type = "image"
@@ -834,15 +972,21 @@ def handle_send_message(data):
             "senderName": user["name"] if user else "Unknown"
         }
 
+        print(f"Sending message to sender (room {user_id}): {message_data}")
         # Send to sender's room
         emit('receive_message', message_data, room=user_id)
 
         # Send to receiver's room if online
         if receiver_id in active_users:
+            print(f"Sending message to receiver (room {receiver_id}): {message_data}")
             emit('receive_message', message_data, room=receiver_id)
+        else:
+            print(f"Receiver {receiver_id} is not online, message will be delivered when they connect")
     except Exception as e:
         print(f"Error sending message: {e}")
-        emit('error', {'message': 'Failed to send message'})
+        import traceback
+        traceback.print_exc()
+        emit('error', {'message': f'Failed to send message: {str(e)}'})
 
 @socketio.on('group_message')
 def handle_group_message(data):
@@ -1169,8 +1313,13 @@ def handle_send_group_message(data):
         file_type = data.get('fileType')
         file_name = data.get('fileName')
         file_data = data.get('fileData')
+        file_url = data.get('fileUrl')  # Get fileUrl directly from data
 
-        if not group_id or (not message_text.strip() and not file_data):
+        print(f"Group message data received: groupId={group_id}, hasText={bool(message_text.strip())}, "
+              f"fileType={file_type}, fileName={file_name}, hasFileData={bool(file_data)}, fileUrl={file_url}")
+
+        if not group_id or (not message_text.strip() and not file_data and not file_url):
+            print("Missing required data for group message")
             return
 
         # Check if user is member of the group
@@ -1180,14 +1329,16 @@ def handle_send_group_message(data):
         })
 
         if not group:
+            print(f"User {user_id} is not a member of group {group_id}")
             return
 
         # Determine message type
         message_type = "text"
-        file_url = None
 
         # Handle file upload if present
+        # Case 1: We have file_data (base64) to process
         if file_data and file_type and file_name:
+            print(f"Processing file data for group message: {file_name} of type {file_type}")
             # Validate file size
             is_valid, error_message = validate_file_size(file_data, file_type)
             if not is_valid:
@@ -1201,6 +1352,18 @@ def handle_send_group_message(data):
                 emit('error', {'message': 'Failed to save file'})
                 return
 
+            print(f"Group file saved successfully, URL: {file_url}")
+
+            # Set message type based on file type
+            if file_type.startswith('image/'):
+                message_type = "image"
+            elif file_type.startswith('video/'):
+                message_type = "video"
+            else:
+                message_type = "file"
+        # Case 2: We already have a fileUrl from a previous upload
+        elif file_url and file_type and file_name:
+            print(f"Using pre-uploaded file for group message: {file_url}")
             # Set message type based on file type
             if file_type.startswith('image/'):
                 message_type = "image"
@@ -1242,11 +1405,14 @@ def handle_send_group_message(data):
             "messageType": message_type
         }
 
+        print(f"Sending group message to room group_{group_id}: {message_data}")
         # Send to the group room
         emit('receive_group_message', message_data, room=f"group_{group_id}")
     except Exception as e:
         print(f"Error sending group message: {e}")
-        emit('error', {'message': 'Failed to send group message'})
+        import traceback
+        traceback.print_exc()
+        emit('error', {'message': f'Failed to send group message: {str(e)}'})
 
 @app.route('/api/stats', methods=['GET'])
 def get_stats():
@@ -1484,13 +1650,25 @@ def get_group_messages(group_id):
             sender = users_collection.find_one({"_id": ObjectId(sender_id)})
             sender_cache[sender_id] = sender["name"] if sender else "Unknown"
 
-        messages_list.append({
+        # Create message object with all fields
+        message_data = {
             "id": str(msg["_id"]),
             "sender": sender_id,
             "senderName": sender_cache[sender_id],
             "text": msg["text"],
-            "timestamp": msg["timestamp"].isoformat()
-        })
+            "timestamp": msg["timestamp"].isoformat(),
+            "messageType": msg.get("messageType", "text")
+        }
+
+        # Add file information if present
+        if "fileUrl" in msg and msg["fileUrl"]:
+            message_data["fileUrl"] = msg["fileUrl"]
+            message_data["fileType"] = msg.get("fileType")
+            message_data["fileName"] = msg.get("fileName")
+
+            print(f"Group message with file: {message_data['id']}, fileUrl: {message_data['fileUrl']}, fileType: {message_data['fileType']}")
+
+        messages_list.append(message_data)
 
     return jsonify(messages_list), 200
 
@@ -1528,13 +1706,25 @@ def search_group_messages(group_id):
         sender = users_collection.find_one({"_id": msg["senderId"]})
         sender_name = sender["name"] if sender else "Unknown"
 
-        results.append({
+        # Create message object with all fields
+        message_data = {
             "id": str(msg["_id"]),
             "sender": sender_id,
             "senderName": sender_name,
             "text": msg["text"],
-            "timestamp": msg["timestamp"].isoformat()
-        })
+            "timestamp": msg["timestamp"].isoformat(),
+            "messageType": msg.get("messageType", "text")
+        }
+
+        # Add file information if present
+        if "fileUrl" in msg and msg["fileUrl"]:
+            message_data["fileUrl"] = msg["fileUrl"]
+            message_data["fileType"] = msg.get("fileType")
+            message_data["fileName"] = msg.get("fileName")
+
+            print(f"Search result with file: {message_data['id']}, fileUrl: {message_data['fileUrl']}, fileType: {message_data['fileType']}")
+
+        results.append(message_data)
 
     return jsonify({"results": results, "count": len(results)}), 200
 

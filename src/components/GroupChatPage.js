@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import "../styles/groupchat.css";
 import "../styles/emoji-picker.css";
 import "../styles/search-results-list.css";
@@ -126,44 +126,110 @@ function GroupChatPage({ user, textSize }) {
   }, []);
 
   // Show browser notification
-  const showNotification = (message) => {
-    try {
-      if (!("Notification" in window)) {
-        console.log("This browser does not support desktop notification");
-        return;
+  const showNotification = useCallback(
+    (message) => {
+      try {
+        if (!("Notification" in window)) {
+          console.log("This browser does not support desktop notification");
+          return;
+        }
+
+        if (Notification.permission === "granted") {
+          // Get group name and sender name
+          const group = groups.find((g) => g.id === message.groupId);
+          const groupName = group ? group.name : "Group";
+          const senderName = message.senderName || "Someone";
+
+          const notification = new Notification(
+            `New message in ${groupName} from ${senderName}`,
+            {
+              body: message.text || "Sent an attachment",
+              icon: "/logo192.png",
+            }
+          );
+
+          notification.onclick = function () {
+            window.focus();
+            if (group) {
+              setSelectedGroup(group);
+            }
+          };
+        } else if (Notification.permission !== "denied") {
+          Notification.requestPermission().then((permission) => {
+            if (permission === "granted") {
+              showNotification(message);
+            }
+          });
+        }
+      } catch (error) {
+        console.error("Error showing notification:", error);
       }
+    },
+    [groups, setSelectedGroup]
+  );
 
-      if (Notification.permission === "granted") {
-        // Get group name and sender name
-        const group = groups.find((g) => g.id === message.groupId);
-        const groupName = group ? group.name : "Group";
-        const senderName = message.senderName || "Someone";
+  // Define title management functions before they're used in socket listeners
+  // Title management functions
+  const originalTitle = document.title;
+  const titleIntervalRef = useRef(null);
+  const unreadCountRef = useRef(0);
 
-        const notification = new Notification(
-          `New message in ${groupName} from ${senderName}`,
-          {
-            body: message.text || "Sent an attachment",
-            icon: "/logo192.png",
-          }
-        );
+  // Update the page title to show a notification
+  const updateTitle = useCallback(
+    (message, flash = true, count = 1) => {
+      // Only update title if the page is not visible
+      if (document.hidden) {
+        // Clear any existing interval
+        if (titleIntervalRef.current) {
+          clearInterval(titleIntervalRef.current);
+        }
 
-        notification.onclick = function () {
-          window.focus();
-          if (group) {
-            setSelectedGroup(group);
+        // Increment unread count by the specified amount (default 1)
+        // Can also be negative to decrement the counter
+        unreadCountRef.current += count;
+
+        // Ensure unreadCount is never negative
+        if (unreadCountRef.current < 0) unreadCountRef.current = 0;
+
+        // Only update title if we have a message or unread count
+        if (message || unreadCountRef.current > 0) {
+          // Create the new title with unread count
+          const newTitle =
+            unreadCountRef.current > 0
+              ? `(${unreadCountRef.current}) ${message}`
+              : originalTitle;
+
+          // Set the title immediately
+          document.title = newTitle;
+
+          // If flash is true and we have unread messages, alternate between the new title and original title
+          if (flash && unreadCountRef.current > 0) {
+            let isOriginal = false;
+            titleIntervalRef.current = setInterval(() => {
+              document.title = isOriginal ? newTitle : originalTitle;
+              isOriginal = !isOriginal;
+            }, 1000);
           }
-        };
-      } else if (Notification.permission !== "denied") {
-        Notification.requestPermission().then((permission) => {
-          if (permission === "granted") {
-            showNotification(message);
-          }
-        });
+        }
       }
-    } catch (error) {
-      console.error("Error showing notification:", error);
+    },
+    [originalTitle]
+  );
+
+  // Reset the page title to the original title
+  const resetTitle = useCallback(() => {
+    // Clear any existing interval
+    if (titleIntervalRef.current) {
+      clearInterval(titleIntervalRef.current);
+      titleIntervalRef.current = null;
     }
-  };
+
+    // Reset unread count
+    unreadCountRef.current = 0;
+
+    // Reset the title
+    document.title = originalTitle;
+  }, [originalTitle]);
 
   // Socket.io event listeners for group messages
   useEffect(() => {
@@ -294,11 +360,16 @@ function GroupChatPage({ user, textSize }) {
         // For messages from other users, add them to the state
         // Ensure fileData is properly set for rendering
         if (newMessage.fileUrl) {
-          // For received messages, set fileData to the full URL
+          // For received messages, ensure the URL is absolute
           const baseUrl = window.location.origin;
-          newMessage.fileData = newMessage.fileUrl.startsWith("http")
-            ? newMessage.fileUrl
-            : `${baseUrl}${newMessage.fileUrl}`;
+
+          // If the URL is relative (starts with /), make it absolute
+          if (newMessage.fileUrl.startsWith("/")) {
+            newMessage.fileUrl = `${baseUrl}${newMessage.fileUrl}`;
+          }
+
+          // Set fileData to the same URL for rendering
+          newMessage.fileData = newMessage.fileUrl;
 
           console.log("Group file URL processed:", {
             original: newMessage.fileUrl,
@@ -314,7 +385,22 @@ function GroupChatPage({ user, textSize }) {
 
       // Show notification if message is from another user
       if (newMessage.sender !== user?.id) {
+        // Get group name and sender name for notification
+        const group = groups.find((g) => g.id === newMessage.groupId);
+        const groupName = group ? group.name : "Group";
+        const senderName = newMessage.senderName || "Someone";
+
+        // Show browser notification
         showNotification(newMessage);
+
+        // Update page title with sender and group name
+        if (document.hidden) {
+          updateTitle(
+            `New message in ${groupName} from ${senderName}`,
+            true,
+            1
+          );
+        }
       }
 
       // Update the group's last message timestamp and unread count
@@ -502,7 +588,7 @@ function GroupChatPage({ user, textSize }) {
       socket.off("message_edited");
       socket.off("message_deleted");
     };
-  }, [socket, user?.id, showNotification]);
+  }, [socket, user?.id, showNotification, groups, selectedGroup, updateTitle]);
 
   // Add socket listener for user status updates
   useEffect(() => {
@@ -551,7 +637,24 @@ function GroupChatPage({ user, textSize }) {
     ) {
       Notification.requestPermission();
     }
-  }, []);
+
+    // Setup visibility change listener to reset title when page becomes visible
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        resetTitle();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      // Clear any interval when component unmounts
+      if (titleIntervalRef.current) {
+        clearInterval(titleIntervalRef.current);
+      }
+    };
+  }, [resetTitle]);
 
   // Handle window resize to detect mobile view
   useEffect(() => {
@@ -722,13 +825,28 @@ function GroupChatPage({ user, textSize }) {
         });
       });
     }
+
+    // Reset the page title when a group is selected
+    resetTitle();
   };
 
   const handleFileSelection = (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
+    // Check file size before uploading
+    const maxSize = file.type.startsWith("image/")
+      ? 5 * 1024 * 1024 // 5MB for images
+      : 25 * 1024 * 1024; // 25MB for other files
+
+    if (file.size > maxSize) {
+      const maxSizeMB = maxSize / (1024 * 1024);
+      alert(`File size exceeds the maximum allowed size of ${maxSizeMB}MB.`);
+      return;
+    }
+
     setSelectedFile(file);
+    setIsUploading(true);
 
     // Generate preview for images and videos
     if (file.type.startsWith("image/") || file.type.startsWith("video/")) {
@@ -749,6 +867,46 @@ function GroupChatPage({ user, textSize }) {
         name: file.name,
       });
     }
+
+    // Upload the file immediately to the server
+    uploadFile(file);
+  };
+
+  const uploadFile = async (file) => {
+    try {
+      // Create form data
+      const formData = new FormData();
+      formData.append("file", file);
+
+      // Add group ID if we have a selected group
+      if (selectedGroup) {
+        formData.append("conversation_id", selectedGroup.id);
+      }
+
+      // Upload the file
+      const response = await axios.post("/api/upload", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+      });
+
+      // Update the file preview with the server URL
+      if (response.data && response.data.fileUrl) {
+        setSelectedFile({
+          ...file,
+          url: response.data.fileUrl,
+          uploaded: true,
+        });
+      }
+
+      setIsUploading(false);
+    } catch (error) {
+      console.error("Error uploading file:", error);
+      alert("Failed to upload file. Please try again.");
+      cancelFileUpload();
+      setIsUploading(false);
+    }
   };
 
   const cancelFileUpload = () => {
@@ -757,16 +915,6 @@ function GroupChatPage({ user, textSize }) {
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
-  };
-
-  // Handle file uploads and conversion
-  const fileToBase64 = (file) => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = () => resolve(reader.result);
-      reader.onerror = (error) => reject(error);
-    });
   };
 
   const handleSendMessage = async (e) => {
@@ -786,46 +934,12 @@ function GroupChatPage({ user, textSize }) {
     let fileUrl = null;
     let fileType = null;
     let fileName = null;
-    let fileData = null;
 
-    // Handle file upload if a file is selected
-    if (selectedFile) {
-      try {
-        setIsUploading(true);
-
-        // Convert file to base64 for transmission via socket
-        fileData = await fileToBase64(selectedFile);
-
-        if (!fileData) {
-          throw new Error("Failed to convert file to base64");
-        }
-
-        // Show optimistic preview with local URL
-        fileUrl = filePreview.url;
-        fileType = selectedFile.type;
-        fileName = selectedFile.name;
-
-        console.log("Group file prepared for sending:", {
-          fileName,
-          fileType,
-          fileDataLength: fileData ? fileData.length : 0,
-          groupId: selectedGroup.id,
-        });
-
-        // Reset file selection
-        setSelectedFile(null);
-        setFilePreview(null);
-        if (fileInputRef.current) {
-          fileInputRef.current.value = "";
-        }
-      } catch (error) {
-        console.error("Error processing file:", error);
-        alert(
-          "Failed to upload file. Please try again with a smaller file or different format."
-        );
-        setIsUploading(false);
-        return;
-      }
+    // Check if we have an uploaded file
+    if (selectedFile && selectedFile.uploaded) {
+      fileUrl = selectedFile.url;
+      fileType = selectedFile.type;
+      fileName = selectedFile.name;
     }
 
     // Create optimistic message
@@ -839,7 +953,6 @@ function GroupChatPage({ user, textSize }) {
       fileUrl: fileUrl,
       fileType: fileType,
       fileName: fileName,
-      fileData: fileData,
       _isOptimistic: true, // Flag to identify optimistic messages
     };
 
@@ -874,11 +987,16 @@ function GroupChatPage({ user, textSize }) {
         fileUrl: fileUrl,
         fileType: fileType,
         fileName: fileName,
-        fileData: fileData, // Send the base64 data to server
       });
 
+      // Decrement the notification counter by 1 to counteract the duplicate counting
+      if (document.hidden) {
+        // Use negative count to subtract from the counter
+        updateTitle("", false, -1);
+      }
+
       console.log("Group message sent successfully:", {
-        hasFile: fileData ? true : false,
+        hasFile: fileUrl ? true : false,
         textLength: message.length,
         groupId: selectedGroup.id,
       });
@@ -1559,18 +1677,45 @@ function GroupChatPage({ user, textSize }) {
   const renderFileContent = (msg) => {
     if (!msg.fileUrl && !msg.fileData) return null;
 
-    // Use fileData (base64) if available, otherwise fall back to fileUrl
-    let fileSource = msg.fileData || msg.fileUrl;
+    // Use fileUrl as the primary source
+    let fileSource = msg.fileUrl;
+
+    // If fileUrl is not available, fall back to fileData
+    if (!fileSource) {
+      fileSource = msg.fileData;
+    }
 
     if (!fileSource) {
       console.error("Missing file source for group message:", msg.id);
       return <div className="file-error">File could not be displayed</div>;
     }
 
+    // Ensure the URL is absolute
+    if (fileSource.startsWith("/")) {
+      const baseUrl = window.location.origin;
+      fileSource = `${baseUrl}${fileSource}`;
+      console.log("Converted relative URL to absolute:", fileSource);
+    }
+
+    // Add a cache-busting parameter to prevent browser caching issues
+    if (!fileSource.includes("?") && !isGoFileUrl(fileSource)) {
+      fileSource = `${fileSource}?t=${new Date().getTime()}`;
+      console.log("Added cache-busting parameter:", fileSource);
+    }
+
     // Check if it's a GoFile.io URL and get direct download URL
     if (isGoFileUrl(fileSource)) {
       fileSource = getDirectGoFileUrl(fileSource);
     }
+
+    console.log(
+      "Rendering group file with source:",
+      fileSource,
+      "type:",
+      msg.fileType,
+      "message:",
+      msg
+    );
 
     try {
       if (
@@ -1579,16 +1724,45 @@ function GroupChatPage({ user, textSize }) {
       ) {
         return (
           <div className="message-image-container">
+            <div className="image-loading">Loading image...</div>
             <img
               src={fileSource}
               alt="Sent"
               className="message-image"
               onClick={() => window.open(fileSource, "_blank")}
-              onError={(e) => {
-                console.error("Group image failed to load:", e);
-                e.target.src = "/placeholder-image.png"; // Fallback image
-                e.target.alt = "Image failed to load";
+              onLoad={(e) => {
+                console.log("Group image loaded successfully:", fileSource);
+                // Hide the loading indicator when image loads
+                const loadingEl =
+                  e.target.parentNode.querySelector(".image-loading");
+                if (loadingEl) loadingEl.style.display = "none";
+                // Show the image
+                e.target.style.display = "block";
               }}
+              onError={(e) => {
+                console.error("Group image failed to load:", e, fileSource);
+                // Hide the loading indicator
+                const loadingEl =
+                  e.target.parentNode.querySelector(".image-loading");
+                if (loadingEl) loadingEl.textContent = "Image failed to load";
+
+                // Try to reload the image with a different URL format
+                if (!e.target.retryAttempted) {
+                  e.target.retryAttempted = true;
+
+                  // Try with a different cache-busting approach
+                  const retryUrl =
+                    fileSource.split("?")[0] + "?nocache=" + Math.random();
+                  console.log("Retrying with URL:", retryUrl);
+                  e.target.src = retryUrl;
+                } else {
+                  // If retry failed, show placeholder
+                  e.target.src = "/placeholder-image.png";
+                  e.target.alt = "Image failed to load";
+                  e.target.style.display = "block";
+                }
+              }}
+              style={{ display: "none" }} // Initially hidden until loaded
             />
             {isGoFileUrl(fileSource) && (
               <div className="gofile-badge">
@@ -1603,15 +1777,31 @@ function GroupChatPage({ user, textSize }) {
       ) {
         return (
           <div className="message-video-container">
+            <div className="video-loading">Loading video...</div>
             <video
               src={fileSource}
               controls
               className="message-video"
-              onError={(e) => {
-                console.error("Group video failed to load:", e);
-                e.target.parentNode.innerHTML =
-                  '<div class="video-error">Video could not be played</div>';
+              onLoadedData={(e) => {
+                console.log("Group video loaded successfully:", fileSource);
+                // Hide the loading indicator when video loads
+                const loadingEl =
+                  e.target.parentNode.querySelector(".video-loading");
+                if (loadingEl) loadingEl.style.display = "none";
+                // Show the video
+                e.target.style.display = "block";
               }}
+              onError={(e) => {
+                console.error("Group video failed to load:", e, fileSource);
+                // Update the loading indicator to show error
+                const loadingEl =
+                  e.target.parentNode.querySelector(".video-loading");
+                if (loadingEl) {
+                  loadingEl.className = "video-error";
+                  loadingEl.textContent = "Video could not be played";
+                }
+              }}
+              style={{ display: "none" }} // Initially hidden until loaded
             />
             {isGoFileUrl(fileSource) && (
               <div className="gofile-badge">
@@ -1630,7 +1820,7 @@ function GroupChatPage({ user, textSize }) {
             {isGoFileUrl(fileSource) ? (
               <i className="fas fa-cloud-download-alt"></i>
             ) : (
-              <i className="fas fa-file"></i>
+              <i className="fas fa-file-alt"></i>
             )}
             <span className="file-name">{msg.fileName || "File"}</span>
             {isGoFileUrl(fileSource) && (
@@ -2007,6 +2197,12 @@ function GroupChatPage({ user, textSize }) {
                                     text: mentionReply,
                                   });
 
+                                  // Decrement the notification counter by 1 to counteract the duplicate counting
+                                  if (document.hidden) {
+                                    // Use negative count to subtract from the counter
+                                    updateTitle("", false, -1);
+                                  }
+
                                   // Mark this message as replied to
                                   setRepliedMessages((prev) => {
                                     const updatedReplies = [...prev, msg.id];
@@ -2061,6 +2257,7 @@ function GroupChatPage({ user, textSize }) {
                   <input
                     type="file"
                     ref={fileInputRef}
+                    id="group-file-input"
                     className="file-input"
                     onChange={handleFileSelection}
                     accept="image/*,video/*,application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt"
@@ -2079,6 +2276,16 @@ function GroupChatPage({ user, textSize }) {
                     </div>
                   )}
                   <div className="input-container">
+                    <label
+                      htmlFor="group-file-input"
+                      className="attachment-button"
+                      title="Upload a file from your device"
+                      style={{
+                        cursor: isUploading ? "not-allowed" : "pointer",
+                      }}
+                    >
+                      <i className="fas fa-paperclip"></i>
+                    </label>
                     <button
                       type="button"
                       className="attachment-button"
