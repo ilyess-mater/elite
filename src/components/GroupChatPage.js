@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import "../styles/groupchat.css";
 import "../styles/emoji-picker.css";
+import "../styles/search-results-list.css";
 import axios from "axios";
 import { useAuth } from "../contexts/AuthContext";
 import TaskManagement from "./TaskManagement";
@@ -1062,7 +1063,7 @@ function GroupChatPage({ user, textSize }) {
   };
 
   // Search messages functionality
-  const handleSearchMessages = (searchText) => {
+  const handleSearchMessages = async (searchText) => {
     setSearchQuery(searchText);
 
     if (!searchText.trim() || !selectedGroup || !messages[selectedGroup.id]) {
@@ -1076,12 +1077,14 @@ function GroupChatPage({ user, textSize }) {
       const searchTotal = document.getElementById("search-total");
       const prevButton = document.getElementById("search-prev");
       const nextButton = document.getElementById("search-next");
+      const searchResultsList = document.getElementById("search-results-list");
 
       if (searchNav) searchNav.classList.remove("active");
       if (searchCount) searchCount.textContent = "0";
       if (searchTotal) searchTotal.textContent = "0";
       if (prevButton) prevButton.disabled = true;
       if (nextButton) nextButton.disabled = true;
+      if (searchResultsList) searchResultsList.classList.remove("active");
 
       // Remove all highlights
       document.querySelectorAll(".search-highlight").forEach((el) => {
@@ -1092,46 +1095,130 @@ function GroupChatPage({ user, textSize }) {
       return;
     }
 
-    // Find all messages that contain the search text
-    const results = [];
-    const groupMessages = messages[selectedGroup.id];
+    try {
+      // Try to use the backend search API first
+      const response = await axios
+        .get(
+          `/api/groups/${
+            selectedGroup.id
+          }/messages/search?query=${encodeURIComponent(searchText)}`,
+          {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("token")}`,
+            },
+          }
+        )
+        .catch(() => ({ data: { results: [] } })); // Fallback if API fails
 
-    groupMessages.forEach((msg, index) => {
+      let results = [];
+
+      // If backend search returned results, use them
       if (
-        msg.text &&
-        msg.text.toLowerCase().includes(searchText.toLowerCase())
+        response.data &&
+        response.data.results &&
+        response.data.results.length > 0
       ) {
-        results.push({
+        results = response.data.results.map((msg, index) => ({
           index,
           messageId: msg.id,
           text: msg.text,
           timestamp: msg.timestamp,
+          sender: msg.sender,
+          senderName: msg.senderName,
+        }));
+      } else {
+        // Fallback to client-side search
+        const groupMessages = messages[selectedGroup.id];
+        groupMessages.forEach((msg, index) => {
+          if (
+            msg.text &&
+            msg.text.toLowerCase().includes(searchText.toLowerCase())
+          ) {
+            results.push({
+              index,
+              messageId: msg.id,
+              text: msg.text,
+              timestamp: msg.timestamp,
+              sender: msg.sender,
+              senderName: msg.senderName,
+            });
+          }
         });
       }
-    });
 
-    setSearchResults(results);
+      setSearchResults(results);
 
-    // Update UI elements
-    const searchNav = document.getElementById("search-navigation");
-    const searchCount = document.getElementById("search-current");
-    const searchTotal = document.getElementById("search-total");
-    const prevButton = document.getElementById("search-prev");
-    const nextButton = document.getElementById("search-next");
+      // Update UI elements
+      const searchNav = document.getElementById("search-navigation");
+      const searchCount = document.getElementById("search-current");
+      const searchTotal = document.getElementById("search-total");
+      const prevButton = document.getElementById("search-prev");
+      const nextButton = document.getElementById("search-next");
+      const searchResultsList = document.getElementById("search-results-list");
 
-    if (searchNav) searchNav.classList.add("active");
-    if (searchCount) searchCount.textContent = results.length > 0 ? "1" : "0";
-    if (searchTotal) searchTotal.textContent = results.length.toString();
-    if (prevButton) prevButton.disabled = results.length <= 1;
-    if (nextButton) nextButton.disabled = results.length <= 1;
+      if (searchNav) searchNav.classList.add("active");
+      if (searchCount) searchCount.textContent = results.length > 0 ? "1" : "0";
+      if (searchTotal) searchTotal.textContent = results.length.toString();
+      if (prevButton) prevButton.disabled = results.length <= 1;
+      if (nextButton) nextButton.disabled = results.length <= 1;
+      if (searchResultsList) searchResultsList.classList.add("active");
 
-    // Reset current index and highlight first result
-    if (results.length > 0) {
-      setCurrentSearchIndex(0);
-      // Use a small delay to ensure the DOM is updated
-      setTimeout(() => {
-        highlightSearchResult(0, results);
-      }, 300);
+      // Reset current index and highlight first result
+      if (results.length > 0) {
+        setCurrentSearchIndex(0);
+        // Use a small delay to ensure the DOM is updated
+        setTimeout(() => {
+          highlightSearchResult(0, results);
+        }, 300);
+      }
+    } catch (error) {
+      console.error("Error searching messages:", error);
+
+      // Fallback to client-side search if API fails
+      const results = [];
+      const groupMessages = messages[selectedGroup.id];
+
+      groupMessages.forEach((msg, index) => {
+        if (
+          msg.text &&
+          msg.text.toLowerCase().includes(searchText.toLowerCase())
+        ) {
+          results.push({
+            index,
+            messageId: msg.id,
+            text: msg.text,
+            timestamp: msg.timestamp,
+            sender: msg.sender,
+            senderName: msg.senderName || "Unknown",
+          });
+        }
+      });
+
+      setSearchResults(results);
+
+      // Update UI elements
+      const searchNav = document.getElementById("search-navigation");
+      const searchCount = document.getElementById("search-current");
+      const searchTotal = document.getElementById("search-total");
+      const prevButton = document.getElementById("search-prev");
+      const nextButton = document.getElementById("search-next");
+      const searchResultsList = document.getElementById("search-results-list");
+
+      if (searchNav) searchNav.classList.add("active");
+      if (searchCount) searchCount.textContent = results.length > 0 ? "1" : "0";
+      if (searchTotal) searchTotal.textContent = results.length.toString();
+      if (prevButton) prevButton.disabled = results.length <= 1;
+      if (nextButton) nextButton.disabled = results.length <= 1;
+      if (searchResultsList) searchResultsList.classList.add("active");
+
+      // Reset current index and highlight first result
+      if (results.length > 0) {
+        setCurrentSearchIndex(0);
+        // Use a small delay to ensure the DOM is updated
+        setTimeout(() => {
+          highlightSearchResult(0, results);
+        }, 300);
+      }
     }
   };
 
@@ -1180,57 +1267,73 @@ function GroupChatPage({ user, textSize }) {
       return;
     }
 
-    // Create a map of message IDs to DOM elements for faster lookup
-    const messageElementsMap = {};
-    messageElements.forEach((el, idx) => {
-      // Store both by index and by ID if available
-      messageElementsMap[idx] = el;
-      const msgId = el.getAttribute("data-message-id");
-      if (msgId) {
-        messageElementsMap[msgId] = el;
-      }
-    });
-
-    // First, add highlight to all matching messages
-    results.forEach((result) => {
-      // Try to find the element by index first
-      let messageEl = messageElementsMap[result.index];
-
-      // If not found by index, try by ID
-      if (!messageEl && result.messageId) {
-        messageEl = messageElementsMap[result.messageId];
-      }
-
-      if (messageEl) {
-        messageEl.classList.add("search-highlight");
-      }
-    });
-
-    // Then, highlight and scroll to the current result
+    // Get the current result we want to highlight
     const currentResult = results[index];
-    if (currentResult) {
-      // Try to find the element by index first
-      let currentMessageEl = messageElementsMap[currentResult.index];
+    if (!currentResult || !currentResult.messageId) {
+      console.log("Invalid search result", currentResult);
+      return;
+    }
 
-      // If not found by index, try by ID
-      if (!currentMessageEl && currentResult.messageId) {
-        currentMessageEl = messageElementsMap[currentResult.messageId];
+    // Find the specific message element by ID
+    let targetMessageEl = null;
+
+    console.log("Looking for message with ID:", currentResult.messageId);
+    console.log("Message text to find:", currentResult.text);
+
+    // First try to find by exact message ID match
+    messageElements.forEach((el) => {
+      const msgId = el.getAttribute("data-message-id");
+      if (msgId === currentResult.messageId) {
+        console.log("Found message by ID match:", msgId);
+        targetMessageEl = el;
       }
+    });
 
-      if (currentMessageEl) {
-        currentMessageEl.classList.add("current-highlight");
+    // If not found by ID, try to find by exact text content match
+    if (!targetMessageEl) {
+      messageElements.forEach((el) => {
+        const messageText = el.querySelector(".message-text")?.textContent;
+        if (messageText && messageText === currentResult.text) {
+          console.log("Found message by exact text match");
+          targetMessageEl = el;
+        }
+      });
+    }
 
-        // Scroll the message into view with smooth animation
-        setTimeout(() => {
-          currentMessageEl.scrollIntoView({
-            behavior: "smooth",
-            block: "center",
-          });
-        }, 300);
-      } else {
-        console.log("Current message element not found, retrying in 500ms");
-        setTimeout(() => highlightSearchResult(index, results), 500);
+    // If not found by exact text, try to find by partial text content match
+    if (!targetMessageEl) {
+      messageElements.forEach((el) => {
+        const messageText = el.querySelector(".message-text")?.textContent;
+        if (messageText && messageText.includes(currentResult.text)) {
+          console.log("Found message by partial text match");
+          targetMessageEl = el;
+        }
+      });
+    }
+
+    // If still not found, try to find by index as last resort
+    if (!targetMessageEl && typeof currentResult.index === "number") {
+      if (messageElements[currentResult.index]) {
+        console.log("Found message by index:", currentResult.index);
+        targetMessageEl = messageElements[currentResult.index];
       }
+    }
+
+    if (targetMessageEl) {
+      // Add highlight class to the found message
+      targetMessageEl.classList.add("search-highlight");
+      targetMessageEl.classList.add("current-highlight");
+
+      // Scroll the message into view with smooth animation
+      setTimeout(() => {
+        targetMessageEl.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+      }, 300);
+    } else {
+      console.log("Target message element not found, retrying in 500ms");
+      setTimeout(() => highlightSearchResult(index, results), 500);
     }
   };
 
@@ -2095,6 +2198,95 @@ function GroupChatPage({ user, textSize }) {
                       <i className="fas fa-chevron-down"></i>
                     </button>
                   </div>
+                </div>
+                <div className="search-results-list" id="search-results-list">
+                  {searchResults.map((result, index) => {
+                    // Get sender name
+                    const senderName =
+                      result.sender === user.id
+                        ? "You"
+                        : result.senderName || "Unknown";
+
+                    // Format timestamp
+                    const formattedTime = formatTime(result.timestamp);
+
+                    // Highlight the search query in the text
+                    const highlightedText = result.text.replace(
+                      new RegExp(searchQuery, "gi"),
+                      (match) => `<span class="highlight">${match}</span>`
+                    );
+
+                    return (
+                      <div
+                        key={index}
+                        className="search-result-item"
+                        onClick={() => {
+                          setCurrentSearchIndex(index);
+
+                          // Log which result was clicked
+                          console.log(
+                            "Clicked on search result:",
+                            index,
+                            result
+                          );
+
+                          // Ensure messages are loaded
+                          if (
+                            !messages[selectedGroup.id] ||
+                            messages[selectedGroup.id].length === 0
+                          ) {
+                            console.log("Messages not loaded, loading now...");
+                            axios
+                              .get(`/api/groups/${selectedGroup.id}/messages`)
+                              .then((response) => {
+                                setMessages((prev) => ({
+                                  ...prev,
+                                  [selectedGroup.id]: response.data,
+                                }));
+
+                                // After loading messages, highlight with a delay
+                                setTimeout(() => {
+                                  highlightSearchResult(index, searchResults);
+
+                                  // Update current result counter
+                                  const searchCount =
+                                    document.getElementById("search-current");
+                                  if (searchCount)
+                                    searchCount.textContent = (
+                                      index + 1
+                                    ).toString();
+                                }, 500);
+                              })
+                              .catch((err) =>
+                                console.error("Error loading messages:", err)
+                              );
+                          } else {
+                            // Messages already loaded, highlight immediately
+                            highlightSearchResult(index, searchResults);
+
+                            // Update current result counter
+                            const searchCount =
+                              document.getElementById("search-current");
+                            if (searchCount)
+                              searchCount.textContent = (index + 1).toString();
+                          }
+                        }}
+                      >
+                        <div
+                          className="search-result-text"
+                          dangerouslySetInnerHTML={{ __html: highlightedText }}
+                        />
+                        <div className="search-result-meta">
+                          <span className="search-result-sender">
+                            {senderName}
+                          </span>
+                          <span className="search-result-time">
+                            {formattedTime}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 

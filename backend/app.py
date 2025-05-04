@@ -372,6 +372,44 @@ def get_messages(contact_id):
 
     return jsonify(messages_list), 200
 
+@app.route('/api/messages/<contact_id>/search', methods=['GET'])
+def search_messages(contact_id):
+    token = request.headers.get('Authorization', '').replace('Bearer ', '')
+    user_id = verify_token(token)
+
+    if not user_id:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    query = request.args.get('query', '')
+    if not query:
+        return jsonify({"error": "Search query is required"}), 400
+
+    # Search messages between user and contact that contain the query
+    messages = messages_collection.find({
+        "$or": [
+            {"senderId": ObjectId(user_id), "receiverId": ObjectId(contact_id)},
+            {"senderId": ObjectId(contact_id), "receiverId": ObjectId(user_id)}
+        ],
+        "text": {"$regex": query, "$options": "i"}  # Case-insensitive search
+    }).sort("timestamp", 1)
+
+    # Format messages for the frontend
+    results = []
+    for msg in messages:
+        sender_id = str(msg["senderId"])
+        sender = users_collection.find_one({"_id": msg["senderId"]})
+        sender_name = sender["name"] if sender else "Unknown"
+
+        results.append({
+            "id": str(msg["_id"]),
+            "sender": sender_id,
+            "senderName": sender_name,
+            "text": msg["text"],
+            "timestamp": msg["timestamp"].isoformat()
+        })
+
+    return jsonify({"results": results, "count": len(results)}), 200
+
 # Admin routes
 @app.route('/api/admin/users', methods=['GET'])
 def get_all_users():
@@ -1455,6 +1493,50 @@ def get_group_messages(group_id):
         })
 
     return jsonify(messages_list), 200
+
+@app.route('/api/groups/<group_id>/messages/search', methods=['GET'])
+def search_group_messages(group_id):
+    token = request.headers.get('Authorization', '').replace('Bearer ', '')
+    user_id = verify_token(token)
+
+    if not user_id:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    # Check if user is member of the group
+    group = groups_collection.find_one({
+        "_id": ObjectId(group_id),
+        "members": {"$elemMatch": {"userId": ObjectId(user_id)}}
+    })
+
+    if not group:
+        return jsonify({"error": "Forbidden"}), 403
+
+    query = request.args.get('query', '')
+    if not query:
+        return jsonify({"error": "Search query is required"}), 400
+
+    # Search messages in the group that contain the query
+    messages = group_messages_collection.find({
+        "groupId": ObjectId(group_id),
+        "text": {"$regex": query, "$options": "i"}  # Case-insensitive search
+    }).sort("timestamp", 1)
+
+    # Format messages for the frontend
+    results = []
+    for msg in messages:
+        sender_id = str(msg["senderId"])
+        sender = users_collection.find_one({"_id": msg["senderId"]})
+        sender_name = sender["name"] if sender else "Unknown"
+
+        results.append({
+            "id": str(msg["_id"]),
+            "sender": sender_id,
+            "senderName": sender_name,
+            "text": msg["text"],
+            "timestamp": msg["timestamp"].isoformat()
+        })
+
+    return jsonify({"results": results, "count": len(results)}), 200
 
 @app.route('/api/groups/<group_id>/messages', methods=['DELETE'])
 def delete_group_chat(group_id):

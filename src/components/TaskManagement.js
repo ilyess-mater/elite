@@ -163,8 +163,6 @@ function TaskManagement({ groupId, user, members }) {
 
   // Delete a task
   const handleDeleteTask = async (taskId) => {
-    if (!window.confirm("Are you sure you want to delete this task?")) return;
-
     try {
       await axios.delete(`/api/tasks/${taskId}`);
       setTasks((prev) => prev.filter((task) => task._id !== taskId));
