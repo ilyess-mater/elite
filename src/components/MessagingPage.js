@@ -32,6 +32,11 @@ function MessagingPage({ user, textSize }) {
   const [editedMessageText, setEditedMessageText] = useState("");
   const [showDeleteMessageConfirm, setShowDeleteMessageConfirm] =
     useState(false);
+
+  // Search functionality
+  const [searchResults, setSearchResults] = useState([]);
+  const [currentSearchIndex, setCurrentSearchIndex] = useState(0);
+  const [searchQuery, setSearchQuery] = useState("");
   const [messageToDelete, setMessageToDelete] = useState(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
 
@@ -44,6 +49,11 @@ function MessagingPage({ user, textSize }) {
         // Get IDs of removed chats from localStorage
         const removedChats = JSON.parse(
           localStorage.getItem("removedChats") || "[]"
+        );
+
+        // Get muted contacts from localStorage
+        const mutedContacts = JSON.parse(
+          localStorage.getItem("mutedContacts") || "[]"
         );
 
         // Filter out contacts with removed chats
@@ -61,6 +71,7 @@ function MessagingPage({ user, textSize }) {
             ...contact,
             avatar: generateAvatar(contact.name),
             unreadCount: unreadCount,
+            isMuted: mutedContacts.includes(contact.id),
           };
         });
 
@@ -351,11 +362,22 @@ function MessagingPage({ user, textSize }) {
         return;
       }
 
-      if (Notification.permission === "granted") {
-        // Find sender's name
-        const sender = contacts.find(
-          (contact) => contact.id === message.sender
+      // Find sender
+      const sender = contacts.find((contact) => contact.id === message.sender);
+
+      // Check if sender is muted
+      if (sender) {
+        // Get muted contacts from localStorage
+        const mutedContacts = JSON.parse(
+          localStorage.getItem("mutedContacts") || "[]"
         );
+        if (mutedContacts.includes(sender.id)) {
+          console.log(`Notification from ${sender.name} muted`);
+          return; // Skip notification for muted contact
+        }
+      }
+
+      if (Notification.permission === "granted") {
         const senderName = sender ? sender.name : "Someone";
 
         const notification = new Notification(
@@ -363,6 +385,9 @@ function MessagingPage({ user, textSize }) {
           {
             body: message.text || "Sent you a file",
             icon: "/logo192.png",
+            badge: "/logo192.png",
+            tag: `message-${sender?.id || "unknown"}-${Date.now()}`,
+            requireInteraction: true,
           }
         );
 
@@ -672,6 +697,183 @@ function MessagingPage({ user, textSize }) {
     return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   };
 
+  // Search messages functionality
+  const handleSearchMessages = (searchText) => {
+    setSearchQuery(searchText);
+
+    if (
+      !searchText.trim() ||
+      !selectedContact ||
+      !messages[selectedContact.id]
+    ) {
+      // Clear search results if search text is empty or no messages
+      setSearchResults([]);
+      setCurrentSearchIndex(0);
+
+      // Update UI elements
+      const searchNav = document.getElementById("search-navigation");
+      const searchCount = document.getElementById("search-current");
+      const searchTotal = document.getElementById("search-total");
+      const prevButton = document.getElementById("search-prev");
+      const nextButton = document.getElementById("search-next");
+
+      if (searchNav) searchNav.classList.remove("active");
+      if (searchCount) searchCount.textContent = "0";
+      if (searchTotal) searchTotal.textContent = "0";
+      if (prevButton) prevButton.disabled = true;
+      if (nextButton) nextButton.disabled = true;
+
+      // Remove all highlights
+      document.querySelectorAll(".search-highlight").forEach((el) => {
+        el.classList.remove("search-highlight");
+        el.classList.remove("current-highlight");
+      });
+
+      return;
+    }
+
+    // Find all messages that contain the search text
+    const results = [];
+    const contactMessages = messages[selectedContact.id];
+
+    contactMessages.forEach((msg, index) => {
+      if (
+        msg.text &&
+        msg.text.toLowerCase().includes(searchText.toLowerCase())
+      ) {
+        results.push({
+          index,
+          messageId: msg.id,
+          text: msg.text,
+          timestamp: msg.timestamp,
+        });
+      }
+    });
+
+    setSearchResults(results);
+
+    // Update UI elements
+    const searchNav = document.getElementById("search-navigation");
+    const searchCount = document.getElementById("search-current");
+    const searchTotal = document.getElementById("search-total");
+    const prevButton = document.getElementById("search-prev");
+    const nextButton = document.getElementById("search-next");
+
+    if (searchNav) searchNav.classList.add("active");
+    if (searchCount) searchCount.textContent = results.length > 0 ? "1" : "0";
+    if (searchTotal) searchTotal.textContent = results.length.toString();
+    if (prevButton) prevButton.disabled = results.length <= 1;
+    if (nextButton) nextButton.disabled = results.length <= 1;
+
+    // Reset current index and highlight first result
+    if (results.length > 0) {
+      setCurrentSearchIndex(0);
+      // Use a small delay to ensure the DOM is updated
+      setTimeout(() => {
+        highlightSearchResult(0, results);
+      }, 300);
+    }
+  };
+
+  // Navigate between search results
+  const navigateSearchResults = (direction) => {
+    if (searchResults.length === 0) return;
+
+    let newIndex;
+    if (direction === "next") {
+      newIndex = (currentSearchIndex + 1) % searchResults.length;
+    } else {
+      newIndex =
+        (currentSearchIndex - 1 + searchResults.length) % searchResults.length;
+    }
+
+    setCurrentSearchIndex(newIndex);
+    highlightSearchResult(newIndex, searchResults);
+
+    // Update current result counter
+    const searchCount = document.getElementById("search-current");
+    if (searchCount) searchCount.textContent = (newIndex + 1).toString();
+  };
+
+  // Highlight a specific search result and scroll to it
+  const highlightSearchResult = (index, results) => {
+    if (
+      !results ||
+      results.length === 0 ||
+      index < 0 ||
+      index >= results.length
+    )
+      return;
+
+    // Remove all highlights first
+    document.querySelectorAll(".search-highlight").forEach((el) => {
+      el.classList.remove("search-highlight");
+      el.classList.remove("current-highlight");
+    });
+
+    // Find all message elements
+    const messageElements = document.querySelectorAll(".message");
+
+    if (messageElements.length === 0) {
+      console.log("No message elements found, retrying in 500ms");
+      setTimeout(() => highlightSearchResult(index, results), 500);
+      return;
+    }
+
+    // Create a map of message IDs to DOM elements for faster lookup
+    const messageElementsMap = {};
+    messageElements.forEach((el, idx) => {
+      // Store both by index and by ID if available
+      messageElementsMap[idx] = el;
+      const msgId = el.getAttribute("data-message-id");
+      if (msgId) {
+        messageElementsMap[msgId] = el;
+      }
+    });
+
+    // First, add highlight to all matching messages
+    results.forEach((result, i) => {
+      // Try to find the element by index first
+      let messageEl = messageElementsMap[result.index];
+
+      // If not found by index, try by ID
+      if (!messageEl && result.messageId) {
+        messageEl = messageElementsMap[result.messageId];
+      }
+
+      if (messageEl) {
+        messageEl.classList.add("search-highlight");
+      }
+    });
+
+    // Then, highlight and scroll to the current result
+    const currentResult = results[index];
+    if (currentResult) {
+      // Try to find the element by index first
+      let currentMessageEl = messageElementsMap[currentResult.index];
+
+      // If not found by index, try by ID
+      if (!currentMessageEl && currentResult.messageId) {
+        currentMessageEl = messageElementsMap[currentResult.messageId];
+      }
+
+      if (currentMessageEl) {
+        currentMessageEl.classList.add("current-highlight");
+
+        // Scroll the message into view with smooth animation
+        setTimeout(() => {
+          currentMessageEl.scrollIntoView({
+            behavior: "smooth",
+            block: "center",
+          });
+        }, 300);
+      } else {
+        console.log("Current message element not found, retrying in 500ms");
+        setTimeout(() => highlightSearchResult(index, results), 500);
+      }
+    }
+  };
+
   const handleAttachmentClick = () => {
     // Open GoFile.io directly instead of opening file selector
     openGoFileUploadPage();
@@ -679,8 +881,27 @@ function MessagingPage({ user, textSize }) {
 
   const handleEmojiClick = (emojiObject) => {
     setMessage((prevMessage) => prevMessage + emojiObject.emoji);
-    setShowEmojiPicker(false);
+    // Don't close the emoji picker after selecting an emoji
+    // This allows selecting multiple emojis without reopening the picker
   };
+
+  // Close emoji picker when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        showEmojiPicker &&
+        !event.target.closest(".emoji-picker-container") &&
+        !event.target.closest(".emoji-button")
+      ) {
+        setShowEmojiPicker(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [showEmojiPicker]);
 
   // Filter contacts based on search term
   const filteredContacts = contacts.filter(
@@ -1102,6 +1323,7 @@ function MessagingPage({ user, textSize }) {
               {messages[selectedContact.id]?.map((msg) => (
                 <div
                   key={msg.id}
+                  data-message-id={msg.id}
                   className={`message ${
                     msg.sender === user.id ? "outgoing" : "incoming"
                   } ${msg._isOptimistic ? "optimistic" : ""} ${
@@ -1227,6 +1449,10 @@ function MessagingPage({ user, textSize }) {
                     onEmojiClick={handleEmojiClick}
                     width={300}
                     height={400}
+                    lazyLoadEmojis={true}
+                    previewConfig={{ showPreview: false }}
+                    searchDisabled={false}
+                    skinTonesDisabled={true}
                   />
                 </div>
               )}
@@ -1315,17 +1541,122 @@ function MessagingPage({ user, textSize }) {
               <h5 className="section-title">Chat Options</h5>
               <div className="chat-actions centered-actions">
                 <div className="search-conversation-container">
-                  <button className="chat-action-button centered-button">
+                  <button
+                    className="chat-action-button centered-button"
+                    onClick={() => {
+                      const searchBar =
+                        document.querySelector(".chat-search-bar");
+                      const searchNav =
+                        document.getElementById("search-navigation");
+                      if (searchBar) {
+                        searchBar.classList.toggle("active");
+                        if (searchBar.classList.contains("active")) {
+                          searchBar.querySelector("input").focus();
+                        } else {
+                          // Clear search when closing
+                          if (searchNav) searchNav.classList.remove("active");
+                          document
+                            .querySelectorAll(".search-highlight")
+                            .forEach((el) => {
+                              el.classList.remove("search-highlight");
+                              el.classList.remove("current-highlight");
+                            });
+                        }
+                      }
+                    }}
+                  >
                     <i className="fas fa-search"></i> Search in Conversation
                   </button>
                   <div className="search-bar chat-search-bar">
                     <i className="fas fa-search"></i>
-                    <input type="text" placeholder="Search messages..." />
+                    <input
+                      type="text"
+                      placeholder="Search messages..."
+                      onChange={(e) => handleSearchMessages(e.target.value)}
+                    />
+                  </div>
+                  <div className="search-navigation" id="search-navigation">
+                    <div className="search-count">
+                      <span id="search-current">0</span> of{" "}
+                      <span id="search-total">0</span> results
+                    </div>
+                    <div className="search-navigation-buttons">
+                      <button
+                        id="search-prev"
+                        onClick={() => navigateSearchResults("prev")}
+                        disabled
+                      >
+                        <i className="fas fa-chevron-up"></i>
+                      </button>
+                      <button
+                        id="search-next"
+                        onClick={() => navigateSearchResults("next")}
+                        disabled
+                      >
+                        <i className="fas fa-chevron-down"></i>
+                      </button>
+                    </div>
                   </div>
                 </div>
-                <button className="group-action-button">
-                  <i className="fas fa-bell-slash"></i> Mute Notifications
+
+                <button
+                  className={`group-action-button ${
+                    selectedContact.isMuted ? "active" : ""
+                  }`}
+                  onClick={() => {
+                    // Toggle mute status
+                    const updatedContacts = contacts.map((c) => {
+                      if (c.id === selectedContact.id) {
+                        return { ...c, isMuted: !c.isMuted };
+                      }
+                      return c;
+                    });
+                    setContacts(updatedContacts);
+
+                    // Update the selected contact
+                    setSelectedContact({
+                      ...selectedContact,
+                      isMuted: !selectedContact.isMuted,
+                    });
+
+                    // Store muted status in localStorage
+                    const mutedContacts = JSON.parse(
+                      localStorage.getItem("mutedContacts") || "[]"
+                    );
+                    if (selectedContact.isMuted) {
+                      // Remove from muted list
+                      localStorage.setItem(
+                        "mutedContacts",
+                        JSON.stringify(
+                          mutedContacts.filter(
+                            (id) => id !== selectedContact.id
+                          )
+                        )
+                      );
+                    } else {
+                      // Add to muted list
+                      mutedContacts.push(selectedContact.id);
+                      localStorage.setItem(
+                        "mutedContacts",
+                        JSON.stringify(mutedContacts)
+                      );
+                    }
+                  }}
+                >
+                  <i
+                    className={
+                      selectedContact.isMuted
+                        ? "fas fa-bell-slash"
+                        : "fas fa-bell"
+                    }
+                  ></i>
+                  {selectedContact.isMuted
+                    ? "Unmute Notifications"
+                    : "Mute Notifications"}
                 </button>
+
+                <div className="action-divider"></div>
+
                 <button
                   className="delete-messages-button"
                   onClick={() => setShowDeleteMessagesConfirm(true)}

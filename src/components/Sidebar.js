@@ -121,31 +121,73 @@ function Sidebar({ activePage, setActivePage, isAdmin, onLogout, userName }) {
     }
   };
 
+  // Check if we're on mobile
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 576);
+
+  // Update isMobile state when window is resized
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 576);
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => {
+      window.removeEventListener("resize", handleResize);
+    };
+  }, []);
+
   return (
     <>
+      {/* Clean header bar for mobile */}
+      {isMobile && (
+        <div className="header-bar">
+          <div className="logo-container">
+            <div className="logo-text">
+              <span className="logo-word" data-text="Nex">
+                Nex
+              </span>
+              <span className="logo-word" data-text="Message">
+                Message
+              </span>
+            </div>
+            <div className="logo-short">
+              <span className="logo-word" data-text="N">
+                N
+              </span>
+              <span className="logo-word" data-text="M">
+                M
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div
         className={`sidebar ${expanded ? "expanded" : ""}`}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
       >
-        <div className="logo-container">
-          <div className="logo-text">
-            <span className="logo-word" data-text="Nex">
-              Nex
-            </span>
-            <span className="logo-word" data-text="Message">
-              Message
-            </span>
+        {/* Only show logo in sidebar on desktop */}
+        {!isMobile && (
+          <div className="logo-container">
+            <div className="logo-text">
+              <span className="logo-word" data-text="Nex">
+                Nex
+              </span>
+              <span className="logo-word" data-text="Message">
+                Message
+              </span>
+            </div>
+            <div className="logo-short">
+              <span className="logo-word" data-text="N">
+                N
+              </span>
+              <span className="logo-word" data-text="M">
+                M
+              </span>
+            </div>
           </div>
-          <div className="logo-short">
-            <span className="logo-word" data-text="N">
-              N
-            </span>
-            <span className="logo-word" data-text="M">
-              M
-            </span>
-          </div>
-        </div>
+        )}
 
         <div className="user-profile">
           <div

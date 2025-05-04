@@ -7,6 +7,11 @@
   box-shadow: 0 5px 10px rgba(0, 0, 0, 0.2);
   border-radius: 10px;
   overflow: hidden;
+  width: auto !important;
+  height: auto !important;
+  max-width: 350px !important;
+  max-height: 435px !important;
+  background: transparent !important;
 }
 
 .dark-mode .emoji-picker-container {
@@ -41,6 +46,58 @@
 .dark-mode .emoji-button:hover {
   background-color: #44445a;
   color: #7a9fff;
+}
+
+/* Fix for emoji-picker-react library overlay issues */
+.EmojiPickerReact {
+  width: auto !important;
+  height: auto !important;
+  max-width: 350px !important;
+  max-height: 435px !important;
+}
+
+/* Fix for any overlay elements in the emoji picker */
+.emoji-picker-container .EmojiPickerReact {
+  position: static !important;
+  box-shadow: none !important;
+}
+
+/* Ensure the emoji picker doesn't create a full-width overlay */
+.emoji-picker-container .EmojiPickerReact::before,
+.emoji-picker-container .EmojiPickerReact::after {
+  content: none !important;
+  display: none !important;
+}
+
+/* Fix search icon position in emoji picker */
+.emoji-picker-container .epr-search-container .epr-icn-search {
+  position: absolute !important;
+  left: 10px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+}
+
+.emoji-picker-container .epr-search-container input {
+  padding-left: 35px !important;
+}
+
+/* Ensure no full-width background elements */
+.EmojiPickerReact > div {
+  width: auto !important;
+}
+
+.EmojiPickerReact .epr-body {
+  width: auto !important;
+}
+
+/* Fix for any overlay elements */
+.EmojiPickerReact::before,
+.EmojiPickerReact::after {
+  display: none !important;
+}
+
+.dark-mode .EmojiPickerReact {
+  background-color: #2d2d3a !important;
 }
 
 /* Responsive styles */
