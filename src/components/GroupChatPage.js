@@ -5,6 +5,11 @@ import axios from "axios";
 import { useAuth } from "../contexts/AuthContext";
 import TaskManagement from "./TaskManagement";
 import EmojiPicker from "emoji-picker-react";
+import {
+  openGoFileUploadPage,
+  getDirectGoFileUrl,
+  isGoFileUrl,
+} from "../utils/goFileUtils";
 
 function GroupChatPage({ user, textSize }) {
   const [groups, setGroups] = useState([]);
@@ -680,6 +685,18 @@ function GroupChatPage({ user, textSize }) {
   const handleGroupSelect = (group) => {
     setSelectedGroup(group);
     setShowGroupDetails(false);
+    setActiveTab("chat"); // Reset to chat tab when selecting a group
+
+    // For mobile view, add a class to hide groups sidebar and show chat area
+    if (window.innerWidth < 576) {
+      const groupsSidebar = document.querySelector(".groups-sidebar");
+      const chatArea = document.querySelector(".chat-area");
+
+      if (groupsSidebar && chatArea) {
+        groupsSidebar.classList.add("mobile-hidden");
+        chatArea.classList.add("mobile-visible");
+      }
+    }
 
     // Reset unread count when selecting a group
     if (group.unreadCount) {
@@ -1040,7 +1057,8 @@ function GroupChatPage({ user, textSize }) {
   };
 
   const handleAttachmentClick = () => {
-    fileInputRef.current.click();
+    // Open GoFile.io directly instead of opening file selector
+    openGoFileUploadPage();
   };
 
   const handleEmojiClick = (emojiObject) => {
@@ -1242,11 +1260,16 @@ function GroupChatPage({ user, textSize }) {
     if (!msg.fileUrl && !msg.fileData) return null;
 
     // Use fileData (base64) if available, otherwise fall back to fileUrl
-    const fileSource = msg.fileData || msg.fileUrl;
+    let fileSource = msg.fileData || msg.fileUrl;
 
     if (!fileSource) {
       console.error("Missing file source for group message:", msg.id);
       return <div className="file-error">File could not be displayed</div>;
+    }
+
+    // Check if it's a GoFile.io URL and get direct download URL
+    if (isGoFileUrl(fileSource)) {
+      fileSource = getDirectGoFileUrl(fileSource);
     }
 
     try {
@@ -1267,6 +1290,11 @@ function GroupChatPage({ user, textSize }) {
                 e.target.alt = "Image failed to load";
               }}
             />
+            {isGoFileUrl(fileSource) && (
+              <div className="gofile-badge">
+                <i className="fas fa-cloud-download-alt"></i> GoFile
+              </div>
+            )}
           </div>
         );
       } else if (
@@ -1285,6 +1313,11 @@ function GroupChatPage({ user, textSize }) {
                   '<div class="video-error">Video could not be played</div>';
               }}
             />
+            {isGoFileUrl(fileSource) && (
+              <div className="gofile-badge">
+                <i className="fas fa-cloud-download-alt"></i> GoFile
+              </div>
+            )}
           </div>
         );
       } else if (msg.messageType === "file" || fileSource || msg.fileName) {
@@ -1294,8 +1327,15 @@ function GroupChatPage({ user, textSize }) {
             className="message-file-container"
             onClick={() => fileSource && window.open(fileSource, "_blank")}
           >
-            <i className="fas fa-file"></i>
+            {isGoFileUrl(fileSource) ? (
+              <i className="fas fa-cloud-download-alt"></i>
+            ) : (
+              <i className="fas fa-file"></i>
+            )}
             <span className="file-name">{msg.fileName || "File"}</span>
+            {isGoFileUrl(fileSource) && (
+              <span className="gofile-label">GoFile</span>
+            )}
           </div>
         );
       }
@@ -1468,7 +1508,20 @@ function GroupChatPage({ user, textSize }) {
                 {isMobileView && (
                   <button
                     className="back-button"
-                    onClick={() => setSelectedGroup(null)}
+                    onClick={() => {
+                      setSelectedGroup(null);
+                      // For mobile view, remove classes to show groups sidebar and hide chat area
+                      if (window.innerWidth < 576) {
+                        const groupsSidebar =
+                          document.querySelector(".groups-sidebar");
+                        const chatArea = document.querySelector(".chat-area");
+
+                        if (groupsSidebar && chatArea) {
+                          groupsSidebar.classList.remove("mobile-hidden");
+                          chatArea.classList.remove("mobile-visible");
+                        }
+                      }
+                    }}
                   >
                     <i className="fas fa-arrow-left"></i>
                   </button>
@@ -1726,8 +1779,9 @@ function GroupChatPage({ user, textSize }) {
                       className="attachment-button"
                       onClick={handleAttachmentClick}
                       disabled={isUploading}
+                      title="Share file via GoFile.io"
                     >
-                      <i className="fas fa-paperclip"></i>
+                      <i className="fas fa-cloud-upload-alt"></i>
                     </button>
                     <button
                       type="button"

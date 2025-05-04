@@ -10,8 +10,6 @@ from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from bson import ObjectId
 from task_routes import task_routes
-from integration_routes import integration_routes
-from flask_openai import OpenAI
 from file_utils import save_file, validate_file_size
 
 # Load environment variables
@@ -42,13 +40,10 @@ groups_collection = db.groups
 group_messages_collection = db.group_messages
 tasks_collection = db.tasks
 
-# Initialize OpenAI extension
-openai = OpenAI()
-openai.init_app(app)
+# No OpenAI integration
 
 # Register blueprints
 app.register_blueprint(task_routes)
-app.register_blueprint(integration_routes)
 
 # Create uploads directory if it doesn't exist
 UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads')

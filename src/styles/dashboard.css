@@ -110,18 +110,63 @@
 }
 
 @media (max-width: 576px) {
+  .dashboard-container {
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+  }
+
   .dashboard-content {
-    padding: 12px 10px;
-    margin-top: 52px;
+    margin-left: 0;
+    width: 100%;
+    height: calc(100vh - 60px);
+    padding: 10px;
+    margin-top: 60px;
+    overflow-y: auto;
+  }
+
+  .sidebar {
+    height: 60px;
+    width: 100%;
+    flex-direction: row;
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 1000;
+  }
+
+  .sidebar.expanded {
+    height: 60px;
+    width: 100%;
+  }
+
+  .sidebar.expanded ~ .dashboard-content {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .dashboard-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 15px;
   }
 
   .dashboard-header h1 {
     font-size: 1.3rem;
+    margin-bottom: 5px;
+  }
+
+  .dashboard-actions {
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 8px;
   }
 
   .dashboard-card {
     padding: 12px;
     border-radius: 10px;
+    margin-bottom: 15px;
   }
 
   .dashboard-card h2 {
@@ -136,6 +181,24 @@
   .dashboard-actions button {
     padding: 6px 10px;
     font-size: 0.85rem;
+  }
+
+  /* Modal adjustments for small screens */
+  .modal-container {
+    width: 95%;
+    max-height: 80vh;
+  }
+
+  .modal-header {
+    padding: 12px 15px;
+  }
+
+  .modal-body {
+    padding: 15px;
+  }
+
+  .modal-footer {
+    padding: 12px 15px;
   }
 }
 
