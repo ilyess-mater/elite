@@ -445,30 +445,46 @@ function TaskManagement({ groupId, user, members }) {
                   <span
                     className={`task-status ${getStatusClass(task.status)}`}
                   >
-                    {task.status}
+                    {task.status === "To Do"
+                      ? "To Do"
+                      : task.status === "Doing"
+                      ? "In Progress"
+                      : "Completed"}
                   </span>
                 </div>
               </div>
               <div className="task-info">
                 <p>
-                  <strong>Assigned to:</strong>{" "}
-                  {Array.isArray(task.assignedTo)
-                    ? getMemberNames(task.assignedTo)
-                    : getMemberName(task.assignedTo)}
+                  <i className="fas fa-user-circle"></i>
+                  <span>
+                    <strong>Assigned to:</strong>{" "}
+                    {Array.isArray(task.assignedTo)
+                      ? getMemberNames(task.assignedTo)
+                      : getMemberName(task.assignedTo)}
+                  </span>
                 </p>
                 <p>
-                  <strong>Deadline:</strong> {formatDate(task.deadline)}
-                  {isOverdue && (
-                    <span className="overdue-indicator"> (Overdue)</span>
-                  )}
+                  <i className="fas fa-calendar-alt"></i>
+                  <span>
+                    <strong>Deadline:</strong> {formatDate(task.deadline)}
+                    {isOverdue && (
+                      <span className="overdue-indicator"> (Overdue)</span>
+                    )}
+                  </span>
                 </p>
               </div>
               <div className="task-actions">
                 <button
+                  onClick={() => handleEditTask(task)}
+                  className="edit-btn"
+                >
+                  <i className="fas fa-edit"></i> Edit
+                </button>
+                <button
                   onClick={() => handleDeleteTask(task._id)}
                   className="delete-btn"
                 >
-                  Delete
+                  <i className="fas fa-trash-alt"></i> Delete
                 </button>
               </div>
             </div>
