@@ -196,17 +196,16 @@ function SignUpForm({ onSignUp }) {
           name="department"
           value={formData.department}
           onChange={handleChange}
+          className="department-select"
         >
-          <option value="" style={{ color: "#333", fontWeight: "600" }}>
-            Select Department
-          </option>
-          {departments
-            .filter((dept) => dept !== "Select Department")
-            .map((dept, index) => (
-              <option key={index} value={dept}>
-                {dept}
-              </option>
-            ))}
+          {departments.map((dept, index) => (
+            <option
+              key={index}
+              value={dept === "Select Department" ? "" : dept}
+            >
+              {dept}
+            </option>
+          ))}
         </select>
       </div>
       {errors.department && (
@@ -287,36 +286,16 @@ function SignUpForm({ onSignUp }) {
 
       <p className="social-text">Or Sign up with social platforms</p>
       <div className="social-media">
-        <a
-          href="https://www.facebook.com/"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="social-icon"
-        >
+        <a href="#" className="social-icon">
           <i className="fab fa-facebook-f"></i>
         </a>
-        <a
-          href="https://twitter.com/"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="social-icon"
-        >
+        <a href="#" className="social-icon">
           <i className="fab fa-twitter"></i>
         </a>
-        <a
-          href="https://accounts.google.com/"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="social-icon"
-        >
+        <a href="#" className="social-icon">
           <i className="fab fa-google"></i>
         </a>
-        <a
-          href="https://www.linkedin.com/login"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="social-icon"
-        >
+        <a href="#" className="social-icon">
           <i className="fab fa-linkedin-in"></i>
         </a>
       </div>

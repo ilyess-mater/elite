@@ -300,16 +300,7 @@ function AdminPanel({ user }) {
       return;
     }
 
-    // Regular admins cannot ban admin masters or other admins
-    if (action === "ban" && userData.isAdmin) {
-      setError("Regular admins cannot ban other admins or admin masters");
-      setTimeout(() => {
-        setError("");
-      }, 3000);
-      return;
-    }
-
-    // For other actions like ban (for non-admin users)
+    // For other actions like ban
     setConfirmAction({
       action,
       user: userData,
@@ -707,17 +698,13 @@ function AdminPanel({ user }) {
                               <i className="fas fa-level-up-alt"></i>
                             </button>
                           )}
-                          {/* Only show ban button for non-admin users or if current user is admin master */}
-                          {!user.isAdmin ||
-                          window.user?.adminRole === "admin_master" ? (
-                            <button
-                              className="user-action-button delete"
-                              title="Ban User"
-                              onClick={() => handleUserAction("ban", user)}
-                            >
-                              <i className="fas fa-ban"></i>
-                            </button>
-                          ) : null}
+                          <button
+                            className="user-action-button delete"
+                            title="Ban User"
+                            onClick={() => handleUserAction("ban", user)}
+                          >
+                            <i className="fas fa-ban"></i>
+                          </button>
                         </div>
                       </td>
                     </tr>

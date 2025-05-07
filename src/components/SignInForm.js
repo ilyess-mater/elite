@@ -116,16 +116,36 @@ function SignInForm({ onSignIn }) {
 
       <p className="social-text">Or Sign in with social platforms</p>
       <div className="social-media">
-        <a href="#" className="social-icon">
+        <a
+          href="https://www.facebook.com/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="social-icon"
+        >
           <i className="fab fa-facebook-f"></i>
         </a>
-        <a href="#" className="social-icon">
+        <a
+          href="https://twitter.com/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="social-icon"
+        >
           <i className="fab fa-twitter"></i>
         </a>
-        <a href="#" className="social-icon">
+        <a
+          href="https://accounts.google.com/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="social-icon"
+        >
           <i className="fab fa-google"></i>
         </a>
-        <a href="#" className="social-icon">
+        <a
+          href="https://www.linkedin.com/login"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="social-icon"
+        >
           <i className="fab fa-linkedin-in"></i>
         </a>
       </div>

@@ -2,14 +2,11 @@ import React, { useState, useEffect, useRef } from "react";
 import "../styles/messaging.css";
 import "../styles/emoji-picker.css";
 import "../styles/search-results-list.css";
+import "../styles/category-manager.css";
 import axios from "axios";
 import { useAuth } from "../contexts/AuthContext";
 import EmojiPicker from "emoji-picker-react";
-import {
-  openGoFileUploadPage,
-  getDirectGoFileUrl,
-  isGoFileUrl,
-} from "../utils/goFileUtils";
+import CategoryManager from "./CategoryManager";
 
 function MessagingPage({ user, textSize }) {
   const [contacts, setContacts] = useState([]);
@@ -41,11 +38,30 @@ function MessagingPage({ user, textSize }) {
   const [messageToDelete, setMessageToDelete] = useState(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
 
-  // Fetch contacts from API
+  // Category management
+  const [categories, setCategories] = useState([]);
+  const [showCategoryManager, setShowCategoryManager] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState(null);
+  const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
+  const [categoryDropdownPosition, setCategoryDropdownPosition] = useState({
+    top: 0,
+    left: 0,
+  });
+
+  // Fetch categories and contacts from API
   useEffect(() => {
-    const fetchContacts = async () => {
+    const fetchData = async () => {
       try {
-        const response = await axios.get("/api/contacts");
+        // Fetch categories first
+        const categoriesResponse = await axios.get("/api/categories", {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+        });
+        setCategories(categoriesResponse.data);
+
+        // Then fetch contacts
+        const contactsResponse = await axios.get("/api/contacts");
 
         // Get IDs of removed chats from localStorage
         const removedChats = JSON.parse(
@@ -58,7 +74,7 @@ function MessagingPage({ user, textSize }) {
         );
 
         // Filter out contacts with removed chats
-        const filteredContacts = response.data.filter(
+        const filteredContacts = contactsResponse.data.filter(
           (contact) => !removedChats.includes(contact.id)
         );
 
@@ -78,12 +94,84 @@ function MessagingPage({ user, textSize }) {
 
         setContacts(contactsWithAvatars);
       } catch (error) {
-        console.error("Error fetching contacts:", error);
+        console.error("Error fetching data:", error);
       }
     };
 
-    fetchContacts();
+    fetchData();
   }, []);
+
+  // Function to handle category changes
+  const handleCategoryChange = async () => {
+    try {
+      const response = await axios.get("/api/categories", {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+      });
+      setCategories(response.data);
+    } catch (error) {
+      console.error("Error fetching categories:", error);
+    }
+  };
+
+  // Function to set a contact's category
+  const setContactCategory = async (contactId, categoryId) => {
+    try {
+      console.log(
+        "Setting category for contact:",
+        contactId,
+        "to category:",
+        categoryId
+      );
+
+      const response = await axios.put(
+        `/api/contacts/${contactId}/category`,
+        { categoryId },
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+        }
+      );
+
+      console.log("Category update response:", response.data);
+
+      // Update the contact in the local state
+      setContacts((prevContacts) => {
+        const updatedContacts = prevContacts.map((contact) =>
+          contact.id === contactId ? { ...contact, categoryId } : contact
+        );
+
+        console.log("Updated contacts:", updatedContacts);
+        return updatedContacts;
+      });
+
+      // Close the dropdown
+      setShowCategoryDropdown(null);
+
+      // Force a refresh of the contacts list to ensure the category filter works
+      setTimeout(() => {
+        const fetchCategories = async () => {
+          try {
+            const response = await axios.get("/api/categories", {
+              headers: {
+                Authorization: `Bearer ${localStorage.getItem("token")}`,
+              },
+            });
+            setCategories(response.data);
+          } catch (error) {
+            console.error("Error refreshing categories:", error);
+          }
+        };
+
+        fetchCategories();
+      }, 500);
+    } catch (error) {
+      console.error("Error setting contact category:", error);
+      alert("Failed to set category. Please try again.");
+    }
+  };
 
   // Listen for new messages and online status updates
   useEffect(() => {
@@ -333,32 +421,44 @@ function MessagingPage({ user, textSize }) {
   };
 
   // Confirm delete chat
-  const confirmDeleteChat = () => {
+  const confirmDeleteChat = async () => {
     if (contactToDelete) {
-      // Delete messages for this contact
-      setMessages((prevMessages) => {
-        const updatedMessages = { ...prevMessages };
-        delete updatedMessages[contactToDelete.id];
-        return updatedMessages;
-      });
+      try {
+        // Delete the contact and associated messages on the backend
+        await axios.delete(`/api/contacts/${contactToDelete.id}`, {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+        });
 
-      // If the deleted contact is the selected contact, clear selection
-      if (selectedContact && selectedContact.id === contactToDelete.id) {
-        setSelectedContact(null);
-      }
+        // Delete messages for this contact locally
+        setMessages((prevMessages) => {
+          const updatedMessages = { ...prevMessages };
+          delete updatedMessages[contactToDelete.id];
+          return updatedMessages;
+        });
 
-      // Remove the contact from the contacts list
-      setContacts((prevContacts) =>
-        prevContacts.filter((contact) => contact.id !== contactToDelete.id)
-      );
+        // If the deleted contact is the selected contact, clear selection
+        if (selectedContact && selectedContact.id === contactToDelete.id) {
+          setSelectedContact(null);
+        }
 
-      // Store the removed chat ID in localStorage
-      const removedChats = JSON.parse(
-        localStorage.getItem("removedChats") || "[]"
-      );
-      if (!removedChats.includes(contactToDelete.id)) {
-        removedChats.push(contactToDelete.id);
-        localStorage.setItem("removedChats", JSON.stringify(removedChats));
+        // Remove the contact from the contacts list
+        setContacts((prevContacts) =>
+          prevContacts.filter((contact) => contact.id !== contactToDelete.id)
+        );
+
+        // Store the removed chat ID in localStorage
+        const removedChats = JSON.parse(
+          localStorage.getItem("removedChats") || "[]"
+        );
+        if (!removedChats.includes(contactToDelete.id)) {
+          removedChats.push(contactToDelete.id);
+          localStorage.setItem("removedChats", JSON.stringify(removedChats));
+        }
+      } catch (error) {
+        console.error("Error deleting contact:", error);
+        alert("Failed to delete conversation. Please try again.");
       }
     }
 
@@ -1089,11 +1189,6 @@ function MessagingPage({ user, textSize }) {
     }
   };
 
-  const handleAttachmentClick = () => {
-    // Open GoFile.io directly instead of opening file selector
-    openGoFileUploadPage();
-  };
-
   const handleEmojiClick = (emojiObject) => {
     setMessage((prevMessage) => prevMessage + emojiObject.emoji);
     // Don't close the emoji picker after selecting an emoji
@@ -1175,14 +1270,9 @@ function MessagingPage({ user, textSize }) {
     }
 
     // Add a cache-busting parameter to prevent browser caching issues
-    if (!fileSource.includes("?") && !isGoFileUrl(fileSource)) {
+    if (!fileSource.includes("?")) {
       fileSource = `${fileSource}?t=${new Date().getTime()}`;
       console.log("Added cache-busting parameter:", fileSource);
-    }
-
-    // Check if it's a GoFile.io URL and get direct download URL
-    if (isGoFileUrl(fileSource)) {
-      fileSource = getDirectGoFileUrl(fileSource);
     }
 
     console.log(
@@ -1243,11 +1333,6 @@ function MessagingPage({ user, textSize }) {
               }}
               style={{ display: "none" }} // Initially hidden until loaded
             />
-            {isGoFileUrl(fileSource) && (
-              <div className="gofile-badge">
-                <i className="fas fa-cloud-download-alt"></i> GoFile
-              </div>
-            )}
           </div>
         );
       } else if (
@@ -1266,11 +1351,6 @@ function MessagingPage({ user, textSize }) {
                   '<div class="video-error">Video could not be played</div>';
               }}
             />
-            {isGoFileUrl(fileSource) && (
-              <div className="gofile-badge">
-                <i className="fas fa-cloud-download-alt"></i> GoFile
-              </div>
-            )}
           </div>
         );
       } else if (msg.messageType === "file" || fileSource || msg.fileName) {
@@ -1280,15 +1360,8 @@ function MessagingPage({ user, textSize }) {
             className="message-file-container"
             onClick={() => fileSource && window.open(fileSource, "_blank")}
           >
-            {isGoFileUrl(fileSource) ? (
-              <i className="fas fa-cloud-download-alt"></i>
-            ) : (
-              <i className="far fa-file-alt"></i>
-            )}
+            <i className="far fa-file-alt"></i>
             <span className="file-name">{msg.fileName || "File"}</span>
-            {isGoFileUrl(fileSource) && (
-              <span className="gofile-label">GoFile</span>
-            )}
           </div>
         );
       }
@@ -1434,18 +1507,18 @@ function MessagingPage({ user, textSize }) {
     if (!selectedContact) return;
 
     try {
-      // Clear messages for current contact
+      // Make an API call to delete messages on the server
+      await axios.delete(`/api/messages/${selectedContact.id}`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+      });
+
+      // Clear messages for current contact locally
       setMessages((prev) => ({
         ...prev,
         [selectedContact.id]: [],
       }));
-
-      // You would typically make an API call here to delete messages on the server
-      // await axios.delete(`/api/messages/${selectedContact.id}`, {
-      //   headers: {
-      //     Authorization: `Bearer ${localStorage.getItem("token")}`,
-      //   },
-      // });
 
       setShowDeleteMessagesConfirm(false);
     } catch (error) {
@@ -1463,6 +1536,15 @@ function MessagingPage({ user, textSize }) {
       >
         <div className="contacts-header">
           <h2>Conversations</h2>
+          <div className="category-button-container">
+            <button
+              className="category-filter-button"
+              onClick={() => setShowCategoryManager(true)}
+              title="Manage Categories"
+            >
+              <i className="fas fa-layer-group"></i>
+            </button>
+          </div>
         </div>
         <div className="contacts-search">
           <div className="search-bar">
@@ -1475,59 +1557,146 @@ function MessagingPage({ user, textSize }) {
             />
           </div>
         </div>
-        <div className="contacts-items">
-          {sortedContacts.map((contact) => (
+
+        {/* Category filter */}
+        {categories.length > 0 && (
+          <div className="category-filter">
             <div
-              key={contact.id}
-              className={`contact-item ${
-                selectedContact && selectedContact.id === contact.id
-                  ? "active"
-                  : ""
+              className={`category-filter-item ${
+                selectedCategory === null ? "active" : ""
               }`}
-              onClick={() => handleContactSelect(contact)}
+              style={
+                selectedCategory === null
+                  ? { backgroundColor: "#4A76A8", color: "white" }
+                  : {}
+              }
+              onClick={() => setSelectedCategory(null)}
             >
-              <div className="contact-avatar-wrapper">
-                <div
-                  className="contact-avatar"
-                  style={{ backgroundColor: contact.avatar }}
-                >
-                  {contact.name.charAt(0)}
-                </div>
-                <div
-                  className={`contact-status ${
-                    contact.isActive ? "active" : ""
-                  }`}
-                ></div>
-              </div>
-              <div className="contact-info">
-                <div className="contact-name">{contact.name}</div>
-                <div className="contact-last-message">
-                  {messages[contact.id]?.length > 0
-                    ? messages[contact.id][messages[contact.id].length - 1]
-                        .text ||
-                      (messages[contact.id][messages[contact.id].length - 1]
-                        .fileUrl ||
-                      messages[contact.id][messages[contact.id].length - 1]
-                        .fileData
-                        ? "Sent a file"
-                        : "No messages yet")
-                    : "No messages yet"}
-                </div>
-              </div>
-              <div className="contact-meta">
-                {contact.lastMessageTime && (
-                  <div className="contact-time">
-                    {formatTime(contact.lastMessageTime)}
-                  </div>
-                )}
-                {contact.unreadCount > 0 && (
-                  <div className="unread-badge">
-                    {contact.unreadCount > 9 ? "9+" : contact.unreadCount}
-                  </div>
-                )}
-              </div>
+              <span className="category-filter-name">All</span>
             </div>
-          ))}
+            {categories.map((category) => (
+              <div
+                key={category.id}
+                className={`category-filter-item ${
+                  selectedCategory === category.id ? "active" : ""
+                }`}
+                style={
+                  selectedCategory === category.id
+                    ? { backgroundColor: category.color, color: "white" }
+                    : { borderColor: category.color }
+                }
+                onClick={() => setSelectedCategory(category.id)}
+              >
+                <div
+                  className="category-filter-color"
+                  style={{ backgroundColor: category.color }}
+                ></div>
+                <span className="category-filter-name">{category.name}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="contacts-items">
+          {sortedContacts
+            .filter(
+              (contact) =>
+                selectedCategory === null ||
+                contact.categoryId === selectedCategory
+            )
+            .map((contact) => (
+              <div
+                key={contact.id}
+                className={`contact-item ${
+                  selectedContact && selectedContact.id === contact.id
+                    ? "active"
+                    : ""
+                }`}
+                onClick={() => handleContactSelect(contact)}
+              >
+                <div className="contact-avatar-wrapper">
+                  <div
+                    className="contact-avatar"
+                    style={{ backgroundColor: contact.avatar }}
+                  >
+                    {contact.name.charAt(0)}
+                  </div>
+                  <div
+                    className={`contact-status ${
+                      contact.isActive ? "active" : ""
+                    }`}
+                  ></div>
+                </div>
+                <div className="contact-info">
+                  <div className="contact-name-row">
+                    <div className="contact-name">{contact.name}</div>
+                    {contact.categoryId && (
+                      <div className="contact-category-badge">
+                        <div
+                          className="contact-category-indicator"
+                          style={{
+                            backgroundColor:
+                              categories.find(
+                                (c) => c.id === contact.categoryId
+                              )?.color || "#ccc",
+                          }}
+                        ></div>
+                        <span className="contact-category-name">
+                          {categories.find((c) => c.id === contact.categoryId)
+                            ?.name || "Category"}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="contact-last-message">
+                    {messages[contact.id]?.length > 0
+                      ? messages[contact.id][messages[contact.id].length - 1]
+                          .text ||
+                        (messages[contact.id][messages[contact.id].length - 1]
+                          .fileUrl ||
+                        messages[contact.id][messages[contact.id].length - 1]
+                          .fileData
+                          ? "Sent a file"
+                          : "No messages yet")
+                      : "No messages yet"}
+                  </div>
+                </div>
+                <div className="contact-meta">
+                  {contact.lastMessageTime && (
+                    <div className="contact-time">
+                      {formatTime(contact.lastMessageTime)}
+                    </div>
+                  )}
+                  {contact.unreadCount > 0 && (
+                    <div className="unread-badge">
+                      {contact.unreadCount > 9 ? "9+" : contact.unreadCount}
+                    </div>
+                  )}
+                  <div className="contact-category-wrapper">
+                    <div
+                      className="contact-category-dropdown"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        // Calculate position for the dropdown
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        setCategoryDropdownPosition({
+                          top: rect.top - 10, // Position above the icon
+                          left: rect.left - 170, // Position to the left of the icon
+                        });
+                        setShowCategoryDropdown(
+                          showCategoryDropdown === contact.id
+                            ? null
+                            : contact.id
+                        );
+                      }}
+                      title="Assign to category"
+                    >
+                      <i className="fas fa-tag"></i>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
         </div>
       </div>
 
@@ -1739,15 +1908,7 @@ function MessagingPage({ user, textSize }) {
                 >
                   <i className="fas fa-paperclip"></i>
                 </label>
-                <button
-                  type="button"
-                  className="attachment-button"
-                  onClick={handleAttachmentClick}
-                  disabled={isUploading}
-                  title="Share file via GoFile.io"
-                >
-                  <i className="fas fa-cloud-upload-alt"></i>
-                </button>
+
                 <button
                   type="button"
                   className="emoji-button"
@@ -2121,6 +2282,86 @@ function MessagingPage({ user, textSize }) {
                 Delete
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Category Manager Modal */}
+      {showCategoryManager && (
+        <div className="category-modal-overlay">
+          <CategoryManager
+            onClose={() => setShowCategoryManager(false)}
+            onCategoryChange={handleCategoryChange}
+          />
+        </div>
+      )}
+
+      {/* Category Dropdown Modal */}
+      {showCategoryDropdown && (
+        <div
+          className="category-dropdown-menu"
+          style={{
+            top: `${categoryDropdownPosition.top}px`,
+            left: `${categoryDropdownPosition.left}px`,
+          }}
+        >
+          <div className="category-dropdown-header">
+            <h4>Select Category</h4>
+            <button
+              className="category-dropdown-close"
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowCategoryDropdown(null);
+              }}
+            >
+              <i className="fas fa-times"></i>
+            </button>
+          </div>
+          <div className="category-dropdown-items">
+            <div
+              className="category-dropdown-item"
+              onClick={(e) => {
+                e.stopPropagation();
+                setContactCategory(showCategoryDropdown, null);
+              }}
+            >
+              <span className="category-dropdown-name">No Category</span>
+            </div>
+            {/* Find the current contact */}
+            {contacts.find((contact) => contact.id === showCategoryDropdown)
+              ?.categoryId && (
+              <div
+                className="category-dropdown-item remove-category"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setContactCategory(showCategoryDropdown, null);
+                }}
+              >
+                <div
+                  className="category-dropdown-color"
+                  style={{ backgroundColor: "#ff4d4d" }}
+                ></div>
+                <span className="category-dropdown-name">
+                  Remove from Category
+                </span>
+              </div>
+            )}
+            {categories.map((category) => (
+              <div
+                key={category.id}
+                className="category-dropdown-item"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setContactCategory(showCategoryDropdown, category.id);
+                }}
+              >
+                <div
+                  className="category-dropdown-color"
+                  style={{ backgroundColor: category.color }}
+                ></div>
+                <span className="category-dropdown-name">{category.name}</span>
+              </div>
+            ))}
           </div>
         </div>
       )}

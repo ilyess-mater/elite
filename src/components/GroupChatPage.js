@@ -6,11 +6,6 @@ import axios from "axios";
 import { useAuth } from "../contexts/AuthContext";
 import TaskManagement from "./TaskManagement";
 import EmojiPicker from "emoji-picker-react";
-import {
-  openGoFileUploadPage,
-  getDirectGoFileUrl,
-  isGoFileUrl,
-} from "../utils/goFileUtils";
 
 function GroupChatPage({ user, textSize }) {
   const [groups, setGroups] = useState([]);
@@ -1455,11 +1450,6 @@ function GroupChatPage({ user, textSize }) {
     }
   };
 
-  const handleAttachmentClick = () => {
-    // Open GoFile.io directly instead of opening file selector
-    openGoFileUploadPage();
-  };
-
   const handleEmojiClick = (emojiObject) => {
     setMessage((prevMessage) => prevMessage + emojiObject.emoji);
     // Don't close the emoji picker after selecting an emoji
@@ -1698,14 +1688,9 @@ function GroupChatPage({ user, textSize }) {
     }
 
     // Add a cache-busting parameter to prevent browser caching issues
-    if (!fileSource.includes("?") && !isGoFileUrl(fileSource)) {
+    if (!fileSource.includes("?")) {
       fileSource = `${fileSource}?t=${new Date().getTime()}`;
       console.log("Added cache-busting parameter:", fileSource);
-    }
-
-    // Check if it's a GoFile.io URL and get direct download URL
-    if (isGoFileUrl(fileSource)) {
-      fileSource = getDirectGoFileUrl(fileSource);
     }
 
     console.log(
@@ -1764,11 +1749,6 @@ function GroupChatPage({ user, textSize }) {
               }}
               style={{ display: "none" }} // Initially hidden until loaded
             />
-            {isGoFileUrl(fileSource) && (
-              <div className="gofile-badge">
-                <i className="fas fa-cloud-download-alt"></i> GoFile
-              </div>
-            )}
           </div>
         );
       } else if (
@@ -1803,11 +1783,6 @@ function GroupChatPage({ user, textSize }) {
               }}
               style={{ display: "none" }} // Initially hidden until loaded
             />
-            {isGoFileUrl(fileSource) && (
-              <div className="gofile-badge">
-                <i className="fas fa-cloud-download-alt"></i> GoFile
-              </div>
-            )}
           </div>
         );
       } else if (msg.messageType === "file" || fileSource || msg.fileName) {
@@ -1817,15 +1792,8 @@ function GroupChatPage({ user, textSize }) {
             className="message-file-container"
             onClick={() => fileSource && window.open(fileSource, "_blank")}
           >
-            {isGoFileUrl(fileSource) ? (
-              <i className="fas fa-cloud-download-alt"></i>
-            ) : (
-              <i className="fas fa-file-alt"></i>
-            )}
+            <i className="fas fa-file-alt"></i>
             <span className="file-name">{msg.fileName || "File"}</span>
-            {isGoFileUrl(fileSource) && (
-              <span className="gofile-label">GoFile</span>
-            )}
           </div>
         );
       }
@@ -1971,14 +1939,16 @@ function GroupChatPage({ user, textSize }) {
                     {formatTime(group.lastMessageTime)}
                   </div>
                 )}
-                <div className="group-members-count">
+                <div className="group-info-meta">
                   {group.unreadCount > 0 && (
-                    <div className="group-unread-badge">
+                    <div className="unread-count-bubble">
                       {group.unreadCount > 9 ? "9+" : group.unreadCount}
                     </div>
                   )}
-                  <i className="fas fa-users"></i>
-                  <span>{groupMemberCounts[group.id] || 0}</span>
+                  <div className="group-members-count">
+                    <i className="fas fa-users"></i>
+                    <span>{groupMemberCounts[group.id] || 0}</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -2286,15 +2256,7 @@ function GroupChatPage({ user, textSize }) {
                     >
                       <i className="fas fa-paperclip"></i>
                     </label>
-                    <button
-                      type="button"
-                      className="attachment-button"
-                      onClick={handleAttachmentClick}
-                      disabled={isUploading}
-                      title="Share file via GoFile.io"
-                    >
-                      <i className="fas fa-cloud-upload-alt"></i>
-                    </button>
+
                     <button
                       type="button"
                       className="emoji-button"

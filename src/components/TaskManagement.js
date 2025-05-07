@@ -11,9 +11,10 @@ function TaskManagement({ groupId, user, members }) {
   const [newTask, setNewTask] = useState({
     title: "",
     description: "",
-    assignedTo: "",
+    assignedTo: [],
     deadline: "",
     status: "To Do", // Status is automatically set to 'To Do' by default
+    assignToAll: false,
   });
   const [editingTask, setEditingTask] = useState(null);
   const [showTaskDetails, setShowTaskDetails] = useState(false);
@@ -42,11 +43,49 @@ function TaskManagement({ groupId, user, members }) {
 
   // Handle input change for new task form
   const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setNewTask((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+    const { name, value, type, checked } = e.target;
+
+    if (name === "assignToAll" && checked) {
+      // If "Assign to All" is checked, set assignedTo to all member IDs
+      const allMemberIds = members.map((member) => member.id);
+      setNewTask((prev) => ({
+        ...prev,
+        assignToAll: checked,
+        assignedTo: allMemberIds,
+      }));
+    } else if (name === "assignToAll" && !checked) {
+      // If "Assign to All" is unchecked, clear assignedTo
+      setNewTask((prev) => ({
+        ...prev,
+        assignToAll: checked,
+        assignedTo: [],
+      }));
+    } else if (name === "assignedTo") {
+      // Handle multi-select for assignedTo
+      if (type === "select-multiple") {
+        const selectedOptions = Array.from(e.target.selectedOptions).map(
+          (option) => option.value
+        );
+        setNewTask((prev) => ({
+          ...prev,
+          assignedTo: selectedOptions,
+          // If we're selecting specific members, turn off assignToAll
+          assignToAll: false,
+        }));
+      } else {
+        // Single select (backward compatibility)
+        setNewTask((prev) => ({
+          ...prev,
+          [name]: value,
+        }));
+      }
+    } else {
+      // Handle all other inputs normally
+      setNewTask((prev) => ({
+        ...prev,
+        [name]: value,
+      }));
+    }
   };
 
   // Check if a task is overdue
@@ -59,19 +98,63 @@ function TaskManagement({ groupId, user, members }) {
 
   // Handle input change for editing task
   const handleEditInputChange = (e) => {
-    const { name, value } = e.target;
-    setEditingTask((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+    const { name, value, type, checked } = e.target;
+
+    if (name === "assignToAll" && checked) {
+      // If "Assign to All" is checked, set assignedTo to all member IDs
+      const allMemberIds = members.map((member) => member.id);
+      setEditingTask((prev) => ({
+        ...prev,
+        assignToAll: checked,
+        assignedTo: allMemberIds,
+      }));
+    } else if (name === "assignToAll" && !checked) {
+      // If "Assign to All" is unchecked, clear assignedTo
+      setEditingTask((prev) => ({
+        ...prev,
+        assignToAll: checked,
+        assignedTo: [],
+      }));
+    } else if (name === "assignedTo") {
+      // Handle multi-select for assignedTo
+      if (type === "select-multiple") {
+        const selectedOptions = Array.from(e.target.selectedOptions).map(
+          (option) => option.value
+        );
+        setEditingTask((prev) => ({
+          ...prev,
+          assignedTo: selectedOptions,
+          // If we're selecting specific members, turn off assignToAll
+          assignToAll: false,
+        }));
+      } else {
+        // Single select (backward compatibility)
+        setEditingTask((prev) => ({
+          ...prev,
+          [name]: value,
+        }));
+      }
+    } else {
+      // Handle all other inputs normally
+      setEditingTask((prev) => ({
+        ...prev,
+        [name]: value,
+      }));
+    }
   };
 
   // Create a new task
   const handleCreateTask = async (e) => {
     e.preventDefault();
 
-    if (!newTask.title || !newTask.assignedTo || !newTask.deadline) {
-      setError("Please fill in all required fields");
+    if (
+      !newTask.title ||
+      newTask.assignedTo.length === 0 ||
+      !newTask.deadline
+    ) {
+      setError(
+        "Please fill in all required fields and assign to at least one member"
+      );
       return;
     }
 
@@ -82,14 +165,44 @@ function TaskManagement({ groupId, user, members }) {
         assignedBy: user.id,
       };
 
-      const response = await axios.post("/api/tasks", taskData);
-      setTasks((prev) => [...prev, response.data]);
+      // If we're assigning to multiple people, create multiple tasks
+      if (Array.isArray(newTask.assignedTo) && newTask.assignedTo.length > 1) {
+        // Create a task for each assigned member
+        const taskPromises = newTask.assignedTo.map((memberId) => {
+          const individualTask = {
+            ...taskData,
+            assignedTo: memberId,
+          };
+          return axios.post("/api/tasks", individualTask);
+        });
+
+        const responses = await Promise.all(taskPromises);
+        const newTasks = responses.map((response) => response.data);
+
+        setTasks((prev) => [...prev, ...newTasks]);
+      } else {
+        // Single assignment (backward compatibility)
+        const singleAssignee = Array.isArray(newTask.assignedTo)
+          ? newTask.assignedTo[0]
+          : newTask.assignedTo;
+
+        const singleTaskData = {
+          ...taskData,
+          assignedTo: singleAssignee,
+        };
+
+        const response = await axios.post("/api/tasks", singleTaskData);
+        setTasks((prev) => [...prev, response.data]);
+      }
+
+      // Reset form
       setNewTask({
         title: "",
         description: "",
-        assignedTo: "",
+        assignedTo: [],
         deadline: "",
         status: "To Do",
+        assignToAll: false,
       });
       setShowAddTask(false);
       setError("");
@@ -130,27 +243,76 @@ function TaskManagement({ groupId, user, members }) {
 
     if (
       !editingTask.title ||
+      (Array.isArray(editingTask.assignedTo) &&
+        editingTask.assignedTo.length === 0) ||
       !editingTask.assignedTo ||
       !editingTask.deadline
     ) {
-      setError("Please fill in all required fields");
+      setError(
+        "Please fill in all required fields and assign to at least one member"
+      );
       return;
     }
 
     try {
-      const response = await axios.put(
-        `/api/tasks/${editingTask._id}`,
-        editingTask
-      );
-      setTasks((prev) =>
-        prev.map((task) =>
-          task._id === editingTask._id ? response.data : task
-        )
-      );
+      // If we're assigning to multiple people, handle multiple assignments
+      if (
+        Array.isArray(editingTask.assignedTo) &&
+        editingTask.assignedTo.length > 1
+      ) {
+        // First delete the existing task
+        await axios.delete(`/api/tasks/${editingTask._id}`);
 
-      // If we're updating the currently selected task, update that too
-      if (selectedTask && selectedTask._id === editingTask._id) {
-        setSelectedTask(response.data);
+        // Create a task for each assigned member
+        const taskPromises = editingTask.assignedTo.map((memberId) => {
+          const individualTask = {
+            ...editingTask,
+            _id: undefined, // Remove the _id so a new one is created
+            assignedTo: memberId,
+          };
+          return axios.post("/api/tasks", individualTask);
+        });
+
+        const responses = await Promise.all(taskPromises);
+        const newTasks = responses.map((response) => response.data);
+
+        // Replace the old task with the new ones
+        setTasks((prev) => {
+          const filtered = prev.filter((task) => task._id !== editingTask._id);
+          return [...filtered, ...newTasks];
+        });
+
+        // If we're updating the currently selected task, close the details view
+        if (selectedTask && selectedTask._id === editingTask._id) {
+          setSelectedTask(null);
+          setShowTaskDetails(false);
+        }
+      } else {
+        // Single assignment - update the existing task
+        const singleAssignee = Array.isArray(editingTask.assignedTo)
+          ? editingTask.assignedTo[0]
+          : editingTask.assignedTo;
+
+        const updatedTask = {
+          ...editingTask,
+          assignedTo: singleAssignee,
+        };
+
+        const response = await axios.put(
+          `/api/tasks/${editingTask._id}`,
+          updatedTask
+        );
+
+        setTasks((prev) =>
+          prev.map((task) =>
+            task._id === editingTask._id ? response.data : task
+          )
+        );
+
+        // If we're updating the currently selected task, update that too
+        if (selectedTask && selectedTask._id === editingTask._id) {
+          setSelectedTask(response.data);
+        }
       }
 
       setEditingTask(null);
@@ -212,6 +374,19 @@ function TaskManagement({ groupId, user, members }) {
     if (!members || !Array.isArray(members)) return "Unknown";
     const member = members.find((m) => m.id === memberId);
     return member ? member.name : "Unknown";
+  };
+
+  // Get member names for multiple IDs
+  const getMemberNames = (memberIds) => {
+    if (!memberIds || !Array.isArray(memberIds) || memberIds.length === 0)
+      return "None";
+
+    return memberIds
+      .map((id) => {
+        const member = members.find((m) => m.id === id);
+        return member ? member.name : "Unknown";
+      })
+      .join(", ");
   };
 
   // Get status class for styling
@@ -276,7 +451,10 @@ function TaskManagement({ groupId, user, members }) {
               </div>
               <div className="task-info">
                 <p>
-                  <strong>Assigned to:</strong> {getMemberName(task.assignedTo)}
+                  <strong>Assigned to:</strong>{" "}
+                  {Array.isArray(task.assignedTo)
+                    ? getMemberNames(task.assignedTo)
+                    : getMemberName(task.assignedTo)}
                 </p>
                 <p>
                   <strong>Deadline:</strong> {formatDate(task.deadline)}
@@ -304,6 +482,8 @@ function TaskManagement({ groupId, user, members }) {
   const renderTaskDetails = () => {
     if (!selectedTask) return null;
 
+    const isOverdue = isTaskOverdue(selectedTask);
+
     return (
       <div className="task-details-modal">
         <div className="task-details-content">
@@ -314,34 +494,84 @@ function TaskManagement({ groupId, user, members }) {
             ×
           </button>
           <h2>{selectedTask.title}</h2>
-          <div className="task-detail-info">
-            <p>
-              <strong>Description:</strong>{" "}
-              {selectedTask.description || "No description provided"}
-            </p>
-            <p>
-              <strong>Assigned to:</strong>{" "}
-              {getMemberName(selectedTask.assignedTo)}
-            </p>
-            <p>
-              <strong>Assigned by:</strong>{" "}
-              {getMemberName(selectedTask.assignedBy)}
-            </p>
-            <p>
-              <strong>Deadline:</strong> {formatDate(selectedTask.deadline)}
-            </p>
-            <p>
-              <strong>Created:</strong> {formatDate(selectedTask.createdAt)}
-            </p>
-            <p>
-              <strong>Last updated:</strong>{" "}
-              {formatDate(selectedTask.updatedAt)}
-            </p>
+
+          <div
+            className={`task-status-badge ${getStatusClass(
+              selectedTask.status
+            )}`}
+          >
+            {selectedTask.status}
+            {isOverdue && <span className="overdue-indicator"> (Overdue)</span>}
           </div>
+
+          <div className="task-detail-info">
+            <div className="detail-row">
+              <div className="detail-icon">
+                <i className="fas fa-align-left"></i>
+              </div>
+              <div className="detail-content">
+                <h4>Description</h4>
+                <p>{selectedTask.description || "No description provided"}</p>
+              </div>
+            </div>
+
+            <div className="detail-row">
+              <div className="detail-icon">
+                <i className="fas fa-user-check"></i>
+              </div>
+              <div className="detail-content">
+                <h4>Assigned to</h4>
+                <p>
+                  {Array.isArray(selectedTask.assignedTo)
+                    ? getMemberNames(selectedTask.assignedTo)
+                    : getMemberName(selectedTask.assignedTo)}
+                </p>
+              </div>
+            </div>
+
+            <div className="detail-row">
+              <div className="detail-icon">
+                <i className="fas fa-user"></i>
+              </div>
+              <div className="detail-content">
+                <h4>Assigned by</h4>
+                <p>{getMemberName(selectedTask.assignedBy)}</p>
+              </div>
+            </div>
+
+            <div className="detail-row">
+              <div className="detail-icon">
+                <i className="fas fa-calendar-alt"></i>
+              </div>
+              <div className="detail-content">
+                <h4>Deadline</h4>
+                <p>{formatDate(selectedTask.deadline)}</p>
+              </div>
+            </div>
+
+            <div className="detail-row">
+              <div className="detail-icon">
+                <i className="fas fa-clock"></i>
+              </div>
+              <div className="detail-content">
+                <h4>Created</h4>
+                <p>{formatDate(selectedTask.createdAt)}</p>
+              </div>
+            </div>
+
+            <div className="detail-row">
+              <div className="detail-icon">
+                <i className="fas fa-edit"></i>
+              </div>
+              <div className="detail-content">
+                <h4>Last updated</h4>
+                <p>{formatDate(selectedTask.updatedAt)}</p>
+              </div>
+            </div>
+          </div>
+
           <div className="status-update">
-            <p>
-              <strong>Status:</strong>
-            </p>
+            <h3>Update Status</h3>
             <div className="status-toggle">
               <label className="status-toggle-label">
                 <input
@@ -358,18 +588,19 @@ function TaskManagement({ groupId, user, members }) {
               </label>
             </div>
           </div>
+
           <div className="task-detail-actions">
             <button
               onClick={() => handleEditTask(selectedTask)}
               className="edit-btn"
             >
-              Edit Task
+              <i className="fas fa-edit"></i> Edit Task
             </button>
             <button
               onClick={() => handleDeleteTask(selectedTask._id)}
               className="delete-btn"
             >
-              Delete Task
+              <i className="fas fa-trash-alt"></i> Delete Task
             </button>
           </div>
         </div>
@@ -406,23 +637,73 @@ function TaskManagement({ groupId, user, members }) {
             />
           </div>
           <div className="form-group">
-            <label htmlFor="assignedTo">Assign To *</label>
-            <select
-              id="assignedTo"
-              name="assignedTo"
-              value={newTask.assignedTo}
-              onChange={handleInputChange}
-              required
-            >
-              <option value="">Select a member</option>
-              {members &&
-                Array.isArray(members) &&
-                members.map((member) => (
-                  <option key={member.id} value={member.id}>
-                    {member.name}
-                  </option>
-                ))}
-            </select>
+            <label>Assign To *</label>
+            <div className="assign-dropdown-container">
+              <div
+                className="assign-dropdown-trigger"
+                onClick={() => {
+                  const memberList = document.getElementById(
+                    "new-member-list-container"
+                  );
+                  if (memberList) {
+                    memberList.classList.toggle("active");
+                  }
+                }}
+              >
+                <span>
+                  {newTask.assignToAll
+                    ? "All members"
+                    : newTask.assignedTo.length > 0
+                    ? `${newTask.assignedTo.length} member(s) selected`
+                    : "Select members"}
+                </span>
+                <i className="fas fa-chevron-down"></i>
+              </div>
+              <div
+                id="new-member-list-container"
+                className="member-list-container"
+              >
+                <div className="member-checkbox-list">
+                  {members &&
+                    Array.isArray(members) &&
+                    members.map((member) => (
+                      <div key={member.id} className="member-checkbox-item">
+                        <label className="member-checkbox-label">
+                          <input
+                            type="checkbox"
+                            name={`member-${member.id}`}
+                            checked={newTask.assignedTo.includes(member.id)}
+                            onChange={(e) => {
+                              const isChecked = e.target.checked;
+                              setNewTask((prev) => ({
+                                ...prev,
+                                assignedTo: isChecked
+                                  ? [...prev.assignedTo, member.id]
+                                  : prev.assignedTo.filter(
+                                      (id) => id !== member.id
+                                    ),
+                                assignToAll: false,
+                              }));
+                            }}
+                          />
+                          <span className="member-name">{member.name}</span>
+                        </label>
+                      </div>
+                    ))}
+                </div>
+              </div>
+              <div className="assign-all-option">
+                <label className="member-checkbox-label">
+                  <input
+                    type="checkbox"
+                    name="assignToAll"
+                    checked={newTask.assignToAll}
+                    onChange={handleInputChange}
+                  />
+                  <span className="member-name">Assign to all members</span>
+                </label>
+              </div>
+            </div>
           </div>
           <div className="form-group">
             <label htmlFor="deadline">Deadline *</label>
@@ -483,23 +764,84 @@ function TaskManagement({ groupId, user, members }) {
             />
           </div>
           <div className="form-group">
-            <label htmlFor="edit-assignedTo">Assign To *</label>
-            <select
-              id="edit-assignedTo"
-              name="assignedTo"
-              value={editingTask.assignedTo}
-              onChange={handleEditInputChange}
-              required
-            >
-              <option value="">Select a member</option>
-              {members &&
-                Array.isArray(members) &&
-                members.map((member) => (
-                  <option key={member.id} value={member.id}>
-                    {member.name}
-                  </option>
-                ))}
-            </select>
+            <label>Assign To *</label>
+            <div className="assign-dropdown-container">
+              <div
+                className="assign-dropdown-trigger"
+                onClick={() => {
+                  const memberList = document.getElementById(
+                    "edit-member-list-container"
+                  );
+                  if (memberList) {
+                    memberList.classList.toggle("active");
+                  }
+                }}
+              >
+                <span>
+                  {editingTask.assignToAll
+                    ? "All members"
+                    : Array.isArray(editingTask.assignedTo) &&
+                      editingTask.assignedTo.length > 0
+                    ? `${editingTask.assignedTo.length} member(s) selected`
+                    : "Select members"}
+                </span>
+                <i className="fas fa-chevron-down"></i>
+              </div>
+              <div
+                id="edit-member-list-container"
+                className="member-list-container"
+              >
+                <div className="member-checkbox-list">
+                  {members &&
+                    Array.isArray(members) &&
+                    members.map((member) => (
+                      <div key={member.id} className="member-checkbox-item">
+                        <label className="member-checkbox-label">
+                          <input
+                            type="checkbox"
+                            name={`edit-member-${member.id}`}
+                            checked={
+                              Array.isArray(editingTask.assignedTo)
+                                ? editingTask.assignedTo.includes(member.id)
+                                : editingTask.assignedTo === member.id
+                            }
+                            onChange={(e) => {
+                              const isChecked = e.target.checked;
+                              const currentAssigned = Array.isArray(
+                                editingTask.assignedTo
+                              )
+                                ? editingTask.assignedTo
+                                : [editingTask.assignedTo].filter(Boolean);
+
+                              setEditingTask((prev) => ({
+                                ...prev,
+                                assignedTo: isChecked
+                                  ? [...currentAssigned, member.id]
+                                  : currentAssigned.filter(
+                                      (id) => id !== member.id
+                                    ),
+                                assignToAll: false,
+                              }));
+                            }}
+                          />
+                          <span className="member-name">{member.name}</span>
+                        </label>
+                      </div>
+                    ))}
+                </div>
+              </div>
+              <div className="assign-all-option">
+                <label className="member-checkbox-label">
+                  <input
+                    type="checkbox"
+                    name="assignToAll"
+                    checked={editingTask.assignToAll}
+                    onChange={handleEditInputChange}
+                  />
+                  <span className="member-name">Assign to all members</span>
+                </label>
+              </div>
+            </div>
           </div>
           <div className="form-group">
             <label htmlFor="edit-deadline">Deadline *</label>

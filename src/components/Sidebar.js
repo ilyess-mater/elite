@@ -110,13 +110,15 @@ function Sidebar({ activePage, setActivePage, isAdmin, onLogout, userName }) {
   };
 
   const handleMouseEnter = () => {
-    if (hoverEnabled) {
+    // Only enable hover expansion if hover is enabled AND not on mobile
+    if (hoverEnabled && window.innerWidth > 576) {
       setExpanded(true);
     }
   };
 
   const handleMouseLeave = () => {
-    if (hoverEnabled) {
+    // Only enable hover collapse if hover is enabled AND not on mobile
+    if (hoverEnabled && window.innerWidth > 576) {
       setExpanded(false);
     }
   };
