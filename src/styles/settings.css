@@ -781,3 +781,14 @@ input:checked + .slider:before {
 .dark-mode .setting-label {
   color: #ddd;
 }
+
+.setting-description {
+  margin-top: 10px;
+  font-size: 0.85rem;
+  color: #777;
+  line-height: 1.5;
+}
+
+.dark-mode .setting-description {
+  color: #aaa;
+}

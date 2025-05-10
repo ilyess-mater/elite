@@ -1,0 +1,119 @@
+Date : 2025-05-10 14:15:14
+Directory : c:\PFE_PROJECT\ReactJs\elite
+Total : 77 files,  47120 codes, 1391 comments, 4627 blanks, all 53138 lines
+
+Languages
++------------------+------------+------------+------------+------------+------------+
+| language         | files      | code       | comment    | blank      | total      |
++------------------+------------+------------+------------+------------+------------+
+| JSON             |          3 |     17,950 |          0 |          3 |     17,953 |
+| CSS              |         22 |     15,406 |        270 |      2,724 |     18,400 |
+| JavaScript       |         26 |     10,576 |        694 |      1,113 |     12,383 |
+| Python           |         13 |      2,525 |        427 |        680 |      3,632 |
+| log              |          2 |        485 |          0 |         32 |        517 |
+| Markdown         |          3 |        138 |          0 |         68 |        206 |
+| HTML             |          1 |         25 |          0 |          1 |         26 |
+| pip requirements |          1 |         11 |          0 |          1 |         12 |
+| Properties       |          1 |          3 |          0 |          1 |          4 |
+| XML              |          5 |          1 |          0 |          4 |          5 |
++------------------+------------+------------+------------+------------+------------+
+
+Directories
++-----------------------------------------------------------------+------------+------------+------------+------------+------------+
+| path                                                            | files      | code       | comment    | blank      | total      |
++-----------------------------------------------------------------+------------+------------+------------+------------+------------+
+| .                                                               |         77 |     47,120 |      1,391 |      4,627 |     53,138 |
+| . (Files)                                                       |         12 |     18,219 |         38 |        105 |     18,362 |
+| backend                                                         |         11 |      2,946 |        389 |        690 |      4,025 |
+| public                                                          |          6 |         50 |          0 |          6 |         56 |
+| src                                                             |         48 |     25,905 |        964 |      3,826 |     30,695 |
+| src (Files)                                                     |          8 |         65 |          4 |         14 |         83 |
+| src\components                                                  |         17 |     10,265 |        638 |      1,040 |     11,943 |
+| src\contexts                                                    |          1 |        122 |         25 |         34 |        181 |
+| src\styles                                                      |         20 |     15,394 |        270 |      2,721 |     18,385 |
+| src\utils                                                       |          2 |         59 |         27 |         17 |        103 |
++-----------------------------------------------------------------+------------+------------+------------+------------+------------+
+
+Files
++-----------------------------------------------------------------+------------------+------------+------------+------------+------------+
+| filename                                                        | language         | code       | comment    | blank      | total      |
++-----------------------------------------------------------------+------------------+------------+------------+------------+------------+
+| c:\PFE_PROJECT\ReactJs\elite\Messages.js                        | JavaScript       |         78 |          0 |         11 |         89 |
+| c:\PFE_PROJECT\ReactJs\elite\README.md                          | Markdown         |         38 |          0 |         33 |         71 |
+| c:\PFE_PROJECT\ReactJs\elite\backend\.env                       | Properties       |          3 |          0 |          1 |          4 |
+| c:\PFE_PROJECT\ReactJs\elite\backend\README.md                  | Markdown         |         62 |          0 |         23 |         85 |
+| c:\PFE_PROJECT\ReactJs\elite\backend\ai_quick_replies.log       | log              |          0 |          0 |          1 |          1 |
+| c:\PFE_PROJECT\ReactJs\elite\backend\app.py                     | Python           |      1,702 |        267 |        445 |      2,414 |
+| c:\PFE_PROJECT\ReactJs\elite\backend\category_routes.py         | Python           |        296 |         40 |         81 |        417 |
+| c:\PFE_PROJECT\ReactJs\elite\backend\file_upload.py             | Python           |        152 |         35 |         47 |        234 |
+| c:\PFE_PROJECT\ReactJs\elite\backend\file_utils.py              | Python           |         80 |         15 |         23 |        118 |
+| c:\PFE_PROJECT\ReactJs\elite\backend\models.py                  | Python           |         33 |          0 |          3 |         36 |
+| c:\PFE_PROJECT\ReactJs\elite\backend\quick_reply_model.log      | log              |        485 |          0 |         31 |        516 |
+| c:\PFE_PROJECT\ReactJs\elite\backend\requirements.txt           | pip requirements |         11 |          0 |          1 |         12 |
+| c:\PFE_PROJECT\ReactJs\elite\backend\task_routes.py             | Python           |        122 |         32 |         34 |        188 |
+| c:\PFE_PROJECT\ReactJs\elite\category_implementation_notes.md   | Markdown         |         38 |          0 |         12 |         50 |
+| c:\PFE_PROJECT\ReactJs\elite\check_elite_messaging_users.py     | Python           |          9 |          5 |          6 |         20 |
+| c:\PFE_PROJECT\ReactJs\elite\check_pfe_project_users.py         | Python           |          9 |          5 |          6 |         20 |
+| c:\PFE_PROJECT\ReactJs\elite\create_admin_user.py               | Python           |         23 |          6 |          7 |         36 |
+| c:\PFE_PROJECT\ReactJs\elite\package-lock.json                  | JSON             |     17,877 |          0 |          1 |     17,878 |
+| c:\PFE_PROJECT\ReactJs\elite\package.json                       | JSON             |         48 |          0 |          1 |         49 |
+| c:\PFE_PROJECT\ReactJs\elite\public\google-calendar-logo.svg    | XML              |          0 |          0 |          1 |          1 |
+| c:\PFE_PROJECT\ReactJs\elite\public\google-drive-logo.svg       | XML              |          0 |          0 |          1 |          1 |
+| c:\PFE_PROJECT\ReactJs\elite\public\google-logo.svg             | XML              |          0 |          0 |          1 |          1 |
+| c:\PFE_PROJECT\ReactJs\elite\public\index.html                  | HTML             |         25 |          0 |          1 |         26 |
+| c:\PFE_PROJECT\ReactJs\elite\public\manifest.json               | JSON             |         25 |          0 |          1 |         26 |
+| c:\PFE_PROJECT\ReactJs\elite\public\notion-logo.svg             | XML              |          0 |          0 |          1 |          1 |
+| c:\PFE_PROJECT\ReactJs\elite\src\App.css                        | CSS              |          0 |          0 |          1 |          1 |
+| c:\PFE_PROJECT\ReactJs\elite\src\App.js                         | JavaScript       |          7 |          0 |          3 |         10 |
+| c:\PFE_PROJECT\ReactJs\elite\src\components\AdminMaster.js      | JavaScript       |      1,046 |         25 |         76 |      1,147 |
+| c:\PFE_PROJECT\ReactJs\elite\src\components\AdminPanel.js       | JavaScript       |      1,095 |         31 |         76 |      1,202 |
+| c:\PFE_PROJECT\ReactJs\elite\src\components\AuthContainer.js    | JavaScript       |         92 |          8 |         11 |        111 |
+| c:\PFE_PROJECT\ReactJs\elite\src\components\CategoryDropdown.js | JavaScript       |         84 |          2 |         13 |         99 |
+| c:\PFE_PROJECT\ReactJs\elite\src\components\CategoryManager.js  | JavaScript       |        374 |         17 |         34 |        425 |
+| c:\PFE_PROJECT\ReactJs\elite\src\components\ContactsPage.js     | JavaScript       |        379 |         21 |         43 |        443 |
+| c:\PFE_PROJECT\ReactJs\elite\src\components\DashboardPage.js    | JavaScript       |        345 |          6 |         28 |        379 |
+| c:\PFE_PROJECT\ReactJs\elite\src\components\GroupChatPage.js    | JavaScript       |      2,381 |        205 |        265 |      2,851 |
+| c:\PFE_PROJECT\ReactJs\elite\src\components\MainDashboard.js    | JavaScript       |         87 |          3 |         10 |        100 |
+| c:\PFE_PROJECT\ReactJs\elite\src\components\MessagingPage.js    | JavaScript       |      2,340 |        223 |        267 |      2,830 |
+| c:\PFE_PROJECT\ReactJs\elite\src\components\SearchBar.js        | JavaScript       |         57 |          0 |          6 |         63 |
+| c:\PFE_PROJECT\ReactJs\elite\src\components\SecurityPage.js     | JavaScript       |        202 |         14 |         35 |        251 |
+| c:\PFE_PROJECT\ReactJs\elite\src\components\SettingsPage.js     | JavaScript       |        246 |         10 |         23 |        279 |
+| c:\PFE_PROJECT\ReactJs\elite\src\components\Sidebar.js          | JavaScript       |        291 |         14 |         32 |        337 |
+| c:\PFE_PROJECT\ReactJs\elite\src\components\SignInForm.js       | JavaScript       |        134 |          3 |         20 |        157 |
+| c:\PFE_PROJECT\ReactJs\elite\src\components\SignUpForm.js       | JavaScript       |        291 |         10 |         35 |        336 |
+| c:\PFE_PROJECT\ReactJs\elite\src\components\TaskManagement.js   | JavaScript       |        821 |         46 |         66 |        933 |
+| c:\PFE_PROJECT\ReactJs\elite\src\contexts\AuthContext.js        | JavaScript       |        122 |         25 |         34 |        181 |
+| c:\PFE_PROJECT\ReactJs\elite\src\index.css                      | CSS              |         12 |          0 |          2 |         14 |
+| c:\PFE_PROJECT\ReactJs\elite\src\index.js                       | JavaScript       |         13 |          0 |          2 |         15 |
+| c:\PFE_PROJECT\ReactJs\elite\src\logo.svg                       | XML              |          1 |          0 |          0 |          1 |
+| c:\PFE_PROJECT\ReactJs\elite\src\reportWebVitals.js             | JavaScript       |         12 |          0 |          2 |         14 |
+| c:\PFE_PROJECT\ReactJs\elite\src\setupProxy.js                  | JavaScript       |         19 |          0 |          3 |         22 |
+| c:\PFE_PROJECT\ReactJs\elite\src\setupTests.js                  | JavaScript       |          1 |          4 |          1 |          6 |
+| c:\PFE_PROJECT\ReactJs\elite\src\styles\admin.css               | CSS              |      1,736 |         32 |        325 |      2,093 |
+| c:\PFE_PROJECT\ReactJs\elite\src\styles\adminmaster.css         | CSS              |      1,537 |         19 |        299 |      1,855 |
+| c:\PFE_PROJECT\ReactJs\elite\src\styles\auth.css                | CSS              |         81 |          0 |          9 |         90 |
+| c:\PFE_PROJECT\ReactJs\elite\src\styles\category-manager.css    | CSS              |      1,159 |         31 |        203 |      1,393 |
+| c:\PFE_PROJECT\ReactJs\elite\src\styles\contacts.css            | CSS              |        787 |          9 |        131 |        927 |
+| c:\PFE_PROJECT\ReactJs\elite\src\styles\dashboard.css           | CSS              |        320 |         13 |         66 |        399 |
+| c:\PFE_PROJECT\ReactJs\elite\src\styles\emoji-picker.css        | CSS              |         91 |          8 |         17 |        116 |
+| c:\PFE_PROJECT\ReactJs\elite\src\styles\forms.css               | CSS              |        210 |          2 |         34 |        246 |
+| c:\PFE_PROJECT\ReactJs\elite\src\styles\global.css              | CSS              |         88 |          2 |         19 |        109 |
+| c:\PFE_PROJECT\ReactJs\elite\src\styles\groupchat.css           | CSS              |      3,214 |         43 |        544 |      3,801 |
+| c:\PFE_PROJECT\ReactJs\elite\src\styles\index.css               | CSS              |        366 |         10 |         84 |        460 |
+| c:\PFE_PROJECT\ReactJs\elite\src\styles\messages.css            | CSS              |        282 |          4 |         46 |        332 |
+| c:\PFE_PROJECT\ReactJs\elite\src\styles\messaging.css           | CSS              |      2,550 |         48 |        439 |      3,037 |
+| c:\PFE_PROJECT\ReactJs\elite\src\styles\panels.css              | CSS              |         72 |          1 |         15 |         88 |
+| c:\PFE_PROJECT\ReactJs\elite\src\styles\search-results-list.css | CSS              |         80 |          1 |         17 |         98 |
+| c:\PFE_PROJECT\ReactJs\elite\src\styles\search.css              | CSS              |        104 |          3 |         19 |        126 |
+| c:\PFE_PROJECT\ReactJs\elite\src\styles\security.css            | CSS              |        206 |          5 |         44 |        255 |
+| c:\PFE_PROJECT\ReactJs\elite\src\styles\settings.css            | CSS              |        640 |         18 |        126 |        784 |
+| c:\PFE_PROJECT\ReactJs\elite\src\styles\sidebar.css             | CSS              |      1,004 |         13 |        127 |      1,144 |
+| c:\PFE_PROJECT\ReactJs\elite\src\styles\tasks.css               | CSS              |        867 |          8 |        157 |      1,032 |
+| c:\PFE_PROJECT\ReactJs\elite\src\utils\axiosConfig.js           | JavaScript       |         24 |          5 |          7 |         36 |
+| c:\PFE_PROJECT\ReactJs\elite\src\utils\titleManager.js          | JavaScript       |         35 |         22 |         10 |         67 |
+| c:\PFE_PROJECT\ReactJs\elite\test_admin_api.py                  | Python           |         34 |          6 |          8 |         48 |
+| c:\PFE_PROJECT\ReactJs\elite\test_admin_users_api.py            | Python           |         34 |          6 |          8 |         48 |
+| c:\PFE_PROJECT\ReactJs\elite\test_signup.py                     | Python           |         15 |          5 |          6 |         26 |
+| c:\PFE_PROJECT\ReactJs\elite\test_signup_admin_panel.py         | Python           |         16 |          5 |          6 |         27 |
+| Total                                                           |                  |     47,120 |      1,391 |      4,627 |     53,138 |
++-----------------------------------------------------------------+------------------+------------+------------+------------+------------+

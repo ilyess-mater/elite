@@ -1,12 +1,15 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import "../styles/messaging.css";
 import "../styles/emoji-picker.css";
 import "../styles/search-results-list.css";
 import "../styles/category-manager.css";
+import "../styles/urgency-selector.css";
 import axios from "axios";
 import { useAuth } from "../contexts/AuthContext";
+import { useEncryption } from "../contexts/EncryptionContext";
 import EmojiPicker from "emoji-picker-react";
 import CategoryManager from "./CategoryManager";
+import UrgencySelector from "./UrgencySelector";
 
 function MessagingPage({ user, textSize }) {
   const [contacts, setContacts] = useState([]);
@@ -14,9 +17,12 @@ function MessagingPage({ user, textSize }) {
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState({});
   const [searchTerm, setSearchTerm] = useState("");
+  const [messageUrgency, setMessageUrgency] = useState("normal");
   const messagesEndRef = useRef(null);
+  const urgencySelectorRef = useRef(null);
   const { getSocket } = useAuth();
   const socket = getSocket();
+  const { encrypt, decrypt, encryptionEnabled } = useEncryption();
   const [messageIdCounter, setMessageIdCounter] = useState(1000);
   const fileInputRef = useRef(null);
   const [selectedFile, setSelectedFile] = useState(null);
@@ -30,6 +36,201 @@ function MessagingPage({ user, textSize }) {
   const [editedMessageText, setEditedMessageText] = useState("");
   const [showDeleteMessageConfirm, setShowDeleteMessageConfirm] =
     useState(false);
+
+  // Title management functions
+  const originalTitle = document.title;
+  const titleIntervalRef = useRef(null);
+
+  // Create a map to track unread messages per sender
+  const unreadMessagesBySenderRef = useRef(new Map());
+
+  // Create a map to track which messages have been counted for notifications
+  const countedMessagesRef = useRef(new Set());
+
+  // Flag to track if notifications have been seen
+  const notificationsSeenRef = useRef(true);
+
+  // Update the page title to show a notification
+  const updateTitle = useCallback(
+    (message, flash = true, count = 1, senderId = null, messageId = null) => {
+      // Only update title if the page is not visible
+      if (document.hidden) {
+        // Check if this is a new message (not just a tab change)
+        const isNewMessage =
+          messageId && !countedMessagesRef.current.has(messageId);
+
+        // Check if notifications have been seen
+        const storedNotificationsSeen =
+          localStorage.getItem("notificationsSeen");
+
+        // If this is not a new message and notifications were marked as seen, don't update title
+        if (!isNewMessage && storedNotificationsSeen === "true") {
+          console.log(
+            "Not a new message and notifications were seen, keeping original title"
+          );
+          return;
+        }
+
+        // If this is a new message, mark notifications as not seen
+        if (isNewMessage) {
+          notificationsSeenRef.current = false;
+          localStorage.setItem("notificationsSeen", "false");
+          console.log(
+            "New message received, starting new notification session"
+          );
+        }
+
+        // If we have a message ID, check if it's already been counted
+        if (messageId) {
+          // If this message has already been counted, don't count it again
+          if (countedMessagesRef.current.has(messageId)) {
+            console.log(
+              `Message ${messageId} already counted for notifications, skipping`
+            );
+            return;
+          }
+
+          // Mark this message as counted
+          countedMessagesRef.current.add(messageId);
+        }
+
+        // Clear any existing interval
+        if (titleIntervalRef.current) {
+          clearInterval(titleIntervalRef.current);
+          titleIntervalRef.current = null;
+        }
+
+        // If we have a sender ID, update their unread count
+        if (senderId) {
+          // Get current count for this sender
+          const currentCount =
+            unreadMessagesBySenderRef.current.get(senderId) || 0;
+
+          // Update the count
+          const newCount = Math.max(0, currentCount + count);
+
+          // Store the updated count
+          if (newCount > 0) {
+            unreadMessagesBySenderRef.current.set(senderId, newCount);
+          } else {
+            unreadMessagesBySenderRef.current.delete(senderId);
+          }
+        }
+
+        // Calculate total unread count
+        const totalUnreadCount = Array.from(
+          unreadMessagesBySenderRef.current.values()
+        ).reduce((sum, count) => sum + count, 0);
+
+        // Only update title if we have a message or unread count
+        if (message && totalUnreadCount > 0) {
+          // Create the new title with unread count
+          const newTitle = `(${totalUnreadCount}) ${message}`;
+
+          // Set the title immediately
+          document.title = newTitle;
+
+          // If flash is true and we have unread messages, alternate between the new title and original title
+          if (flash) {
+            let isOriginal = false;
+            titleIntervalRef.current = setInterval(() => {
+              document.title = isOriginal ? newTitle : originalTitle;
+              isOriginal = !isOriginal;
+            }, 1000);
+          }
+        } else if (totalUnreadCount === 0) {
+          // Reset to original title if no unread messages
+          document.title = originalTitle;
+        }
+      }
+    },
+    [originalTitle]
+  );
+
+  // Reset the page title to the original title
+  const resetTitle = useCallback(() => {
+    // Clear any existing interval
+    if (titleIntervalRef.current) {
+      clearInterval(titleIntervalRef.current);
+      titleIntervalRef.current = null;
+    }
+
+    // Clear all unread messages
+    unreadMessagesBySenderRef.current.clear();
+
+    // Clear the counted messages set
+    countedMessagesRef.current.clear();
+
+    // Reset the title
+    document.title = originalTitle;
+  }, [originalTitle]);
+
+  // Show browser notification
+  const showNotification = useCallback(
+    (message) => {
+      try {
+        if (!("Notification" in window)) {
+          console.log("This browser does not support desktop notification");
+          return;
+        }
+
+        // Find sender
+        const sender = contacts.find(
+          (contact) => contact.id === message.sender
+        );
+
+        // Check if sender is muted
+        if (sender) {
+          // Get muted contacts from localStorage
+          const mutedContacts = JSON.parse(
+            localStorage.getItem("mutedContacts") || "[]"
+          );
+          if (mutedContacts.includes(sender.id)) {
+            console.log(`Notification from ${sender.name} muted`);
+            return; // Skip notification for muted contact
+          }
+        }
+
+        if (Notification.permission === "granted") {
+          const senderName = sender ? sender.name : "Someone";
+
+          // Create notification title based on urgency level
+          let notificationTitle = "New message from " + senderName;
+          if (message.urgencyLevel === "high") {
+            notificationTitle = "🔶 HIGH PRIORITY: Message from " + senderName;
+          } else if (message.urgencyLevel === "urgent") {
+            notificationTitle = "🔴 URGENT: Message from " + senderName;
+          } else if (message.urgencyLevel === "low") {
+            notificationTitle = "🟢 Low priority: Message from " + senderName;
+          }
+
+          const notification = new Notification(notificationTitle, {
+            body: message.text || "Sent you a file",
+            icon: "/logo192.png",
+            badge: "/logo192.png",
+            tag: `message-${sender?.id || "unknown"}-${Date.now()}`,
+            requireInteraction: true,
+          });
+
+          notification.onclick = function () {
+            window.focus();
+            if (sender) {
+              setSelectedContact(sender);
+            }
+          };
+        } else if (Notification.permission !== "denied") {
+          Notification.requestPermission().then((permission) => {
+            if (permission === "granted") {
+              showNotification(message);
+            }
+          });
+        }
+      } catch (error) {
+        console.error("Error showing notification:", error);
+      }
+    },
+    [contacts, setSelectedContact]
+  );
 
   // Search functionality
   const [searchResults, setSearchResults] = useState([]);
@@ -48,7 +249,7 @@ function MessagingPage({ user, textSize }) {
     left: 0,
   });
 
-  // Fetch categories and contacts from API
+  // Fetch categories, contacts, and all messages when component mounts
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -105,6 +306,51 @@ function MessagingPage({ user, textSize }) {
           },
         });
         setCategories(updatedCategoriesResponse.data);
+
+        // Fetch all messages for all contacts to ensure proper sorting
+        const allMessagesPromises = contactsWithAvatars.map(async (contact) => {
+          try {
+            const response = await axios.get(`/api/messages/${contact.id}`, {
+              headers: {
+                Authorization: `Bearer ${localStorage.getItem("token")}`,
+              },
+            });
+            return { contactId: contact.id, messages: response.data };
+          } catch (error) {
+            console.error(
+              `Error fetching messages for contact ${contact.id}:`,
+              error
+            );
+            return { contactId: contact.id, messages: [] };
+          }
+        });
+
+        // Wait for all message requests to complete
+        const allMessagesResults = await Promise.all(allMessagesPromises);
+
+        // Create a new messages object with all fetched messages
+        const allMessages = {};
+        allMessagesResults.forEach((result) => {
+          allMessages[result.contactId] = result.messages;
+        });
+
+        // Update the messages state with all fetched messages
+        setMessages(allMessages);
+
+        // Update contacts with lastMessageTime based on the latest message
+        const updatedContacts = contactsWithAvatars.map((contact) => {
+          const contactMessages = allMessages[contact.id] || [];
+          if (contactMessages.length > 0) {
+            const lastMessage = contactMessages[contactMessages.length - 1];
+            return {
+              ...contact,
+              lastMessageTime: lastMessage.timestamp,
+            };
+          }
+          return contact;
+        });
+
+        setContacts(updatedContacts);
       } catch (error) {
         console.error("Error fetching data:", error);
       }
@@ -262,12 +508,38 @@ function MessagingPage({ user, textSize }) {
           );
           const senderName = sender ? sender.name : "Someone";
 
-          // Show browser notification
-          showNotification(newMessage);
+          // Check if sender is muted
+          const mutedContacts = JSON.parse(
+            localStorage.getItem("mutedContacts") || "[]"
+          );
+          const isSenderMuted = sender && mutedContacts.includes(sender.id);
 
-          // Update page title with sender name
-          if (document.hidden) {
-            updateTitle(`New message from ${senderName}`, true, 1);
+          // Only show notification and update title if sender is not muted
+          if (!isSenderMuted) {
+            // Show browser notification
+            showNotification(newMessage);
+
+            // Update page title with sender name and urgency level
+            if (document.hidden) {
+              let titleMessage = `New message from ${senderName}`;
+
+              // Add urgency level to title
+              if (newMessage.urgencyLevel === "high") {
+                titleMessage = `HIGH PRIORITY: Message from ${senderName}`;
+              } else if (newMessage.urgencyLevel === "urgent") {
+                titleMessage = `URGENT: Message from ${senderName}`;
+              } else if (newMessage.urgencyLevel === "low") {
+                titleMessage = `Low priority: Message from ${senderName}`;
+              }
+
+              updateTitle(
+                titleMessage,
+                true,
+                1,
+                newMessage.sender,
+                newMessage.id
+              );
+            }
           }
 
           // Increment unread count if the message is from someone else and not the selected contact
@@ -423,7 +695,7 @@ function MessagingPage({ user, textSize }) {
       socket.off("message_edited");
       socket.off("message_deleted");
     };
-  }, [socket, user]);
+  }, [socket, user, contacts, selectedContact, showNotification, updateTitle]);
 
   // Handle delete chat
   const handleDeleteChat = (e, contact) => {
@@ -484,117 +756,56 @@ function MessagingPage({ user, textSize }) {
     setContactToDelete(null);
   };
 
-  // Show browser notification
-  const showNotification = (message) => {
-    try {
-      if (!("Notification" in window)) {
-        console.log("This browser does not support desktop notification");
-        return;
-      }
+  // Initialize notification state from localStorage and listen for changes
+  useEffect(() => {
+    // Check if we have a stored notification state
+    const storedNotificationsSeen = localStorage.getItem("notificationsSeen");
+    if (storedNotificationsSeen === "true") {
+      notificationsSeenRef.current = true;
+    } else {
+      notificationsSeenRef.current = false;
+    }
 
-      // Find sender
-      const sender = contacts.find((contact) => contact.id === message.sender);
+    console.log(
+      "Initial notifications seen state:",
+      notificationsSeenRef.current
+    );
 
-      // Check if sender is muted
-      if (sender) {
-        // Get muted contacts from localStorage
-        const mutedContacts = JSON.parse(
-          localStorage.getItem("mutedContacts") || "[]"
+    // Listen for storage events from other tabs
+    const handleStorageChange = (e) => {
+      if (e.key === "notificationsSeen") {
+        console.log(
+          "Notification seen state changed in another tab:",
+          e.newValue
         );
-        if (mutedContacts.includes(sender.id)) {
-          console.log(`Notification from ${sender.name} muted`);
-          return; // Skip notification for muted contact
+        notificationsSeenRef.current = e.newValue === "true";
+
+        // If notifications were marked as seen, reset the title
+        if (e.newValue === "true") {
+          // Clear all unread messages
+          unreadMessagesBySenderRef.current.clear();
+
+          // Clear the counted messages set
+          countedMessagesRef.current.clear();
+
+          // Reset the title to original
+          document.title = originalTitle;
+
+          // Clear any existing interval
+          if (titleIntervalRef.current) {
+            clearInterval(titleIntervalRef.current);
+            titleIntervalRef.current = null;
+          }
         }
       }
+    };
 
-      if (Notification.permission === "granted") {
-        const senderName = sender ? sender.name : "Someone";
+    window.addEventListener("storage", handleStorageChange);
 
-        const notification = new Notification(
-          "New message from " + senderName,
-          {
-            body: message.text || "Sent you a file",
-            icon: "/logo192.png",
-            badge: "/logo192.png",
-            tag: `message-${sender?.id || "unknown"}-${Date.now()}`,
-            requireInteraction: true,
-          }
-        );
-
-        notification.onclick = function () {
-          window.focus();
-          if (sender) {
-            setSelectedContact(sender);
-          }
-        };
-      } else if (Notification.permission !== "denied") {
-        Notification.requestPermission().then((permission) => {
-          if (permission === "granted") {
-            showNotification(message);
-          }
-        });
-      }
-    } catch (error) {
-      console.error("Error showing notification:", error);
-    }
-  };
-
-  // Title management functions
-  const originalTitle = document.title;
-  let titleInterval = null;
-  let unreadCount = 0;
-
-  // Update the page title to show a notification
-  const updateTitle = (message, flash = true, count = 1) => {
-    // Only update title if the page is not visible
-    if (document.hidden) {
-      // Clear any existing interval
-      if (titleInterval) {
-        clearInterval(titleInterval);
-      }
-
-      // Increment unread count by the specified amount (default 1)
-      // Can also be negative to decrement the counter
-      unreadCount += count;
-
-      // Ensure unreadCount is never negative
-      if (unreadCount < 0) unreadCount = 0;
-
-      // Only update title if we have a message or unread count
-      if (message || unreadCount > 0) {
-        // Create the new title with unread count
-        const newTitle =
-          unreadCount > 0 ? `(${unreadCount}) ${message}` : originalTitle;
-
-        // Set the title immediately
-        document.title = newTitle;
-
-        // If flash is true and we have unread messages, alternate between the new title and original title
-        if (flash && unreadCount > 0) {
-          let isOriginal = false;
-          titleInterval = setInterval(() => {
-            document.title = isOriginal ? newTitle : originalTitle;
-            isOriginal = !isOriginal;
-          }, 1000);
-        }
-      }
-    }
-  };
-
-  // Reset the page title to the original title
-  const resetTitle = () => {
-    // Clear any existing interval
-    if (titleInterval) {
-      clearInterval(titleInterval);
-      titleInterval = null;
-    }
-
-    // Reset unread count
-    unreadCount = 0;
-
-    // Reset the title
-    document.title = originalTitle;
-  };
+    return () => {
+      window.removeEventListener("storage", handleStorageChange);
+    };
+  }, [originalTitle]);
 
   // Request notification permission on component mount
   useEffect(() => {
@@ -609,7 +820,30 @@ function MessagingPage({ user, textSize }) {
     // Setup visibility change listener to reset title when page becomes visible
     const handleVisibilityChange = () => {
       if (!document.hidden) {
-        resetTitle();
+        // When the user clicks on the tab, completely reset all notifications
+
+        // Clear all unread messages
+        unreadMessagesBySenderRef.current.clear();
+
+        // Clear the counted messages set
+        countedMessagesRef.current.clear();
+
+        // Mark notifications as seen
+        notificationsSeenRef.current = true;
+
+        // Reset the title to original
+        document.title = originalTitle;
+
+        // Clear any existing interval
+        if (titleIntervalRef.current) {
+          clearInterval(titleIntervalRef.current);
+          titleIntervalRef.current = null;
+        }
+
+        // Store the seen state in localStorage to persist across tabs
+        localStorage.setItem("notificationsSeen", "true");
+
+        console.log("Notifications marked as seen");
       }
     };
 
@@ -618,11 +852,12 @@ function MessagingPage({ user, textSize }) {
     return () => {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       // Clear any interval when component unmounts
-      if (titleInterval) {
-        clearInterval(titleInterval);
+      if (titleIntervalRef.current) {
+        clearInterval(titleIntervalRef.current);
+        titleIntervalRef.current = null;
       }
     };
-  }, []);
+  }, [resetTitle, originalTitle, selectedContact]);
 
   // Handle window resize to detect mobile view
   useEffect(() => {
@@ -1060,6 +1295,8 @@ function MessagingPage({ user, textSize }) {
       fileType: fileType,
       fileName: fileName,
       _isOptimistic: true, // Flag to identify optimistic messages
+      encrypted: encryptionEnabled,
+      urgencyLevel: messageUrgency,
     };
 
     // Optimistically add message to UI immediately
@@ -1084,26 +1321,40 @@ function MessagingPage({ user, textSize }) {
       });
     });
 
-    // Send message via Socket.IO
     try {
-      socket.emit("send_message", {
+      // Encrypt the message if encryption is enabled
+      let messageData = {
         token: localStorage.getItem("token"),
         receiverId: selectedContact.id,
         text: message,
         fileUrl: fileUrl,
         fileType: fileType,
         fileName: fileName,
-      });
+        urgencyLevel: messageUrgency,
+      };
 
-      // Decrement the notification counter by 1 to counteract the duplicate counting
-      if (document.hidden) {
-        // Use negative count to subtract from the counter
-        updateTitle("", false, -1);
+      if (encryptionEnabled) {
+        // Encrypt the message
+        const encryptedMessage = await encrypt(message, selectedContact.id);
+
+        if (encryptedMessage.encrypted) {
+          // Add encryption data to the message
+          messageData = {
+            ...messageData,
+            encrypted: true,
+            encryptedData: encryptedMessage.encryptedData,
+            iv: encryptedMessage.iv,
+          };
+        }
       }
+
+      // Send message via Socket.IO
+      socket.emit("send_message", messageData);
 
       console.log("Message sent successfully:", {
         hasFile: fileUrl ? true : false,
         textLength: message.length,
+        encrypted: messageData.encrypted || false,
       });
 
       // Reset file selection
@@ -1119,6 +1370,15 @@ function MessagingPage({ user, textSize }) {
 
     setMessage("");
     setIsUploading(false);
+    setMessageUrgency("normal");
+
+    // Close any open UI elements
+    setShowEmojiPicker(false);
+
+    // Close urgency selector dropdown if it's open
+    if (urgencySelectorRef.current) {
+      urgencySelectorRef.current.closeDropdown();
+    }
   };
 
   const formatTime = (timestamp) => {
@@ -1434,9 +1694,9 @@ function MessagingPage({ user, textSize }) {
         contact.email.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
-  // Sort contacts by most recent message timestamp
+  // Sort contacts by urgency level first, then by most recent message timestamp
   const sortedContacts = [...filteredContacts].sort((a, b) => {
-    // Get the latest message timestamp for each contact
+    // Get the latest message for each contact
     const aLastMessage =
       messages[a.id]?.length > 0
         ? messages[a.id][messages[a.id].length - 1]
@@ -1446,7 +1706,26 @@ function MessagingPage({ user, textSize }) {
         ? messages[b.id][messages[b.id].length - 1]
         : null;
 
-    // Get timestamps or use fallback values
+    // Get urgency levels (if any)
+    const aUrgencyLevel = aLastMessage?.urgencyLevel || "normal";
+    const bUrgencyLevel = bLastMessage?.urgencyLevel || "normal";
+
+    // Define urgency priority (higher number = higher priority)
+    const urgencyPriority = {
+      urgent: 3,
+      high: 2,
+      normal: 1,
+      low: 0,
+    };
+
+    // First sort by urgency level
+    const urgencyDiff =
+      urgencyPriority[bUrgencyLevel] - urgencyPriority[aUrgencyLevel];
+    if (urgencyDiff !== 0) {
+      return urgencyDiff; // Sort by urgency level first
+    }
+
+    // If urgency levels are the same, sort by timestamp
     const aTimestamp = aLastMessage?.timestamp
       ? new Date(aLastMessage.timestamp).getTime()
       : 0;
@@ -1982,16 +2261,47 @@ function MessagingPage({ user, textSize }) {
                     )}
                   </div>
                   <div className="contact-last-message">
-                    {messages[contact.id]?.length > 0
-                      ? messages[contact.id][messages[contact.id].length - 1]
-                          .text ||
-                        (messages[contact.id][messages[contact.id].length - 1]
-                          .fileUrl ||
-                        messages[contact.id][messages[contact.id].length - 1]
-                          .fileData
-                          ? "Sent a file"
-                          : "No messages yet")
-                      : "No messages yet"}
+                    {messages[contact.id]?.length > 0 ? (
+                      <div className="last-message-content">
+                        {/* Get the last message */}
+                        {(() => {
+                          const lastMessage =
+                            messages[contact.id][
+                              messages[contact.id].length - 1
+                            ];
+
+                          // Show urgency prefix for non-normal urgency levels
+                          return (
+                            <>
+                              {lastMessage.urgencyLevel === "urgent" && (
+                                <span className="urgency-prefix urgent">
+                                  URGENT:{" "}
+                                </span>
+                              )}
+                              {lastMessage.urgencyLevel === "high" && (
+                                <span className="urgency-prefix high">
+                                  HIGH:{" "}
+                                </span>
+                              )}
+                              {lastMessage.urgencyLevel === "low" && (
+                                <span className="urgency-prefix low">
+                                  Low:{" "}
+                                </span>
+                              )}
+                              {/* Show message text or file indicator */}
+                              {lastMessage.isDeleted
+                                ? "Message was deleted"
+                                : lastMessage.text ||
+                                  (lastMessage.fileUrl || lastMessage.fileData
+                                    ? "Sent a file"
+                                    : "")}
+                            </>
+                          );
+                        })()}
+                      </div>
+                    ) : (
+                      "No messages yet"
+                    )}
                   </div>
                 </div>
                 <div className="contact-meta">
@@ -2000,6 +2310,34 @@ function MessagingPage({ user, textSize }) {
                       {formatTime(contact.lastMessageTime)}
                     </div>
                   )}
+                  {/* Show urgency indicator for the latest message only if it's from the other person */}
+                  {messages[contact.id]?.length > 0 &&
+                    messages[contact.id][messages[contact.id].length - 1]
+                      .urgencyLevel &&
+                    messages[contact.id][messages[contact.id].length - 1]
+                      .urgencyLevel !== "normal" &&
+                    messages[contact.id][messages[contact.id].length - 1]
+                      .sender !== user.id && (
+                      <div
+                        className={`contact-urgency-indicator urgency-${
+                          messages[contact.id][messages[contact.id].length - 1]
+                            .urgencyLevel
+                        }`}
+                      >
+                        {messages[contact.id][messages[contact.id].length - 1]
+                          .urgencyLevel === "urgent" && (
+                          <i className="fas fa-exclamation"></i>
+                        )}
+                        {messages[contact.id][messages[contact.id].length - 1]
+                          .urgencyLevel === "high" && (
+                          <i className="fas fa-arrow-up"></i>
+                        )}
+                        {messages[contact.id][messages[contact.id].length - 1]
+                          .urgencyLevel === "low" && (
+                          <i className="fas fa-arrow-down"></i>
+                        )}
+                      </div>
+                    )}
                   {contact.unreadCount > 0 && (
                     <div className="unread-badge">
                       {contact.unreadCount > 9 ? "9+" : contact.unreadCount}
@@ -2101,7 +2439,7 @@ function MessagingPage({ user, textSize }) {
                       <div className="chat-contact-department">
                         <span className="department-label">Department:</span>
                         <span
-                          className="department-value"
+                          className="department-value department-glow-effect"
                           style={{
                             backgroundColor:
                               categories.find(
@@ -2109,6 +2447,19 @@ function MessagingPage({ user, textSize }) {
                                   c.isDepartmentCategory &&
                                   c.name === selectedContact.department
                               )?.color || "#4A76A8",
+                            "--department-color":
+                              categories.find(
+                                (c) =>
+                                  c.isDepartmentCategory &&
+                                  c.name === selectedContact.department
+                              )?.color || "#4A76A8",
+                            boxShadow: `0 0 8px ${
+                              categories.find(
+                                (c) =>
+                                  c.isDepartmentCategory &&
+                                  c.name === selectedContact.department
+                              )?.color || "#4A76A8"
+                            }`,
                           }}
                         >
                           {selectedContact.department}
@@ -2136,7 +2487,7 @@ function MessagingPage({ user, textSize }) {
                     msg.sender === user.id ? "outgoing" : "incoming"
                   } ${msg._isOptimistic ? "optimistic" : ""} ${
                     msg.isDeleted ? "deleted" : ""
-                  }`}
+                  } ${msg.urgencyLevel ? `urgency-${msg.urgencyLevel}` : ""}`}
                 >
                   {renderFileContent(msg)}
                   {messageToEdit && messageToEdit.id === msg.id ? (
@@ -2164,7 +2515,29 @@ function MessagingPage({ user, textSize }) {
                       </div>
                     </div>
                   ) : (
-                    msg.text && <div className="message-text">{msg.text}</div>
+                    msg.text && (
+                      <div className="message-text">
+                        {msg.encrypted && msg.encryptedData && msg.iv ? (
+                          <div>
+                            {decrypt(
+                              msg.encryptedData,
+                              msg.iv,
+                              msg.sender === user.id ? msg.receiver : msg.sender
+                            ) || msg.text}
+                            {msg.encrypted && (
+                              <span
+                                className="encrypted-badge"
+                                title="End-to-end encrypted"
+                              >
+                                <i className="fas fa-lock"></i>
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          msg.text
+                        )}
+                      </div>
+                    )
                   )}
                   <div className="message-time">
                     {formatTime(msg.timestamp)}
@@ -2174,6 +2547,25 @@ function MessagingPage({ user, textSize }) {
                     {msg._isOptimistic && (
                       <span className="message-status">
                         <i className="fas fa-check"></i>
+                      </span>
+                    )}
+                    {msg.urgencyLevel && msg.urgencyLevel !== "normal" && (
+                      <span
+                        className={`message-urgency ${msg.urgencyLevel}`}
+                        title={`${
+                          msg.urgencyLevel.charAt(0).toUpperCase() +
+                          msg.urgencyLevel.slice(1)
+                        } Priority`}
+                      >
+                        {msg.urgencyLevel === "low" && (
+                          <i className="fas fa-arrow-down"></i>
+                        )}
+                        {msg.urgencyLevel === "high" && (
+                          <i className="fas fa-arrow-up"></i>
+                        )}
+                        {msg.urgencyLevel === "urgent" && (
+                          <i className="fas fa-exclamation"></i>
+                        )}
                       </span>
                     )}
                   </div>
@@ -2283,6 +2675,13 @@ function MessagingPage({ user, textSize }) {
                 >
                   <i className="far fa-grin-alt"></i>
                 </button>
+
+                <UrgencySelector
+                  ref={urgencySelectorRef}
+                  selectedUrgency={messageUrgency}
+                  onUrgencyChange={setMessageUrgency}
+                />
+
                 <input
                   type="text"
                   value={message}

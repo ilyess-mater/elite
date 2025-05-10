@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef } from "react";
 import "../styles/settings.css";
 import { ChromePicker } from "react-color";
+import { useEncryption } from "../contexts/EncryptionContext";
 
 function SettingsPage({ user, darkMode, textSize, applySettings }) {
+  const { encryptionEnabled, toggleEncryption } = useEncryption();
   const [selectedColor, setSelectedColor] = useState(
     localStorage.getItem("avatarColor") || "#4a6cf7"
   );
@@ -135,6 +137,35 @@ function SettingsPage({ user, darkMode, textSize, applySettings }) {
       </div>
 
       <div className="settings-grid">
+        <div className="settings-card">
+          <div className="settings-card-header">
+            <h2>Security Settings</h2>
+          </div>
+          <div className="settings-card-body">
+            <div className="setting-group">
+              <h3>End-to-End Encryption</h3>
+              <div className="setting-option">
+                <label className="switch">
+                  <input
+                    type="checkbox"
+                    checked={encryptionEnabled}
+                    onChange={toggleEncryption}
+                  />
+                  <span className="slider"></span>
+                </label>
+                <span className="setting-label">
+                  Enable end-to-end encryption
+                </span>
+              </div>
+              <p className="setting-description">
+                When enabled, your messages will be encrypted and can only be
+                read by you and the recipient. This provides an additional layer
+                of security for your communications.
+              </p>
+            </div>
+          </div>
+        </div>
+
         <div className="settings-card">
           <div className="settings-card-header">
             <h2>Display Settings</h2>

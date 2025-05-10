@@ -793,37 +793,116 @@
   border-radius: 20px;
   font-size: 0.75rem;
   font-weight: 500;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
 }
 
 .role-admin {
-  background-color: rgba(220, 53, 69, 0.15);
-  color: #dc3545;
+  background-color: rgba(255, 140, 0, 0.15);
+  color: #ff8c00;
+  --role-color: rgba(255, 140, 0, 0.4);
 }
 
 .role-admin-master {
   background-color: rgba(128, 0, 128, 0.15);
   color: #800080;
+  --role-color: rgba(128, 0, 128, 0.4);
 }
 
 .dark-mode .role-admin {
-  background-color: rgba(220, 53, 69, 0.2);
-  color: #ea868f;
+  background-color: rgba(255, 140, 0, 0.2);
+  color: #ffa333;
+  --role-color: rgba(255, 140, 0, 0.5);
 }
 
 .dark-mode .role-admin-master {
   background-color: rgba(128, 0, 128, 0.2);
   color: #d070d0;
+  --role-color: rgba(128, 0, 128, 0.5);
 }
 
 .role-user {
-  background-color: rgba(40, 167, 69, 0.15);
-  color: #28a745;
+  background-color: rgba(0, 184, 184, 0.15);
+  color: #00b8b8;
+  --role-color: rgba(0, 184, 184, 0.4);
 }
 
 .dark-mode .role-user {
-  background-color: rgba(40, 167, 69, 0.2);
-  color: #75b798;
+  background-color: rgba(0, 184, 184, 0.2);
+  color: #20d0d0;
+  --role-color: rgba(0, 184, 184, 0.5);
 }
+
+/* Wave animation for role badge */
+.user-role::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--role-color, rgba(255, 255, 255, 0.4)) 50%,
+    transparent 100%
+  );
+  opacity: 0;
+  pointer-events: none;
+  animation: adminRoleWaveGlow 5s infinite;
+  border-radius: 20px;
+  clip-path: inset(0 0 0 0 round 20px);
+  z-index: 1;
+}
+
+/* Internal glow effect */
+.user-role::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: var(--role-color, rgba(255, 255, 255, 0.2));
+  opacity: 0;
+  border-radius: 20px;
+  pointer-events: none;
+  animation: adminRolePulseGlow 4s infinite;
+  clip-path: inset(0 0 0 0 round 20px);
+  z-index: 0;
+}
+
+/* Wave animation for role glow */
+@keyframes adminRoleWaveGlow {
+  0% {
+    opacity: 0;
+    transform: translateX(-50%);
+  }
+  50% {
+    opacity: 0.7;
+    transform: translateX(0%);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(50%);
+  }
+}
+
+/* Pulse animation for role glow */
+@keyframes adminRolePulseGlow {
+  0% {
+    opacity: 0;
+  }
+  50% {
+    opacity: 0.5;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* Role animations defined above */
 
 /* Department styling */
 .user-department {
@@ -835,10 +914,80 @@
   color: white;
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
   transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
 }
 
 .dark-mode .user-department {
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+/* Wave animation for department badge */
+.user-department::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.4) 50%,
+    transparent 100%
+  );
+  opacity: 0;
+  pointer-events: none;
+  animation: adminDepartmentWaveGlow 5s infinite;
+  border-radius: 20px;
+  clip-path: inset(0 0 0 0 round 20px);
+  z-index: 1;
+}
+
+/* Internal glow effect */
+.user-department::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(255, 255, 255, 0.2);
+  opacity: 0;
+  border-radius: 20px;
+  pointer-events: none;
+  animation: adminDepartmentPulseGlow 4s infinite;
+  clip-path: inset(0 0 0 0 round 20px);
+  z-index: 0;
+}
+
+/* Wave animation for department glow */
+@keyframes adminDepartmentWaveGlow {
+  0% {
+    opacity: 0;
+    transform: translateX(-50%);
+  }
+  50% {
+    opacity: 0.7;
+    transform: translateX(0%);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(50%);
+  }
+}
+
+/* Pulse animation for department glow */
+@keyframes adminDepartmentPulseGlow {
+  0% {
+    opacity: 0;
+  }
+  50% {
+    opacity: 0.5;
+  }
+  100% {
+    opacity: 0;
+  }
 }
 
 /* Department-specific colors - matching contacts page */
@@ -1005,6 +1154,26 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.encrypted-message {
+  color: #888;
+  font-style: italic;
+  display: flex;
+  align-items: center;
+}
+
+.encrypted-icon {
+  color: #f44336;
+  margin-right: 5px;
+}
+
+.dark-mode .encrypted-message {
+  color: #aaa;
+}
+
+.dark-mode .encrypted-icon {
+  color: #ff8a80;
 }
 
 /* Analytics */

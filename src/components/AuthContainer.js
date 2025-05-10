@@ -5,6 +5,7 @@ import MainDashboard from "./MainDashboard";
 import "../styles/auth.css";
 import "../styles/panels.css";
 import { AuthProvider, useAuth } from "../contexts/AuthContext";
+import { EncryptionProvider } from "../contexts/EncryptionContext";
 
 function AuthContainerContent() {
   const [isSignUpMode, setIsSignUpMode] = useState(false);
@@ -102,7 +103,9 @@ function AuthContainerContent() {
 function AuthContainer() {
   return (
     <AuthProvider>
-      <AuthContainerContent />
+      <EncryptionProvider>
+        <AuthContainerContent />
+      </EncryptionProvider>
     </AuthProvider>
   );
 }

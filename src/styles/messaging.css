@@ -358,6 +358,8 @@
   background-color: rgba(0, 0, 0, 0.05);
   font-size: 0.7rem;
   max-width: 100px;
+  position: relative;
+  overflow: hidden;
 }
 
 .dark-mode .contact-category-badge {
@@ -370,10 +372,78 @@
   border-radius: 50%;
   margin-right: 4px;
   box-shadow: 0 0 3px rgba(0, 0, 0, 0.1);
+  position: relative;
+  overflow: hidden;
 }
 
 .dark-mode .contact-category-indicator {
   box-shadow: 0 0 3px rgba(0, 0, 0, 0.3);
+}
+
+/* Wave animation for category indicator */
+.contact-category-indicator::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.4) 50%,
+    transparent 100%
+  );
+  opacity: 0;
+  pointer-events: none;
+  animation: categoryIndicatorWaveGlow 5s infinite;
+  border-radius: 50%;
+  z-index: 1;
+}
+
+/* Internal glow effect for category indicator */
+.contact-category-indicator::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(255, 255, 255, 0.2);
+  opacity: 0;
+  border-radius: 50%;
+  pointer-events: none;
+  animation: categoryIndicatorPulseGlow 4s infinite;
+  z-index: 0;
+}
+
+/* Wave animation for category indicator */
+@keyframes categoryIndicatorWaveGlow {
+  0% {
+    opacity: 0;
+    transform: translateX(-50%);
+  }
+  50% {
+    opacity: 0.7;
+    transform: translateX(0%);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(50%);
+  }
+}
+
+/* Pulse animation for category indicator */
+@keyframes categoryIndicatorPulseGlow {
+  0% {
+    opacity: 0;
+  }
+  50% {
+    opacity: 0.5;
+  }
+  100% {
+    opacity: 0;
+  }
 }
 
 .contact-category-name {
@@ -1079,10 +1149,87 @@
   color: white;
   font-weight: 500;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  position: relative;
+  overflow: hidden;
 }
 
 .dark-mode .department-value {
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+/* Department glow effect */
+.department-glow-effect {
+  position: relative;
+  overflow: hidden;
+  z-index: 1;
+}
+
+/* Wave animation for department name */
+.department-glow-effect::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.4) 50%,
+    transparent 100%
+  );
+  opacity: 0;
+  pointer-events: none;
+  animation: departmentWaveGlow 5s infinite;
+  border-radius: 12px;
+  clip-path: inset(0 0 0 0 round 12px);
+  z-index: 1;
+}
+
+/* Internal glow effect */
+.department-glow-effect::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(255, 255, 255, 0.2);
+  opacity: 0;
+  border-radius: 12px;
+  pointer-events: none;
+  animation: departmentPulseGlow 4s infinite;
+  clip-path: inset(0 0 0 0 round 12px);
+  z-index: 0;
+}
+
+/* Wave animation for department glow */
+@keyframes departmentWaveGlow {
+  0% {
+    opacity: 0;
+    transform: translateX(-50%);
+  }
+  50% {
+    opacity: 0.7;
+    transform: translateX(0%);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(50%);
+  }
+}
+
+/* Pulse animation for department glow */
+@keyframes departmentPulseGlow {
+  0% {
+    opacity: 0;
+  }
+  50% {
+    opacity: 0.5;
+  }
+  100% {
+    opacity: 0;
+  }
 }
 
 .chat-actions {
@@ -2606,6 +2753,169 @@
 }
 
 /* Dark mode animations are handled through the .dark-mode class selectors above */
+
+/* Encryption badge */
+.encrypted-badge {
+  display: inline-block;
+  margin-left: 5px;
+  color: #4caf50;
+  font-size: 12px;
+  vertical-align: middle;
+}
+
+.dark-mode .encrypted-badge {
+  color: #6fcf97;
+}
+
+/* Message urgency styles - only apply special styling to incoming messages */
+.message.incoming.urgency-low {
+  border-left: 3px solid #4caf50;
+  background-color: rgba(76, 175, 80, 0.05);
+}
+
+.message.incoming.urgency-high {
+  border-left: 3px solid #ff9800;
+  background-color: rgba(255, 152, 0, 0.05);
+}
+
+.message.incoming.urgency-urgent {
+  border-left: 3px solid #f44336;
+  background-color: rgba(244, 67, 54, 0.05);
+  animation: urgentPulse 2s infinite;
+}
+
+/* For outgoing messages, just add a small indicator but keep normal styling */
+.message.outgoing.urgency-low .message-time .message-urgency,
+.message.outgoing.urgency-high .message-time .message-urgency,
+.message.outgoing.urgency-urgent .message-time .message-urgency {
+  display: inline-block;
+}
+
+.dark-mode .message.urgency-low {
+  background-color: rgba(76, 175, 80, 0.1);
+}
+
+.dark-mode .message.urgency-high {
+  background-color: rgba(255, 152, 0, 0.1);
+}
+
+.dark-mode .message.urgency-urgent {
+  background-color: rgba(244, 67, 54, 0.1);
+}
+
+/* Contact urgency indicators */
+.contact-urgency-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  margin-left: 5px;
+  font-size: 10px;
+}
+
+.contact-urgency-indicator.urgency-low {
+  background-color: #4caf50;
+  color: white;
+}
+
+.contact-urgency-indicator.urgency-high {
+  background-color: #ff9800;
+  color: white;
+}
+
+.contact-urgency-indicator.urgency-urgent {
+  background-color: #f44336;
+  color: white;
+  animation: contactUrgentPulse 2s infinite;
+}
+
+/* Last message urgency prefix */
+.last-message-content {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.urgency-prefix {
+  font-weight: bold;
+  margin-right: 2px;
+}
+
+.urgency-prefix.urgent {
+  color: #f44336;
+}
+
+.urgency-prefix.high {
+  color: #ff9800;
+}
+
+.urgency-prefix.low {
+  color: #4caf50;
+}
+
+.dark-mode .urgency-prefix.urgent {
+  color: #ff8a80;
+}
+
+.dark-mode .urgency-prefix.high {
+  color: #ffcc80;
+}
+
+.dark-mode .urgency-prefix.low {
+  color: #a5d6a7;
+}
+
+/* Contact item with urgent messages - only apply when the message is from the other person */
+.contact-item:has(.contact-urgency-indicator.urgency-urgent) {
+  background-color: rgba(244, 67, 54, 0.05);
+  box-shadow: 0 0 5px rgba(244, 67, 54, 0.3);
+}
+
+.dark-mode .contact-item:has(.contact-urgency-indicator.urgency-urgent) {
+  background-color: rgba(244, 67, 54, 0.1);
+  box-shadow: 0 0 5px rgba(244, 67, 54, 0.5);
+}
+
+/* Contact item with high priority messages - only apply when the message is from the other person */
+.contact-item:has(.contact-urgency-indicator.urgency-high) {
+  background-color: rgba(255, 152, 0, 0.05);
+}
+
+.dark-mode .contact-item:has(.contact-urgency-indicator.urgency-high) {
+  background-color: rgba(255, 152, 0, 0.1);
+}
+
+@keyframes contactUrgentPulse {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(244, 67, 54, 0.7);
+  }
+  70% {
+    transform: scale(1.1);
+    box-shadow: 0 0 0 10px rgba(244, 67, 54, 0);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(244, 67, 54, 0);
+  }
+}
+
+@keyframes urgentPulse {
+  0% {
+    border-color: #f44336;
+    box-shadow: 0 0 5px rgba(244, 67, 54, 0.5);
+  }
+  50% {
+    border-color: #ff8a80;
+    box-shadow: 0 0 10px rgba(244, 67, 54, 0.8);
+  }
+  100% {
+    border-color: #f44336;
+    box-shadow: 0 0 5px rgba(244, 67, 54, 0.5);
+  }
+}
 
 /* Emoji Picker Styles */
 .emoji-picker-container {

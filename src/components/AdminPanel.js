@@ -888,7 +888,19 @@ function AdminPanel({ user }) {
                           <span>{message.receiverName}</span>
                         </div>
                       </td>
-                      <td className="message-content">{message.text}</td>
+                      <td
+                        className={`message-content ${
+                          message.encrypted ? "encrypted-message" : ""
+                        }`}
+                      >
+                        {message.encrypted && (
+                          <i
+                            className="fas fa-lock encrypted-icon"
+                            title="End-to-End Encrypted Message"
+                          ></i>
+                        )}
+                        {message.text}
+                      </td>
                       <td>{formatDate(message.timestamp)}</td>
                     </tr>
                   ))}
@@ -954,7 +966,19 @@ function AdminPanel({ user }) {
                           <span>{message.groupName}</span>
                         </div>
                       </td>
-                      <td className="message-content">{message.text}</td>
+                      <td
+                        className={`message-content ${
+                          message.encrypted ? "encrypted-message" : ""
+                        }`}
+                      >
+                        {message.encrypted && (
+                          <i
+                            className="fas fa-lock encrypted-icon"
+                            title="End-to-End Encrypted Message"
+                          ></i>
+                        )}
+                        {message.text}
+                      </td>
                       <td>{formatDate(message.timestamp)}</td>
                     </tr>
                   ))}

@@ -12,6 +12,7 @@ from bson import ObjectId
 from task_routes import task_routes
 from file_upload import file_upload_bp
 from category_routes import category_routes
+from encryption import encrypt_message, decrypt_message, generate_encryption_key
 
 # Load environment variables
 load_dotenv()
@@ -695,6 +696,9 @@ def get_all_messages():
     if not user or not user.get("isAdmin", False):
         return jsonify({"error": "Forbidden"}), 403
 
+    # Check if user is admin master (for handling encrypted messages)
+    is_admin_master = user.get("adminRole") == "admin_master"
+
     # Get all messages
     all_messages = messages_collection.find({}).sort("timestamp", -1).limit(100)
     messages_list = []
@@ -725,19 +729,29 @@ def get_all_messages():
                         "name": deleted_user["name"]
                     })
 
+        # Handle encrypted messages differently for regular admins vs admin masters
+        message_text = msg["text"]
+        is_encrypted = msg.get("encrypted", False)
+
+        # If message is encrypted and admin is not an admin master, show placeholder text
+        if is_encrypted and not is_admin_master:
+            message_text = "🔒 End-to-End Encrypted Message"
+
         messages_list.append({
             "id": str(msg["_id"]),
             "senderId": sender_id,
             "senderName": sender_cache[sender_id],
             "receiverId": receiver_id,
             "receiverName": receiver_cache[receiver_id],
-            "text": msg["text"],
+            "text": message_text,
             "timestamp": msg["timestamp"].isoformat(),
             "isDeleted": msg.get("isDeleted", False),
             "deletedBy": deleted_by,
             "fileUrl": msg.get("fileUrl"),
             "fileType": msg.get("fileType"),
-            "fileName": msg.get("fileName")
+            "fileName": msg.get("fileName"),
+            "encrypted": is_encrypted,
+            "urgencyLevel": msg.get("urgencyLevel", "normal")
         })
 
     return jsonify(messages_list), 200
@@ -754,6 +768,9 @@ def get_all_group_messages():
     user = users_collection.find_one({"_id": ObjectId(user_id)})
     if not user or not user.get("isAdmin", False):
         return jsonify({"error": "Forbidden"}), 403
+
+    # Check if user is admin master (for handling encrypted messages)
+    is_admin_master = user.get("adminRole") == "admin_master"
 
     # Get all group messages
     all_messages = group_messages_collection.find({}).sort("timestamp", -1).limit(100)
@@ -785,19 +802,29 @@ def get_all_group_messages():
                         "name": deleted_user["name"]
                     })
 
+        # Handle encrypted messages differently for regular admins vs admin masters
+        message_text = msg["text"]
+        is_encrypted = msg.get("encrypted", False)
+
+        # If message is encrypted and admin is not an admin master, show placeholder text
+        if is_encrypted and not is_admin_master:
+            message_text = "🔒 End-to-End Encrypted Message"
+
         messages_list.append({
             "id": str(msg["_id"]),
             "senderId": sender_id,
             "senderName": sender_cache[sender_id],
             "groupId": group_id,
             "groupName": group_cache[group_id],
-            "text": msg["text"],
+            "text": message_text,
             "timestamp": msg["timestamp"].isoformat(),
             "isDeleted": msg.get("isDeleted", False),
             "deletedBy": deleted_by,
             "fileUrl": msg.get("fileUrl"),
             "fileType": msg.get("fileType"),
-            "fileName": msg.get("fileName")
+            "fileName": msg.get("fileName"),
+            "encrypted": is_encrypted,
+            "urgencyLevel": msg.get("urgencyLevel", "normal")
         })
 
     return jsonify(messages_list), 200
@@ -996,6 +1023,91 @@ def demote_user(user_id):
         print(f"Error demoting user: {e}")
         return jsonify({"error": "An error occurred while demoting the user"}), 500
 
+# Key exchange endpoint for end-to-end encryption
+@app.route('/api/keys/exchange', methods=['POST'])
+def exchange_keys():
+    token = request.headers.get('Authorization', '').replace('Bearer ', '')
+    user_id = verify_token(token)
+
+    if not user_id:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    data = request.get_json()
+    recipient_id = data.get('recipientId')
+    public_key = data.get('publicKey')
+
+    if not recipient_id or not public_key:
+        return jsonify({"error": "Missing required data"}), 400
+
+    # Store the public key in the database
+    key_exchange = {
+        "senderId": ObjectId(user_id),
+        "recipientId": ObjectId(recipient_id),
+        "publicKey": public_key,
+        "timestamp": datetime.utcnow()
+    }
+
+    # Check if a key exchange already exists
+    existing = db.key_exchanges.find_one({
+        "senderId": ObjectId(user_id),
+        "recipientId": ObjectId(recipient_id)
+    })
+
+    if existing:
+        # Update the existing key
+        db.key_exchanges.update_one(
+            {"_id": existing["_id"]},
+            {"$set": {"publicKey": public_key, "timestamp": datetime.utcnow()}}
+        )
+    else:
+        # Insert a new key exchange
+        db.key_exchanges.insert_one(key_exchange)
+
+    # Check if the recipient has shared their key with this user
+    recipient_key = db.key_exchanges.find_one({
+        "senderId": ObjectId(recipient_id),
+        "recipientId": ObjectId(user_id)
+    })
+
+    if recipient_key:
+        # Return the recipient's public key
+        return jsonify({
+            "success": True,
+            "recipientPublicKey": recipient_key["publicKey"]
+        }), 200
+    else:
+        # No key from recipient yet
+        return jsonify({
+            "success": True,
+            "recipientPublicKey": None
+        }), 200
+
+# Get public key for a user
+@app.route('/api/keys/<user_id>', methods=['GET'])
+def get_public_key(user_id):
+    token = request.headers.get('Authorization', '').replace('Bearer ', '')
+    requester_id = verify_token(token)
+
+    if not requester_id:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    # Find the key exchange
+    key_exchange = db.key_exchanges.find_one({
+        "senderId": ObjectId(user_id),
+        "recipientId": ObjectId(requester_id)
+    })
+
+    if key_exchange:
+        return jsonify({
+            "success": True,
+            "publicKey": key_exchange["publicKey"]
+        }), 200
+    else:
+        return jsonify({
+            "success": False,
+            "error": "No public key found"
+        }), 404
+
 # Socket.IO event handlers
 @socketio.on('connect')
 def handle_connect():
@@ -1053,10 +1165,19 @@ def handle_send_message(data):
         file_data = data.get('fileData')
         file_url = data.get('fileUrl')  # Get fileUrl directly from data
 
-        print(f"Message data received: receiverId={receiver_id}, hasText={bool(message_text.strip())}, "
-              f"fileType={file_type}, fileName={file_name}, hasFileData={bool(file_data)}, fileUrl={file_url}")
+        # Get encryption data if available
+        encrypted = data.get('encrypted', False)
+        encrypted_data = data.get('encryptedData')
+        iv = data.get('iv')
 
-        if not receiver_id or (not message_text.strip() and not file_data and not file_url):
+        # Get urgency level if available
+        urgency_level = data.get('urgencyLevel', 'normal')  # Default to normal if not specified
+
+        print(f"Message data received: receiverId={receiver_id}, hasText={bool(message_text.strip())}, "
+              f"fileType={file_type}, fileName={file_name}, hasFileData={bool(file_data)}, fileUrl={file_url}, "
+              f"encrypted={encrypted}, urgencyLevel={urgency_level}")
+
+        if not receiver_id or (not message_text.strip() and not file_data and not file_url and not encrypted_data):
             print("Missing required data for message")
             return
 
@@ -1112,8 +1233,17 @@ def handle_send_message(data):
             "fileUrl": file_url,
             "fileType": file_type,
             "fileName": file_name,
-            "messageType": message_type
+            "messageType": message_type,
+            "encrypted": encrypted,
+            "urgencyLevel": urgency_level
         }
+
+        # Add encryption data if message is encrypted
+        if encrypted and encrypted_data:
+            message["encryptedData"] = encrypted_data
+            message["iv"] = iv
+            # If the message is encrypted, we still store the original text for admin viewing
+            # but mark it as encrypted so clients know to decrypt it
 
         # Save message to database
         result = messages_collection.insert_one(message)
@@ -1133,8 +1263,15 @@ def handle_send_message(data):
             "fileType": file_type,
             "fileName": file_name,
             "messageType": message_type,
-            "senderName": user["name"] if user else "Unknown"
+            "senderName": user["name"] if user else "Unknown",
+            "encrypted": encrypted,
+            "urgencyLevel": urgency_level
         }
+
+        # Add encryption data if message is encrypted
+        if encrypted and encrypted_data:
+            message_data["encryptedData"] = encrypted_data
+            message_data["iv"] = iv
 
         print(f"Sending message to sender (room {user_id}): {message_data}")
         # Send to sender's room
@@ -1479,10 +1616,16 @@ def handle_send_group_message(data):
         file_data = data.get('fileData')
         file_url = data.get('fileUrl')  # Get fileUrl directly from data
 
-        print(f"Group message data received: groupId={group_id}, hasText={bool(message_text.strip())}, "
-              f"fileType={file_type}, fileName={file_name}, hasFileData={bool(file_data)}, fileUrl={file_url}")
+        # Get encryption data if available
+        encrypted = data.get('encrypted', False)
+        encrypted_data = data.get('encryptedData')
+        iv = data.get('iv')
 
-        if not group_id or (not message_text.strip() and not file_data and not file_url):
+        print(f"Group message data received: groupId={group_id}, hasText={bool(message_text.strip())}, "
+              f"fileType={file_type}, fileName={file_name}, hasFileData={bool(file_data)}, fileUrl={file_url}, "
+              f"encrypted={encrypted}")
+
+        if not group_id or (not message_text.strip() and not file_data and not file_url and not encrypted_data):
             print("Missing required data for group message")
             return
 
@@ -1545,8 +1688,16 @@ def handle_send_group_message(data):
             "fileUrl": file_url,
             "fileType": file_type,
             "fileName": file_name,
-            "messageType": message_type
+            "messageType": message_type,
+            "encrypted": encrypted
         }
+
+        # Add encryption data if message is encrypted
+        if encrypted and encrypted_data:
+            message["encryptedData"] = encrypted_data
+            message["iv"] = iv
+            # If the message is encrypted, we still store the original text for admin viewing
+            # but mark it as encrypted so clients know to decrypt it
 
         # Save message to database (in a group_messages collection)
         result = db.group_messages.insert_one(message)
@@ -1566,8 +1717,14 @@ def handle_send_group_message(data):
             "fileUrl": file_url,
             "fileType": file_type,
             "fileName": file_name,
-            "messageType": message_type
+            "messageType": message_type,
+            "encrypted": encrypted
         }
+
+        # Add encryption data if message is encrypted
+        if encrypted and encrypted_data:
+            message_data["encryptedData"] = encrypted_data
+            message_data["iv"] = iv
 
         print(f"Sending group message to room group_{group_id}: {message_data}")
         # Send to the group room

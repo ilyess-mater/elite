@@ -73,7 +73,7 @@ function GroupChatPage({ user, textSize }) {
     "Executive",
   ];
 
-  // Fetch groups from API
+  // Fetch groups, contacts, and all messages when component mounts
   useEffect(() => {
     const fetchGroups = async () => {
       try {
@@ -101,6 +101,54 @@ function GroupChatPage({ user, textSize }) {
             : 0;
         });
         setGroupMemberCounts(counts);
+
+        // Fetch all messages for all groups to ensure proper sorting
+        const allMessagesPromises = groupsWithAvatars.map(async (group) => {
+          try {
+            const response = await axios.get(
+              `/api/groups/${group.id}/messages`,
+              {
+                headers: {
+                  Authorization: `Bearer ${localStorage.getItem("token")}`,
+                },
+              }
+            );
+            return { groupId: group.id, messages: response.data };
+          } catch (error) {
+            console.error(
+              `Error fetching messages for group ${group.id}:`,
+              error
+            );
+            return { groupId: group.id, messages: [] };
+          }
+        });
+
+        // Wait for all message requests to complete
+        const allMessagesResults = await Promise.all(allMessagesPromises);
+
+        // Create a new messages object with all fetched messages
+        const allMessages = {};
+        allMessagesResults.forEach((result) => {
+          allMessages[result.groupId] = result.messages;
+        });
+
+        // Update the messages state with all fetched messages
+        setMessages(allMessages);
+
+        // Update groups with lastMessageTime based on the latest message
+        const updatedGroups = groupsWithAvatars.map((group) => {
+          const groupMessages = allMessages[group.id] || [];
+          if (groupMessages.length > 0) {
+            const lastMessage = groupMessages[groupMessages.length - 1];
+            return {
+              ...group,
+              lastMessageTime: lastMessage.timestamp,
+            };
+          }
+          return group;
+        });
+
+        setGroups(updatedGroups);
       } catch (error) {
         console.error("Error fetching groups:", error);
         setError("Failed to load groups");
@@ -129,9 +177,22 @@ function GroupChatPage({ user, textSize }) {
           return;
         }
 
+        // Get group name and sender name
+        const group = groups.find((g) => g.id === message.groupId);
+
+        // Check if group is muted
+        if (group) {
+          // Get muted groups from localStorage
+          const mutedGroups = JSON.parse(
+            localStorage.getItem("mutedGroups") || "[]"
+          );
+          if (mutedGroups.includes(group.id)) {
+            console.log(`Notification from group ${group.name} muted`);
+            return; // Skip notification for muted group
+          }
+        }
+
         if (Notification.permission === "granted") {
-          // Get group name and sender name
-          const group = groups.find((g) => g.id === message.groupId);
           const groupName = group ? group.name : "Group";
           const senderName = message.senderName || "Someone";
 
@@ -167,44 +228,114 @@ function GroupChatPage({ user, textSize }) {
   // Title management functions
   const originalTitle = document.title;
   const titleIntervalRef = useRef(null);
-  const unreadCountRef = useRef(0);
+
+  // Create a map to track unread messages per sender and group
+  const unreadMessagesBySenderRef = useRef(new Map());
+
+  // Create a map to track which messages have been counted for notifications
+  const countedMessagesRef = useRef(new Set());
+
+  // Flag to track if notifications have been seen
+  const notificationsSeenRef = useRef(true);
 
   // Update the page title to show a notification
   const updateTitle = useCallback(
-    (message, flash = true, count = 1) => {
+    (
+      message,
+      flash = true,
+      count = 1,
+      senderId = null,
+      groupId = null,
+      messageId = null
+    ) => {
       // Only update title if the page is not visible
       if (document.hidden) {
+        // Check if this is a new message (not just a tab change)
+        const isNewMessage =
+          messageId && !countedMessagesRef.current.has(messageId);
+
+        // Check if notifications have been seen
+        const storedNotificationsSeen =
+          localStorage.getItem("notificationsSeen");
+
+        // If this is not a new message and notifications were marked as seen, don't update title
+        if (!isNewMessage && storedNotificationsSeen === "true") {
+          console.log(
+            "Not a new message and notifications were seen, keeping original title"
+          );
+          return;
+        }
+
+        // If this is a new message, mark notifications as not seen
+        if (isNewMessage) {
+          notificationsSeenRef.current = false;
+          localStorage.setItem("notificationsSeen", "false");
+          console.log(
+            "New message received, starting new notification session"
+          );
+        }
+
+        // If we have a message ID, check if it's already been counted
+        if (messageId) {
+          // If this message has already been counted, don't count it again
+          if (countedMessagesRef.current.has(messageId)) {
+            console.log(
+              `Message ${messageId} already counted for notifications, skipping`
+            );
+            return;
+          }
+
+          // Mark this message as counted
+          countedMessagesRef.current.add(messageId);
+        }
+
         // Clear any existing interval
         if (titleIntervalRef.current) {
           clearInterval(titleIntervalRef.current);
+          titleIntervalRef.current = null;
         }
 
-        // Increment unread count by the specified amount (default 1)
-        // Can also be negative to decrement the counter
-        unreadCountRef.current += count;
+        // If we have a sender ID and group ID, update their unread count
+        if (senderId && groupId) {
+          const key = `${groupId}-${senderId}`;
+          // Get current count for this sender in this group
+          const currentCount = unreadMessagesBySenderRef.current.get(key) || 0;
 
-        // Ensure unreadCount is never negative
-        if (unreadCountRef.current < 0) unreadCountRef.current = 0;
+          // Update the count
+          const newCount = Math.max(0, currentCount + count);
+
+          // Store the updated count
+          if (newCount > 0) {
+            unreadMessagesBySenderRef.current.set(key, newCount);
+          } else {
+            unreadMessagesBySenderRef.current.delete(key);
+          }
+        }
+
+        // Calculate total unread count
+        const totalUnreadCount = Array.from(
+          unreadMessagesBySenderRef.current.values()
+        ).reduce((sum, count) => sum + count, 0);
 
         // Only update title if we have a message or unread count
-        if (message || unreadCountRef.current > 0) {
+        if (message && totalUnreadCount > 0) {
           // Create the new title with unread count
-          const newTitle =
-            unreadCountRef.current > 0
-              ? `(${unreadCountRef.current}) ${message}`
-              : originalTitle;
+          const newTitle = `(${totalUnreadCount}) ${message}`;
 
           // Set the title immediately
           document.title = newTitle;
 
           // If flash is true and we have unread messages, alternate between the new title and original title
-          if (flash && unreadCountRef.current > 0) {
+          if (flash) {
             let isOriginal = false;
             titleIntervalRef.current = setInterval(() => {
               document.title = isOriginal ? newTitle : originalTitle;
               isOriginal = !isOriginal;
             }, 1000);
           }
+        } else if (totalUnreadCount === 0) {
+          // Reset to original title if no unread messages
+          document.title = originalTitle;
         }
       }
     },
@@ -219,8 +350,11 @@ function GroupChatPage({ user, textSize }) {
       titleIntervalRef.current = null;
     }
 
-    // Reset unread count
-    unreadCountRef.current = 0;
+    // Clear all unread messages
+    unreadMessagesBySenderRef.current.clear();
+
+    // Clear the counted messages set
+    countedMessagesRef.current.clear();
 
     // Reset the title
     document.title = originalTitle;
@@ -385,16 +519,32 @@ function GroupChatPage({ user, textSize }) {
         const groupName = group ? group.name : "Group";
         const senderName = newMessage.senderName || "Someone";
 
-        // Show browser notification
-        showNotification(newMessage);
-
-        // Update page title with sender and group name
-        if (document.hidden) {
-          updateTitle(
-            `New message in ${groupName} from ${senderName}`,
-            true,
-            1
+        // Check if group is muted
+        let isGroupMuted = false;
+        if (group) {
+          // Get muted groups from localStorage
+          const mutedGroups = JSON.parse(
+            localStorage.getItem("mutedGroups") || "[]"
           );
+          isGroupMuted = mutedGroups.includes(group.id);
+        }
+
+        // Only show notification and update title if group is not muted
+        if (!isGroupMuted) {
+          // Show browser notification
+          showNotification(newMessage);
+
+          // Update page title with sender and group name
+          if (document.hidden) {
+            updateTitle(
+              `New message in ${groupName} from ${senderName}`,
+              true,
+              1,
+              newMessage.sender,
+              newMessage.groupId,
+              newMessage.id
+            );
+          }
         }
       }
 
@@ -623,6 +773,57 @@ function GroupChatPage({ user, textSize }) {
     };
   }, [socket]);
 
+  // Initialize notification state from localStorage and listen for changes
+  useEffect(() => {
+    // Check if we have a stored notification state
+    const storedNotificationsSeen = localStorage.getItem("notificationsSeen");
+    if (storedNotificationsSeen === "true") {
+      notificationsSeenRef.current = true;
+    } else {
+      notificationsSeenRef.current = false;
+    }
+
+    console.log(
+      "Initial notifications seen state:",
+      notificationsSeenRef.current
+    );
+
+    // Listen for storage events from other tabs
+    const handleStorageChange = (e) => {
+      if (e.key === "notificationsSeen") {
+        console.log(
+          "Notification seen state changed in another tab:",
+          e.newValue
+        );
+        notificationsSeenRef.current = e.newValue === "true";
+
+        // If notifications were marked as seen, reset the title
+        if (e.newValue === "true") {
+          // Clear all unread messages
+          unreadMessagesBySenderRef.current.clear();
+
+          // Clear the counted messages set
+          countedMessagesRef.current.clear();
+
+          // Reset the title to original
+          document.title = originalTitle;
+
+          // Clear any existing interval
+          if (titleIntervalRef.current) {
+            clearInterval(titleIntervalRef.current);
+            titleIntervalRef.current = null;
+          }
+        }
+      }
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+
+    return () => {
+      window.removeEventListener("storage", handleStorageChange);
+    };
+  }, [originalTitle]);
+
   // Request notification permission on component mount
   useEffect(() => {
     if (
@@ -636,7 +837,30 @@ function GroupChatPage({ user, textSize }) {
     // Setup visibility change listener to reset title when page becomes visible
     const handleVisibilityChange = () => {
       if (!document.hidden) {
-        resetTitle();
+        // When the user clicks on the tab, completely reset all notifications
+
+        // Clear all unread messages
+        unreadMessagesBySenderRef.current.clear();
+
+        // Clear the counted messages set
+        countedMessagesRef.current.clear();
+
+        // Mark notifications as seen
+        notificationsSeenRef.current = true;
+
+        // Reset the title to original
+        document.title = originalTitle;
+
+        // Clear any existing interval
+        if (titleIntervalRef.current) {
+          clearInterval(titleIntervalRef.current);
+          titleIntervalRef.current = null;
+        }
+
+        // Store the seen state in localStorage to persist across tabs
+        localStorage.setItem("notificationsSeen", "true");
+
+        console.log("Notifications marked as seen");
       }
     };
 
@@ -647,9 +871,10 @@ function GroupChatPage({ user, textSize }) {
       // Clear any interval when component unmounts
       if (titleIntervalRef.current) {
         clearInterval(titleIntervalRef.current);
+        titleIntervalRef.current = null;
       }
     };
-  }, [resetTitle]);
+  }, [resetTitle, originalTitle, selectedGroup]);
 
   // Handle window resize to detect mobile view
   useEffect(() => {
@@ -984,11 +1209,7 @@ function GroupChatPage({ user, textSize }) {
         fileName: fileName,
       });
 
-      // Decrement the notification counter by 1 to counteract the duplicate counting
-      if (document.hidden) {
-        // Use negative count to subtract from the counter
-        updateTitle("", false, -1);
-      }
+      // No need to decrement the counter anymore since we're tracking per sender
 
       console.log("Group message sent successfully:", {
         hasFile: fileUrl ? true : false,
@@ -1002,6 +1223,9 @@ function GroupChatPage({ user, textSize }) {
 
     setMessage("");
     setIsUploading(false);
+
+    // Close any open UI elements
+    setShowEmojiPicker(false);
   };
 
   const handleCreateGroup = async () => {
@@ -1924,12 +2148,17 @@ function GroupChatPage({ user, textSize }) {
                 <div className="group-name">{group.name}</div>
                 <div className="group-last-message">
                   {messages[group.id]?.length > 0
-                    ? messages[group.id][messages[group.id].length - 1].text ||
-                      (messages[group.id][messages[group.id].length - 1]
-                        .fileUrl ||
-                      messages[group.id][messages[group.id].length - 1].fileData
-                        ? "Sent a file"
-                        : "No messages yet")
+                    ? (() => {
+                        const lastMessage =
+                          messages[group.id][messages[group.id].length - 1];
+
+                        return lastMessage.isDeleted
+                          ? "Message was deleted"
+                          : lastMessage.text ||
+                              (lastMessage.fileUrl || lastMessage.fileData
+                                ? "Sent a file"
+                                : "");
+                      })()
                     : "No messages yet"}
                 </div>
               </div>
