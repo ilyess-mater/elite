@@ -120,6 +120,20 @@ function ContactsPage({ user }) {
       setShowAddContact(false);
       setSuccessMessage("Contact added successfully!");
 
+      // Refresh categories to ensure department categories are created
+      try {
+        // This will trigger the backend to create department categories
+        await axios.get("/api/categories", {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+        });
+
+        console.log("Categories refreshed after adding contact");
+      } catch (error) {
+        console.error("Error refreshing categories:", error);
+      }
+
       // Clear success message after 3 seconds
       setTimeout(() => {
         setSuccessMessage("");

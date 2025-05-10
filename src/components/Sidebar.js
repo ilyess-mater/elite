@@ -6,7 +6,10 @@ function Sidebar({ activePage, setActivePage, isAdmin, onLogout, userName }) {
     localStorage.getItem("avatarColor") || "#4a6cf7"
   );
 
-  const [expanded, setExpanded] = useState(false);
+  // Initialize expanded state to false, and ensure it's always false on mobile
+  const [expanded, setExpanded] = useState(
+    window.innerWidth <= 576 ? false : false
+  );
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [hoverEnabled, setHoverEnabled] = useState(
     localStorage.getItem("sidebarHoverExpand") === "true"
@@ -129,7 +132,13 @@ function Sidebar({ activePage, setActivePage, isAdmin, onLogout, userName }) {
   // Update isMobile state when window is resized
   useEffect(() => {
     const handleResize = () => {
-      setIsMobile(window.innerWidth <= 576);
+      const isMobileView = window.innerWidth <= 576;
+      setIsMobile(isMobileView);
+
+      // Always collapse sidebar on mobile regardless of hover setting
+      if (isMobileView) {
+        setExpanded(false);
+      }
     };
 
     window.addEventListener("resize", handleResize);

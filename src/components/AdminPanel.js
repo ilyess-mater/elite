@@ -508,8 +508,69 @@ function AdminPanel({ user }) {
       )}
 
       <div className="admin-panel-header">
-        <h1>Admin Panel Page</h1>
-        <p>Manage users, messages, and analytics</p>
+        <div className="header-content">
+          <h1>Admin Panel Page</h1>
+          <p>Manage users, messages, and analytics</p>
+        </div>
+        <button
+          className="btn-modern refresh-button"
+          onClick={() => {
+            setLoading(true);
+            // Fetch data again
+            const token = localStorage.getItem("token");
+            if (!token) {
+              setError("Authentication required");
+              setLoading(false);
+              return;
+            }
+
+            // Configure axios
+            axios.defaults.baseURL = "http://localhost:5000";
+            axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+
+            const fetchData = async () => {
+              try {
+                setError("");
+
+                const [
+                  usersResponse,
+                  messagesResponse,
+                  groupMessagesResponse,
+                  statsResponse,
+                ] = await Promise.all([
+                  axios.get("/api/admin/users"),
+                  axios.get("/api/admin/messages"),
+                  axios.get("/api/admin/group-messages"),
+                  axios.get("/api/stats"),
+                ]);
+
+                setUsers(usersResponse.data);
+                setAllMessages(messagesResponse.data);
+                setGroupMessages(groupMessagesResponse.data);
+                setStats(statsResponse.data);
+
+                setLoading(false);
+                setSuccessMessage("Data refreshed successfully");
+                setTimeout(() => {
+                  setSuccessMessage("");
+                }, 3000);
+              } catch (error) {
+                console.error(
+                  "Error fetching admin data:",
+                  error.response?.data || error.message
+                );
+                setError("Failed to refresh data. Please try again.");
+                setLoading(false);
+              }
+            };
+
+            fetchData();
+          }}
+          title="Refresh data"
+        >
+          <i className="fas fa-sync-alt"></i>
+          <span>Refresh</span>
+        </button>
       </div>
 
       {successMessage && (
@@ -623,6 +684,7 @@ function AdminPanel({ user }) {
                   <tr>
                     <th>User</th>
                     <th>Email</th>
+                    <th>Department</th>
                     <th>Role</th>
                     <th>Status</th>
                     <th>Last Active</th>
@@ -648,6 +710,14 @@ function AdminPanel({ user }) {
                         </div>
                       </td>
                       <td>{user.email}</td>
+                      <td>
+                        <span
+                          className="user-department"
+                          data-department={user.department || ""}
+                        >
+                          {user.department || "Not Assigned"}
+                        </span>
+                      </td>
                       <td>
                         <span
                           className={`user-role ${

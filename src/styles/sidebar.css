@@ -626,6 +626,13 @@
   display: block;
 }
 
+/* Hide sidebar text on mobile regardless of expanded state */
+@media (max-width: 576px) {
+  .sidebar .sidebar-text {
+    display: none !important;
+  }
+}
+
 .sidebar-footer {
   padding: 25px 0;
   display: flex;
@@ -1100,8 +1107,8 @@
     justify-content: center;
   }
 
-  /* Show a small label under each icon */
-  .sidebar-item span {
+  /* Show a small label under each icon, but not for .sidebar-text */
+  .sidebar-item span:not(.sidebar-text) {
     display: block !important;
     font-size: 10px;
     margin-top: 2px;
@@ -1109,15 +1116,15 @@
     color: #666;
   }
 
-  .dark-mode .sidebar-item span {
+  .dark-mode .sidebar-item span:not(.sidebar-text) {
     color: #aaa;
   }
 
-  .sidebar-item.active span {
+  .sidebar-item.active span:not(.sidebar-text) {
     color: #4a6cf7;
   }
 
-  .dark-mode .sidebar-item.active span {
+  .dark-mode .sidebar-item.active span:not(.sidebar-text) {
     color: #7a9fff;
   }
 

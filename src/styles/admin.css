@@ -176,6 +176,9 @@
 
 .admin-panel-header {
   margin-bottom: 30px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .admin-panel-header h1 {
@@ -195,6 +198,47 @@
 
 .dark-mode .admin-panel-header p {
   color: #a7a7b3;
+}
+
+.header-content {
+  flex: 1;
+}
+
+.refresh-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 8px;
+  background-color: #4a6cf7;
+  color: white;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 5px rgba(74, 108, 247, 0.2);
+}
+
+.refresh-button:hover {
+  background-color: #3a5ce5;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(74, 108, 247, 0.3);
+}
+
+.refresh-button i {
+  transition: transform 0.5s ease;
+}
+
+.refresh-button:active i {
+  transform: rotate(360deg);
+}
+
+.dark-mode .refresh-button {
+  background-color: #4a6cf7;
+  color: white;
+}
+
+.dark-mode .refresh-button:hover {
+  background-color: #3a5ce5;
 }
 
 .admin-panel-container {
@@ -779,6 +823,80 @@
 .dark-mode .role-user {
   background-color: rgba(40, 167, 69, 0.2);
   color: #75b798;
+}
+
+/* Department styling */
+.user-department {
+  display: inline-flex;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: white;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
+}
+
+.dark-mode .user-department {
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+/* Department-specific colors - matching contacts page */
+.user-department[data-department="Human Resources"] {
+  background-color: #ff6b6b;
+}
+
+.user-department[data-department="Marketing"] {
+  background-color: #4ecdc4;
+}
+
+.user-department[data-department="Finance"] {
+  background-color: #45b7d1;
+}
+
+.user-department[data-department="IT"] {
+  background-color: #7367f0;
+}
+
+.user-department[data-department="Operations"] {
+  background-color: #ff9f43;
+}
+
+.user-department[data-department="Sales"] {
+  background-color: #28c76f;
+}
+
+.user-department[data-department="Customer Service"] {
+  background-color: #ea5455;
+}
+
+.user-department[data-department="Research & Development"] {
+  background-color: #9f44d3;
+}
+
+.user-department[data-department="Development"] {
+  background-color: #5a8dee;
+}
+
+.user-department[data-department="Legal"] {
+  background-color: #a66a2c;
+}
+
+.user-department[data-department="Executive"] {
+  background-color: #475f7b;
+}
+
+/* Default color for other departments */
+.user-department:not([data-department="Human Resources"]):not(
+    [data-department="Marketing"]
+  ):not([data-department="Finance"]):not([data-department="IT"]):not(
+    [data-department="Operations"]
+  ):not([data-department="Sales"]):not(
+    [data-department="Customer Service"]
+  ):not([data-department="Research & Development"]):not(
+    [data-department="Development"]
+  ):not([data-department="Legal"]):not([data-department="Executive"]) {
+  background-color: #4a6cf7;
 }
 
 .status-indicator {
@@ -1525,6 +1643,37 @@
 .dark-mode .admin-search .search-bar:focus-within {
   border-color: #5a77ff;
   box-shadow: 0 0 0 2px rgba(90, 119, 255, 0.15);
+}
+
+/* Admin search clear button */
+.admin-search .search-bar .clear-button {
+  background: none;
+  border: none;
+  color: #6c757d;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+}
+
+.dark-mode .admin-search .search-bar .clear-button {
+  color: #a7a7b3;
+}
+
+.admin-search .search-bar .clear-button:hover {
+  color: #4a6cf7;
+  transform: rotate(90deg);
+  background-color: rgba(74, 108, 247, 0.1);
+}
+
+.dark-mode .admin-search .search-bar .clear-button:hover {
+  color: #7a9fff;
+  background-color: rgba(122, 159, 255, 0.1);
 }
 
 /* User Filters Section */

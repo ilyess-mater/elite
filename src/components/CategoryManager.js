@@ -4,7 +4,10 @@ import "../styles/category-manager.css";
 
 const CategoryManager = ({ onClose, onCategoryChange }) => {
   const [categories, setCategories] = useState([]);
-  const [newCategory, setNewCategory] = useState({ name: "", color: "#4A76A8" });
+  const [newCategory, setNewCategory] = useState({
+    name: "",
+    color: "#4A76A8",
+  });
   const [editingCategory, setEditingCategory] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -67,11 +70,11 @@ const CategoryManager = ({ onClose, onCategoryChange }) => {
 
       // Add new category to the list
       setCategories([...categories, response.data]);
-      
+
       // Reset form
       setNewCategory({ name: "", color: "#4A76A8" });
       setError("");
-      
+
       // Notify parent component
       if (onCategoryChange) {
         onCategoryChange();
@@ -79,7 +82,8 @@ const CategoryManager = ({ onClose, onCategoryChange }) => {
     } catch (err) {
       console.error("Error creating category:", err);
       setError(
-        err.response?.data?.error || "Failed to create category. Please try again."
+        err.response?.data?.error ||
+          "Failed to create category. Please try again."
       );
     }
   };
@@ -111,11 +115,11 @@ const CategoryManager = ({ onClose, onCategoryChange }) => {
           cat.id === editingCategory.id ? response.data : cat
         )
       );
-      
+
       // Reset editing state
       setEditingCategory(null);
       setError("");
-      
+
       // Notify parent component
       if (onCategoryChange) {
         onCategoryChange();
@@ -123,39 +127,84 @@ const CategoryManager = ({ onClose, onCategoryChange }) => {
     } catch (err) {
       console.error("Error updating category:", err);
       setError(
-        err.response?.data?.error || "Failed to update category. Please try again."
+        err.response?.data?.error ||
+          "Failed to update category. Please try again."
       );
     }
   };
 
-  const handleDeleteCategory = async (categoryId) => {
-    if (!window.confirm("Are you sure you want to delete this category?")) {
-      return;
-    }
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [categoryToDelete, setCategoryToDelete] = useState(null);
+  const [isDeleteAll, setIsDeleteAll] = useState(false);
 
+  const confirmDeleteCategory = (category) => {
+    setCategoryToDelete(category);
+    setIsDeleteAll(false);
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDeleteAllCategories = () => {
+    setIsDeleteAll(true);
+    setShowDeleteConfirm(true);
+  };
+
+  const handleDeleteCategory = async () => {
     try {
-      await axios.delete(`/api/categories/${categoryId}`, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
-      });
+      if (isDeleteAll) {
+        // Delete all user-created categories
+        const userCategories = categories.filter(
+          (cat) => !cat.isDepartmentCategory
+        );
 
-      // Remove category from the list
-      setCategories(categories.filter((cat) => cat.id !== categoryId));
-      
-      // Reset editing state if deleting the category being edited
-      if (editingCategory && editingCategory.id === categoryId) {
+        // Use Promise.all to delete all categories in parallel
+        await Promise.all(
+          userCategories.map((category) =>
+            axios.delete(`/api/categories/${category.id}`, {
+              headers: {
+                Authorization: `Bearer ${localStorage.getItem("token")}`,
+              },
+            })
+          )
+        );
+
+        // Remove all user categories from the list
+        setCategories(categories.filter((cat) => cat.isDepartmentCategory));
+
+        // Reset editing state
         setEditingCategory(null);
+      } else if (categoryToDelete) {
+        // Delete single category
+        await axios.delete(`/api/categories/${categoryToDelete.id}`, {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+        });
+
+        // Remove category from the list
+        setCategories(
+          categories.filter((cat) => cat.id !== categoryToDelete.id)
+        );
+
+        // Reset editing state if deleting the category being edited
+        if (editingCategory && editingCategory.id === categoryToDelete.id) {
+          setEditingCategory(null);
+        }
       }
-      
+
       // Notify parent component
       if (onCategoryChange) {
         onCategoryChange();
       }
+
+      // Close the confirmation modal
+      setShowDeleteConfirm(false);
+      setCategoryToDelete(null);
+      setIsDeleteAll(false);
     } catch (err) {
       console.error("Error deleting category:", err);
       setError(
-        err.response?.data?.error || "Failed to delete category. Please try again."
+        err.response?.data?.error ||
+          "Failed to delete category. Please try again."
       );
     }
   };
@@ -270,43 +319,104 @@ const CategoryManager = ({ onClose, onCategoryChange }) => {
       </div>
 
       <div className="categories-list">
-        <h3>Your Categories</h3>
+        <div className="categories-list-header">
+          <h3>Your Categories</h3>
+          {categories.filter((cat) => !cat.isDepartmentCategory).length > 0 && (
+            <button
+              className="delete-all-button"
+              onClick={confirmDeleteAllCategories}
+              title="Delete all categories"
+            >
+              <i className="fas fa-trash-alt"></i> Delete All
+            </button>
+          )}
+        </div>
         {loading ? (
           <div className="loading">Loading categories...</div>
-        ) : categories.length === 0 ? (
+        ) : categories.filter((cat) => !cat.isDepartmentCategory).length ===
+          0 ? (
           <div className="no-categories">
             No categories yet. Create your first category above.
           </div>
         ) : (
           <ul>
-            {categories.map((category) => (
-              <li key={category.id} className="category-item">
-                <div className="category-info">
-                  <div
-                    className="category-color"
-                    style={{ backgroundColor: category.color }}
-                  ></div>
-                  <span className="category-name">{category.name}</span>
-                </div>
-                <div className="category-actions">
-                  <button
-                    className="edit-button"
-                    onClick={() => startEditing(category)}
-                  >
-                    <i className="fas fa-edit"></i>
-                  </button>
-                  <button
-                    className="delete-button"
-                    onClick={() => handleDeleteCategory(category.id)}
-                  >
-                    <i className="fas fa-trash-alt"></i>
-                  </button>
-                </div>
-              </li>
-            ))}
+            {categories
+              .filter((category) => !category.isDepartmentCategory)
+              .map((category) => (
+                <li key={category.id} className="category-item">
+                  <div className="category-info">
+                    <div
+                      className="category-color"
+                      style={{ backgroundColor: category.color }}
+                    ></div>
+                    <span className="category-name">{category.name}</span>
+                  </div>
+                  <div className="category-actions">
+                    <button
+                      className="edit-button modern-icon-btn"
+                      onClick={() => startEditing(category)}
+                      title="Edit category"
+                    >
+                      <i className="fas fa-edit"></i>
+                    </button>
+                    <button
+                      className="delete-button modern-icon-btn"
+                      onClick={() => confirmDeleteCategory(category)}
+                      title="Delete category"
+                    >
+                      <i className="fas fa-trash-alt"></i>
+                    </button>
+                  </div>
+                </li>
+              ))}
           </ul>
         )}
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="confirm-dialog-overlay">
+          <div className="confirm-dialog">
+            <div className="confirm-dialog-header">
+              <h3>
+                {isDeleteAll ? "Delete All Categories" : "Delete Category"}
+              </h3>
+            </div>
+            <div className="confirm-dialog-content">
+              {isDeleteAll ? (
+                <p>
+                  Are you sure you want to delete <strong>all</strong> your
+                  custom categories?
+                  <br />
+                  This action cannot be undone.
+                </p>
+              ) : (
+                <p>
+                  Are you sure you want to delete the category "
+                  {categoryToDelete?.name}"?
+                  <br />
+                  This action cannot be undone.
+                </p>
+              )}
+            </div>
+            <div className="confirm-dialog-actions">
+              <button
+                className="btn-cancel"
+                onClick={() => {
+                  setShowDeleteConfirm(false);
+                  setCategoryToDelete(null);
+                  setIsDeleteAll(false);
+                }}
+              >
+                Cancel
+              </button>
+              <button className="btn-danger" onClick={handleDeleteCategory}>
+                {isDeleteAll ? "Delete All" : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

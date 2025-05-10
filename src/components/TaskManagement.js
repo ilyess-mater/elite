@@ -474,12 +474,14 @@ function TaskManagement({ groupId, user, members }) {
                 </p>
               </div>
               <div className="task-actions">
-                <button
-                  onClick={() => handleEditTask(task)}
-                  className="edit-btn"
-                >
-                  <i className="fas fa-edit"></i> Edit
-                </button>
+                {task.assignedBy === user.id && (
+                  <button
+                    onClick={() => handleEditTask(task)}
+                    className="edit-btn"
+                  >
+                    <i className="fas fa-edit"></i> Edit
+                  </button>
+                )}
                 <button
                   onClick={() => handleDeleteTask(task._id)}
                   className="delete-btn"
@@ -606,12 +608,14 @@ function TaskManagement({ groupId, user, members }) {
           </div>
 
           <div className="task-detail-actions">
-            <button
-              onClick={() => handleEditTask(selectedTask)}
-              className="edit-btn"
-            >
-              <i className="fas fa-edit"></i> Edit Task
-            </button>
+            {selectedTask.assignedBy === user.id && (
+              <button
+                onClick={() => handleEditTask(selectedTask)}
+                className="edit-btn"
+              >
+                <i className="fas fa-edit"></i> Edit Task
+              </button>
+            )}
             <button
               onClick={() => handleDeleteTask(selectedTask._id)}
               className="delete-btn"

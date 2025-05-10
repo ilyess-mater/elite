@@ -69,20 +69,32 @@
 .search-bar .clear-button {
   background: none;
   border: none;
-  padding: 4px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   margin-left: 8px;
   cursor: pointer;
-  opacity: 0.6;
-  transition: opacity 0.2s;
   color: #6c757d;
-}
-
-.search-bar .clear-button:hover {
-  opacity: 1;
+  transition: all 0.3s ease;
+  font-size: 0.9rem;
 }
 
 .dark-mode .search-bar .clear-button {
   color: #a7a7b3;
+}
+
+.search-bar .clear-button:hover {
+  color: #4a6cf7;
+  transform: rotate(90deg);
+  background-color: rgba(74, 108, 247, 0.1);
+}
+
+.dark-mode .search-bar .clear-button:hover {
+  color: #7a9fff;
+  background-color: rgba(122, 159, 255, 0.1);
 }
 
 /* Responsive styles */
@@ -103,7 +115,7 @@
     transform: scale(0.8);
   }
   to {
-    opacity: 0.6;
+    opacity: 1;
     transform: scale(1);
   }
 }

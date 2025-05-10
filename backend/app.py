@@ -208,10 +208,22 @@ def verify_token(token):
     except jwt.InvalidTokenError:
         return None
 
-def delete_group_messages(group_id):
-    """Delete all messages for a group"""
+def delete_group_messages(group_id, user_id=None):
+    """Mark all messages in a group as deleted for a specific user
+
+    If user_id is provided, only mark messages as deleted for that user.
+    If user_id is None, actually delete the messages (used when deleting the entire group).
+    """
     try:
-        group_messages_collection.delete_many({"groupId": ObjectId(group_id)})
+        if user_id:
+            # Mark messages as deleted for this user only
+            group_messages_collection.update_many(
+                {"groupId": ObjectId(group_id)},
+                {"$addToSet": {"deletedBy": ObjectId(user_id)}}
+            )
+        else:
+            # Actually delete messages (only used when deleting the entire group)
+            group_messages_collection.delete_many({"groupId": ObjectId(group_id)})
         return True
     except Exception as e:
         print(f"Error deleting group messages: {e}")
@@ -428,14 +440,62 @@ def add_contact():
         "createdAt": datetime.utcnow()
     }
 
-    contacts_collection.insert_one(contact)
+    # Insert the contact first
+    contact_id = contacts_collection.insert_one(contact).inserted_id
+
+    # Now handle department categories
+    if department:
+        # Import the ensure_department_categories function
+        from category_routes import ensure_department_categories, DEPARTMENT_COLORS
+
+        # Create department categories if they don't exist
+        ensure_department_categories(user_id)
+
+        # Find the department category or create it if it doesn't exist
+        department_category = db.categories.find_one({
+            "userId": ObjectId(user_id),
+            "name": department,
+            "isDepartmentCategory": True
+        })
+
+        if not department_category:
+            # Create the department category
+            color = DEPARTMENT_COLORS.get(department, "#4A76A8")
+            new_category = {
+                "userId": ObjectId(user_id),
+                "name": department,
+                "color": color,
+                "isDepartmentCategory": True,
+                "createdAt": datetime.utcnow()
+            }
+
+            category_id = db.categories.insert_one(new_category).inserted_id
+
+            # Update the contact with the new category ID
+            contacts_collection.update_one(
+                {"_id": contact_id},
+                {"$set": {"categoryId": category_id}}
+            )
+
+            # Update our contact object for the response
+            contact["categoryId"] = category_id
+        else:
+            # Update the contact with the existing category ID
+            contacts_collection.update_one(
+                {"_id": contact_id},
+                {"$set": {"categoryId": department_category["_id"]}}
+            )
+
+            # Update our contact object for the response
+            contact["categoryId"] = department_category["_id"]
 
     return jsonify({
         "id": str(contact_user["_id"]),
         "name": contact_user["name"],
         "email": contact_user["email"],
         "department": contact_user.get("department", ""),
-        "isActive": str(contact_user["_id"]) in active_users
+        "isActive": str(contact_user["_id"]) in active_users,
+        "categoryId": str(contact.get("categoryId")) if "categoryId" in contact else None
     }), 201
 
 @app.route('/api/contacts/<contact_id>', methods=['DELETE'])
@@ -486,11 +546,21 @@ def messages_operations(contact_id):
         return jsonify({"error": "Unauthorized"}), 401
 
     if request.method == 'GET':
-        # Get messages between user and contact
+        # Get messages between user and contact, excluding those deleted by the current user
         messages = messages_collection.find({
-            "$or": [
-                {"senderId": ObjectId(user_id), "receiverId": ObjectId(contact_id)},
-                {"senderId": ObjectId(contact_id), "receiverId": ObjectId(user_id)}
+            "$and": [
+                {
+                    "$or": [
+                        {"senderId": ObjectId(user_id), "receiverId": ObjectId(contact_id)},
+                        {"senderId": ObjectId(contact_id), "receiverId": ObjectId(user_id)}
+                    ]
+                },
+                {
+                    "$or": [
+                        {"deletedBy": {"$exists": False}},
+                        {"deletedBy": {"$not": {"$elemMatch": {"$eq": ObjectId(user_id)}}}}
+                    ]
+                }
             ]
         }).sort("timestamp", 1)
 
@@ -501,24 +571,31 @@ def messages_operations(contact_id):
                 "id": str(msg["_id"]),
                 "sender": str(msg["senderId"]),
                 "text": msg["text"],
-                "timestamp": msg["timestamp"].isoformat()
+                "timestamp": msg["timestamp"].isoformat(),
+                "fileUrl": msg.get("fileUrl"),
+                "fileType": msg.get("fileType"),
+                "fileName": msg.get("fileName"),
+                "isDeleted": msg.get("isDeleted", False)
             })
 
         return jsonify(messages_list), 200
 
     elif request.method == 'DELETE':
         try:
-            # Delete all messages between user and contact
-            result = messages_collection.delete_many({
-                "$or": [
-                    {"senderId": ObjectId(user_id), "receiverId": ObjectId(contact_id)},
-                    {"senderId": ObjectId(contact_id), "receiverId": ObjectId(user_id)}
-                ]
-            })
+            # Mark all messages between user and contact as deleted for this user only
+            result = messages_collection.update_many(
+                {
+                    "$or": [
+                        {"senderId": ObjectId(user_id), "receiverId": ObjectId(contact_id)},
+                        {"senderId": ObjectId(contact_id), "receiverId": ObjectId(user_id)}
+                    ]
+                },
+                {"$addToSet": {"deletedBy": ObjectId(user_id)}}
+            )
 
             return jsonify({
                 "message": "Messages deleted successfully",
-                "count": result.deleted_count
+                "count": result.modified_count
             }), 200
         except Exception as e:
             print(f"Error deleting messages: {e}")
@@ -536,13 +613,23 @@ def search_messages(contact_id):
     if not query:
         return jsonify({"error": "Search query is required"}), 400
 
-    # Search messages between user and contact that contain the query
+    # Search messages between user and contact that contain the query, excluding deleted ones
     messages = messages_collection.find({
-        "$or": [
-            {"senderId": ObjectId(user_id), "receiverId": ObjectId(contact_id)},
-            {"senderId": ObjectId(contact_id), "receiverId": ObjectId(user_id)}
-        ],
-        "text": {"$regex": query, "$options": "i"}  # Case-insensitive search
+        "$and": [
+            {
+                "$or": [
+                    {"senderId": ObjectId(user_id), "receiverId": ObjectId(contact_id)},
+                    {"senderId": ObjectId(contact_id), "receiverId": ObjectId(user_id)}
+                ]
+            },
+            {"text": {"$regex": query, "$options": "i"}},  # Case-insensitive search
+            {
+                "$or": [
+                    {"deletedBy": {"$exists": False}},
+                    {"deletedBy": {"$not": {"$elemMatch": {"$eq": ObjectId(user_id)}}}}
+                ]
+            }
+        ]
     }).sort("timestamp", 1)
 
     # Format messages for the frontend
@@ -627,6 +714,17 @@ def get_all_messages():
             receiver = users_collection.find_one({"_id": ObjectId(receiver_id)})
             receiver_cache[receiver_id] = receiver["name"] if receiver else "Unknown"
 
+        # Include information about who deleted the message
+        deleted_by = []
+        if "deletedBy" in msg and msg["deletedBy"]:
+            for deleted_user_id in msg["deletedBy"]:
+                deleted_user = users_collection.find_one({"_id": deleted_user_id})
+                if deleted_user:
+                    deleted_by.append({
+                        "id": str(deleted_user_id),
+                        "name": deleted_user["name"]
+                    })
+
         messages_list.append({
             "id": str(msg["_id"]),
             "senderId": sender_id,
@@ -634,7 +732,12 @@ def get_all_messages():
             "receiverId": receiver_id,
             "receiverName": receiver_cache[receiver_id],
             "text": msg["text"],
-            "timestamp": msg["timestamp"].isoformat()
+            "timestamp": msg["timestamp"].isoformat(),
+            "isDeleted": msg.get("isDeleted", False),
+            "deletedBy": deleted_by,
+            "fileUrl": msg.get("fileUrl"),
+            "fileType": msg.get("fileType"),
+            "fileName": msg.get("fileName")
         })
 
     return jsonify(messages_list), 200
@@ -671,6 +774,17 @@ def get_all_group_messages():
             group = groups_collection.find_one({"_id": ObjectId(group_id)})
             group_cache[group_id] = group["name"] if group else "Unknown Group"
 
+        # Include information about who deleted the message
+        deleted_by = []
+        if "deletedBy" in msg and msg["deletedBy"]:
+            for deleted_user_id in msg["deletedBy"]:
+                deleted_user = users_collection.find_one({"_id": deleted_user_id})
+                if deleted_user:
+                    deleted_by.append({
+                        "id": str(deleted_user_id),
+                        "name": deleted_user["name"]
+                    })
+
         messages_list.append({
             "id": str(msg["_id"]),
             "senderId": sender_id,
@@ -678,7 +792,12 @@ def get_all_group_messages():
             "groupId": group_id,
             "groupName": group_cache[group_id],
             "text": msg["text"],
-            "timestamp": msg["timestamp"].isoformat()
+            "timestamp": msg["timestamp"].isoformat(),
+            "isDeleted": msg.get("isDeleted", False),
+            "deletedBy": deleted_by,
+            "fileUrl": msg.get("fileUrl"),
+            "fileType": msg.get("fileType"),
+            "fileName": msg.get("fileName")
         })
 
     return jsonify(messages_list), 200
@@ -1670,9 +1789,17 @@ def get_group_messages(group_id):
     if not group:
         return jsonify({"error": "Forbidden"}), 403
 
-    # Get messages for the group
+    # Get messages for the group, excluding those deleted by the current user
     messages = db.group_messages.find({
-        "groupId": ObjectId(group_id)
+        "$and": [
+            {"groupId": ObjectId(group_id)},
+            {
+                "$or": [
+                    {"deletedBy": {"$exists": False}},
+                    {"deletedBy": {"$not": {"$elemMatch": {"$eq": ObjectId(user_id)}}}}
+                ]
+            }
+        ]
     }).sort("timestamp", 1)
 
     # Update last read timestamp
@@ -1702,7 +1829,8 @@ def get_group_messages(group_id):
             "senderName": sender_cache[sender_id],
             "text": msg["text"],
             "timestamp": msg["timestamp"].isoformat(),
-            "messageType": msg.get("messageType", "text")
+            "messageType": msg.get("messageType", "text"),
+            "isDeleted": msg.get("isDeleted", False)
         }
 
         # Add file information if present
@@ -1738,10 +1866,18 @@ def search_group_messages(group_id):
     if not query:
         return jsonify({"error": "Search query is required"}), 400
 
-    # Search messages in the group that contain the query
+    # Search messages in the group that contain the query, excluding those deleted by the current user
     messages = group_messages_collection.find({
-        "groupId": ObjectId(group_id),
-        "text": {"$regex": query, "$options": "i"}  # Case-insensitive search
+        "$and": [
+            {"groupId": ObjectId(group_id)},
+            {"text": {"$regex": query, "$options": "i"}},  # Case-insensitive search
+            {
+                "$or": [
+                    {"deletedBy": {"$exists": False}},
+                    {"deletedBy": {"$not": {"$elemMatch": {"$eq": ObjectId(user_id)}}}}
+                ]
+            }
+        ]
     }).sort("timestamp", 1)
 
     # Format messages for the frontend
@@ -1758,7 +1894,8 @@ def search_group_messages(group_id):
             "senderName": sender_name,
             "text": msg["text"],
             "timestamp": msg["timestamp"].isoformat(),
-            "messageType": msg.get("messageType", "text")
+            "messageType": msg.get("messageType", "text"),
+            "isDeleted": msg.get("isDeleted", False)
         }
 
         # Add file information if present
@@ -1790,8 +1927,8 @@ def delete_group_chat(group_id):
     if not group:
         return jsonify({"error": "Forbidden"}), 403
 
-    # Delete all messages in the group
-    if delete_group_messages(group_id):
+    # Mark all messages in the group as deleted for this user only
+    if delete_group_messages(group_id, user_id):
         return jsonify({"message": "Chat history deleted successfully"}), 200
     else:
         return jsonify({"error": "Failed to delete chat history"}), 500
@@ -1848,8 +1985,8 @@ def delete_group(group_id):
         if not group:
             return jsonify({"error": "Only group creator can delete the group"}), 403
 
-        # Delete all messages in the group
-        group_messages_collection.delete_many({"groupId": ObjectId(group_id)})
+        # Delete all messages in the group (passing no user_id to actually delete them)
+        delete_group_messages(group_id)
 
         # Delete the group itself
         result = groups_collection.delete_one({"_id": ObjectId(group_id)})
@@ -2179,10 +2316,10 @@ def handle_delete_message(data):
             if str(message["senderId"]) != user_id:
                 return
 
-            # Mark the message as deleted
+            # Add user to deletedBy array instead of marking as globally deleted
             db.group_messages.update_one(
                 {"_id": ObjectId(message_id)},
-                {"$set": {"isDeleted": True, "fileUrl": None, "fileType": None, "fileName": None}}
+                {"$addToSet": {"deletedBy": ObjectId(user_id)}}
             )
 
             # Get group ID
@@ -2192,23 +2329,23 @@ def handle_delete_message(data):
             sender = users_collection.find_one({"_id": ObjectId(user_id)})
             sender_name = sender["name"] if sender else "Unknown"
 
-            # Notify all users in the group
+            # Notify only the user who deleted the message
             emit('message_deleted', {
                 "groupId": group_id,
                 "messageId": message_id,
                 "senderName": sender_name,
                 "sender": user_id
-            }, room=f"group_{group_id}")
+            }, room=request.sid)  # Only send to the user who deleted it
 
         else:
             # Verify sender is the same as the deleter
             if str(message["senderId"]) != user_id:
                 return
 
-            # Mark the message as deleted
+            # Add user to deletedBy array instead of marking as globally deleted
             messages_collection.update_one(
                 {"_id": ObjectId(message_id)},
-                {"$set": {"isDeleted": True, "fileUrl": None, "fileType": None, "fileName": None}}
+                {"$addToSet": {"deletedBy": ObjectId(user_id)}}
             )
 
             # Get sender and receiver IDs
@@ -2222,9 +2359,8 @@ def handle_delete_message(data):
                 "receiver": receiver_id
             }
 
-            # Emit to both sender and receiver rooms
-            emit('message_deleted', deleted_message, room=f"user_{sender_id}")
-            emit('message_deleted', deleted_message, room=f"user_{receiver_id}")
+            # Emit only to the user who deleted the message
+            emit('message_deleted', deleted_message, room=request.sid)
     except Exception as e:
         print(f"Error deleting message: {e}")
         emit('error', {'message': 'Failed to delete message'})
@@ -2253,23 +2389,23 @@ def handle_delete_group_message(data):
         if str(message["senderId"]) != user_id:
             return
 
-        # Mark the message as deleted
+        # Add user to deletedBy array instead of marking as globally deleted
         db.group_messages.update_one(
             {"_id": ObjectId(message_id)},
-            {"$set": {"isDeleted": True, "fileUrl": None, "fileType": None, "fileName": None}}
+            {"$addToSet": {"deletedBy": ObjectId(user_id)}}
         )
 
         # Get sender name for notification
         sender = users_collection.find_one({"_id": ObjectId(user_id)})
         sender_name = sender["name"] if sender else "Unknown"
 
-        # Notify all users in the group
+        # Notify only the user who deleted the message
         emit('message_deleted', {
             "groupId": group_id,
             "messageId": message_id,
             "senderName": sender_name,
             "sender": user_id
-        }, room=f"group_{group_id}")
+        }, room=request.sid)  # Only send to the user who deleted it
     except Exception as e:
         print(f"Error deleting group message: {e}")
         emit('error', {'message': 'Failed to delete message'})

@@ -278,6 +278,18 @@
   background-color: #0b7dda;
 }
 
+.edit-btn.disabled {
+  background-color: #a0a0a0;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.edit-btn.disabled:hover {
+  background-color: #a0a0a0;
+  transform: none;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
 .delete-btn {
   background-color: #f44336;
   color: white;
@@ -886,6 +898,31 @@
   border-color: #444;
   color: #e9e9e9;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+
+/* Datetime igroiunput styling for dark mode */
+.dark-mode input[type="datetime-local"] {
+  color-scheme: dark;
+  background-color: #35354a;
+  color: #e9e9e9;
+  border-color: #444;
+}
+
+/* Calendar popup styling for dark mode */
+.dark-mode ::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+  background-color: transparent;
+  cursor: pointer;
+  opacity: 0.9;
+  padding: 5px;
+  border-radius: 3px;
+}
+
+/* Ensure calendar popup has dark background */
+@supports (color-scheme: dark) {
+  .dark-mode input[type="datetime-local"] {
+    color-scheme: dark;
+  }
 }
 
 .form-group input:focus,

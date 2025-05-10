@@ -84,7 +84,13 @@ function SignUpForm({ onSignUp }) {
       newErrors.confirmPassword = "Passwords do not match";
     }
 
-    if (!formData.department || formData.department === "Select Department") {
+    // Department is not mandatory for admin masters with correct password
+    const isValidAdminMaster =
+      formData.isAdmin && formData.adminPassword === "admin_master";
+    if (
+      !isValidAdminMaster &&
+      (!formData.department || formData.department === "Select Department")
+    ) {
       newErrors.department = "Please select a department";
     }
 
@@ -198,7 +204,9 @@ function SignUpForm({ onSignUp }) {
           onChange={handleChange}
         >
           <option value="" style={{ color: "#333", fontWeight: "600" }}>
-            Select Department
+            {formData.isAdmin && formData.adminPassword === "admin_master"
+              ? "Select Department (Optional)"
+              : "Select Department"}
           </option>
           {departments
             .filter((dept) => dept !== "Select Department")

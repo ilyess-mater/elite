@@ -1,0 +1,515 @@
+2025-05-08 18:06:58,739 - quick_reply_model - INFO - Connecting to MongoDB at: mongodb://localhost:27017/
+2025-05-08 18:06:58,751 - quick_reply_model - INFO - Successfully connected to MongoDB
+2025-05-08 18:06:58,751 - quick_reply_model - INFO - Using database: elite_messaging
+2025-05-08 18:06:58,751 - quick_reply_model - INFO - Using collection: quick_replies
+2025-05-08 18:06:58,753 - quick_reply_model - INFO - Database already contains 100 quick replies. Skipping initialization.
+2025-05-08 18:06:59,156 - quick_reply_model - INFO - Connecting to MongoDB at: mongodb://localhost:27017/
+2025-05-08 18:06:59,179 - quick_reply_model - INFO - Successfully connected to MongoDB
+2025-05-08 18:06:59,179 - quick_reply_model - INFO - Using database: elite_messaging
+2025-05-08 18:06:59,180 - quick_reply_model - INFO - Using collection: quick_replies
+2025-05-08 18:06:59,182 - quick_reply_model - INFO - Database already contains 100 quick replies. Skipping initialization.
+2025-05-08 18:07:18,105 - enhanced_quick_replies - INFO - Initialized EnhancedQuickReplyGenerator with model: mistral
+2025-05-08 18:07:18,207 - werkzeug - WARNING -  * Debugger is active!
+2025-05-08 18:07:18,233 - werkzeug - INFO -  * Debugger PIN: 760-521-025
+2025-05-08 18:07:18,457 - enhanced_quick_replies - INFO - Initialized EnhancedQuickReplyGenerator with model: mistral
+2025-05-08 18:07:18,601 - werkzeug - WARNING -  * Debugger is active!
+2025-05-08 18:07:18,635 - werkzeug - INFO -  * Debugger PIN: 760-521-025
+2025-05-08 18:07:19,066 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 18:07:19] "GET /socket.io/?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NDY4MDg5ODUsImlhdCI6MTc0NjcyMjU4NSwic3ViIjoiNjgxMGE2YWE2MWVkYTk4ZjMyZTA5OGNiIn0.8lDI9thI5XVNLNxmLehkZ0YiKkrumKy7FbeKL3fk0i8&EIO=4&transport=polling&t=mdp72fw3 HTTP/1.1" 200 -
+2025-05-08 18:07:20,857 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 18:07:20] "GET /socket.io/?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NDY4MDg5ODUsImlhdCI6MTc0NjcyMjU4NSwic3ViIjoiNjgxMGE2YWE2MWVkYTk4ZjMyZTA5OGNiIn0.8lDI9thI5XVNLNxmLehkZ0YiKkrumKy7FbeKL3fk0i8&EIO=4&transport=polling&t=me7pr0nh HTTP/1.1" 200 -
+2025-05-08 18:07:21,179 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 18:07:21] "GET /socket.io/?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NDY4MDg5ODUsImlhdCI6MTc0NjcyMjU4NSwic3ViIjoiNjgxMGE2YWE2MWVkYTk4ZjMyZTA5OGNiIn0.8lDI9thI5XVNLNxmLehkZ0YiKkrumKy7FbeKL3fk0i8&EIO=4&transport=polling&t=me7q54lq&sid=3Row2clUcy_C7PuwAAAB HTTP/1.1" 200 -
+2025-05-08 18:07:21,181 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 18:07:21] "POST /socket.io/?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NDY4MDg5ODUsImlhdCI6MTc0NjcyMjU4NSwic3ViIjoiNjgxMGE2YWE2MWVkYTk4ZjMyZTA5OGNiIn0.8lDI9thI5XVNLNxmLehkZ0YiKkrumKy7FbeKL3fk0i8&EIO=4&transport=polling&t=me7q5077&sid=3Row2clUcy_C7PuwAAAB HTTP/1.1" 200 -
+2025-05-08 18:07:21,442 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 18:07:21] "GET /socket.io/?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NDY4MDg5ODUsImlhdCI6MTc0NjcyMjU4NSwic3ViIjoiNjgxMGE2YWE2MWVkYTk4ZjMyZTA5OGNiIn0.8lDI9thI5XVNLNxmLehkZ0YiKkrumKy7FbeKL3fk0i8&EIO=4&transport=polling&t=me7z1t9q&sid=3Row2clUcy_C7PuwAAAB HTTP/1.1" 200 -
+2025-05-08 18:07:21,534 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 18:07:21] "OPTIONS /api/groups/6810d4a461eda98f32e098e6/messages HTTP/1.1" 200 -
+2025-05-08 18:07:21,856 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 18:07:21] "GET /api/groups/6810d4a461eda98f32e098e6/messages HTTP/1.1" 200 -
+2025-05-08 18:07:21,866 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 18:07:21] "GET /api/files/uploads/images/group_6810d4a461eda98f32e098e6/1aa4857e-3dd4-403d-8362-a837f50ec675_Capture_decran_2025-04-30_200625.png?t=1746724041493 HTTP/1.1" 200 -
+2025-05-08 18:07:22,299 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 18:07:22] "GET /api/files/uploads/images/group_6810d4a461eda98f32e098e6/1aa4857e-3dd4-403d-8362-a837f50ec675_Capture_decran_2025-04-30_200625.png?t=1746724041920 HTTP/1.1" 200 -
+2025-05-08 18:09:33,986 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 18:09:33] "GET /api/files/uploads/images/group_6810d4a461eda98f32e098e6/1aa4857e-3dd4-403d-8362-a837f50ec675_Capture_decran_2025-04-30_200625.png?t=1746724173618 HTTP/1.1" 200 -
+2025-05-08 18:09:35,916 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 18:09:35] "GET /api/files/uploads/images/group_6810d4a461eda98f32e098e6/1aa4857e-3dd4-403d-8362-a837f50ec675_Capture_decran_2025-04-30_200625.png?t=1746724175697 HTTP/1.1" 200 -
+2025-05-08 18:09:37,213 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 18:09:37] "OPTIONS /api/groups/6810d4a461eda98f32e098e6/messages HTTP/1.1" 200 -
+2025-05-08 18:09:37,471 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 18:09:37] "DELETE /api/groups/6810d4a461eda98f32e098e6/messages HTTP/1.1" 200 -
+2025-05-08 18:09:44,789 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 18:09:44] "OPTIONS /api/groups/6810ce4f61eda98f32e098d6/messages HTTP/1.1" 200 -
+2025-05-08 18:09:45,136 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 18:09:45] "GET /api/groups/6810ce4f61eda98f32e098d6/messages HTTP/1.1" 200 -
+2025-05-08 18:09:47,274 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 18:09:47] "OPTIONS /api/contacts HTTP/1.1" 200 -
+2025-05-08 18:09:47,593 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 18:09:47] "OPTIONS /api/contacts HTTP/1.1" 200 -
+2025-05-08 18:09:47,628 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 18:09:47] "GET /api/contacts HTTP/1.1" 200 -
+2025-05-08 18:09:47,950 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 18:09:47] "GET /api/contacts HTTP/1.1" 200 -
+2025-05-08 18:09:48,416 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 18:09:48] "OPTIONS /api/categories HTTP/1.1" 200 -
+2025-05-08 18:09:48,418 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 18:09:48] "OPTIONS /api/categories HTTP/1.1" 200 -
+2025-05-08 18:09:48,919 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 18:09:48] "OPTIONS /api/groups HTTP/1.1" 200 -
+2025-05-08 18:09:49,028 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 18:09:49] "GET /api/categories HTTP/1.1" 200 -
+2025-05-08 18:09:49,239 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 18:09:49] "OPTIONS /api/groups HTTP/1.1" 200 -
+2025-05-08 18:09:49,248 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 18:09:49] "GET /api/contacts HTTP/1.1" 200 -
+2025-05-08 18:09:49,284 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 18:09:49] "GET /api/groups HTTP/1.1" 200 -
+2025-05-08 18:09:49,347 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 18:09:49] "GET /api/categories HTTP/1.1" 200 -
+2025-05-08 18:09:49,569 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 18:09:49] "GET /api/contacts HTTP/1.1" 200 -
+2025-05-08 18:09:49,635 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 18:09:49] "GET /api/groups HTTP/1.1" 200 -
+2025-05-08 18:09:49,899 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 18:09:49] "GET /api/contacts HTTP/1.1" 200 -
+2025-05-08 18:09:50,223 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 18:09:50] "GET /api/contacts HTTP/1.1" 200 -
+2025-05-08 18:09:51,723 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 18:09:51] "OPTIONS /api/groups/6810d4a461eda98f32e098e6/messages HTTP/1.1" 200 -
+2025-05-08 18:09:51,982 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 18:09:51] "GET /api/groups/6810d4a461eda98f32e098e6/messages HTTP/1.1" 200 -
+2025-05-08 18:10:25,820 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 18:10:25] "OPTIONS /api/groups HTTP/1.1" 200 -
+2025-05-08 18:10:26,128 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 18:10:26] "OPTIONS /api/contacts HTTP/1.1" 200 -
+2025-05-08 18:10:26,130 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 18:10:26] "OPTIONS /api/groups HTTP/1.1" 200 -
+2025-05-08 18:10:26,133 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 18:10:26] "OPTIONS /api/contacts HTTP/1.1" 200 -
+2025-05-08 18:10:26,156 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 18:10:26] "GET /api/groups HTTP/1.1" 200 -
+2025-05-08 18:10:26,460 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 18:10:26] "GET /api/contacts HTTP/1.1" 200 -
+2025-05-08 18:10:26,491 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 18:10:26] "GET /api/groups HTTP/1.1" 200 -
+2025-05-08 18:10:26,784 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 18:10:26] "GET /api/contacts HTTP/1.1" 200 -
+2025-05-08 18:10:27,681 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 18:10:27] "OPTIONS /api/groups/681685fb2bbe2d434305d4b1/messages HTTP/1.1" 200 -
+2025-05-08 18:10:27,936 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 18:10:27] "GET /api/groups/681685fb2bbe2d434305d4b1/messages HTTP/1.1" 200 -
+2025-05-08 18:10:28,911 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 18:10:28] "OPTIONS /api/groups/681685fb2bbe2d434305d4b1/tasks HTTP/1.1" 200 -
+2025-05-08 18:10:29,226 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 18:10:29] "OPTIONS /api/groups/681685fb2bbe2d434305d4b1/tasks HTTP/1.1" 200 -
+2025-05-08 18:10:29,256 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 18:10:29] "GET /api/groups/681685fb2bbe2d434305d4b1/tasks HTTP/1.1" 200 -
+2025-05-08 18:10:29,568 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 18:10:29] "GET /api/groups/681685fb2bbe2d434305d4b1/tasks HTTP/1.1" 200 -
+2025-05-08 18:12:28,036 - werkzeug - INFO -  * Detected change in 'C:\\PFE_PROJECT\\ReactJs\\elite\\backend\\app.py', reloading
+2025-05-08 18:12:28,044 - werkzeug - INFO -  * Detected change in 'C:\\PFE_PROJECT\\ReactJs\\elite\\backend\\app.py', reloading
+2025-05-08 18:12:38,044 - quick_reply_model - INFO - Connecting to MongoDB at: mongodb://localhost:27017/
+2025-05-08 18:12:38,062 - quick_reply_model - INFO - Successfully connected to MongoDB
+2025-05-08 18:12:38,062 - quick_reply_model - INFO - Using database: elite_messaging
+2025-05-08 18:12:38,062 - quick_reply_model - INFO - Using collection: quick_replies
+2025-05-08 18:12:38,064 - quick_reply_model - INFO - Database already contains 100 quick replies. Skipping initialization.
+2025-05-08 18:12:38,175 - quick_reply_model - INFO - Connecting to MongoDB at: mongodb://localhost:27017/
+2025-05-08 18:12:38,193 - quick_reply_model - INFO - Successfully connected to MongoDB
+2025-05-08 18:12:38,193 - quick_reply_model - INFO - Using database: elite_messaging
+2025-05-08 18:12:38,194 - quick_reply_model - INFO - Using collection: quick_replies
+2025-05-08 18:12:38,196 - quick_reply_model - INFO - Database already contains 100 quick replies. Skipping initialization.
+2025-05-08 18:12:49,603 - enhanced_quick_replies - INFO - Initialized EnhancedQuickReplyGenerator with model: mistral
+2025-05-08 18:12:49,734 - werkzeug - WARNING -  * Debugger is active!
+2025-05-08 18:12:49,766 - werkzeug - INFO -  * Debugger PIN: 760-521-025
+2025-05-08 18:12:49,783 - enhanced_quick_replies - INFO - Initialized EnhancedQuickReplyGenerator with model: mistral
+2025-05-08 18:12:49,902 - werkzeug - WARNING -  * Debugger is active!
+2025-05-08 18:12:49,944 - werkzeug - INFO -  * Debugger PIN: 760-521-025
+2025-05-08 18:12:50,499 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 18:12:50] "GET /socket.io/?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NDY4MDg5ODUsImlhdCI6MTc0NjcyMjU4NSwic3ViIjoiNjgxMGE2YWE2MWVkYTk4ZjMyZTA5OGNiIn0.8lDI9thI5XVNLNxmLehkZ0YiKkrumKy7FbeKL3fk0i8&EIO=4&transport=polling&t=mkuhs41o HTTP/1.1" 200 -
+2025-05-08 18:12:52,479 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 18:12:52] "GET /socket.io/?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NDY4MDg5ODUsImlhdCI6MTc0NjcyMjU4NSwic3ViIjoiNjgxMGE2YWE2MWVkYTk4ZjMyZTA5OGNiIn0.8lDI9thI5XVNLNxmLehkZ0YiKkrumKy7FbeKL3fk0i8&EIO=4&transport=polling&t=mlblh7n3 HTTP/1.1" 200 -
+2025-05-08 18:12:52,813 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 18:12:52] "GET /socket.io/?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NDY4MDg5ODUsImlhdCI6MTc0NjcyMjU4NSwic3ViIjoiNjgxMGE2YWE2MWVkYTk4ZjMyZTA5OGNiIn0.8lDI9thI5XVNLNxmLehkZ0YiKkrumKy7FbeKL3fk0i8&EIO=4&transport=polling&t=mlblyk8f&sid=kqZ3_0PO05BmqbyZAAAB HTTP/1.1" 200 -
+2025-05-08 18:12:52,848 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 18:12:52] "POST /socket.io/?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NDY4MDg5ODUsImlhdCI6MTc0NjcyMjU4NSwic3ViIjoiNjgxMGE2YWE2MWVkYTk4ZjMyZTA5OGNiIn0.8lDI9thI5XVNLNxmLehkZ0YiKkrumKy7FbeKL3fk0i8&EIO=4&transport=polling&t=mlblvy9f&sid=kqZ3_0PO05BmqbyZAAAB HTTP/1.1" 200 -
+2025-05-08 18:12:53,064 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 18:12:53] "OPTIONS /api/groups/681685fb2bbe2d434305d4b1/messages HTTP/1.1" 200 -
+2025-05-08 18:12:53,234 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 18:12:53] "GET /api/groups/681685fb2bbe2d434305d4b1/messages HTTP/1.1" 200 -
+2025-05-08 18:15:43,647 - werkzeug - INFO -  * Detected change in 'C:\\PFE_PROJECT\\ReactJs\\elite\\backend\\app.py', reloading
+2025-05-08 18:15:43,756 - werkzeug - INFO -  * Detected change in 'C:\\PFE_PROJECT\\ReactJs\\elite\\backend\\app.py', reloading
+2025-05-08 18:15:54,797 - quick_reply_model - INFO - Connecting to MongoDB at: mongodb://localhost:27017/
+2025-05-08 18:15:54,818 - quick_reply_model - INFO - Successfully connected to MongoDB
+2025-05-08 18:15:54,818 - quick_reply_model - INFO - Using database: elite_messaging
+2025-05-08 18:15:54,819 - quick_reply_model - INFO - Using collection: quick_replies
+2025-05-08 18:15:54,821 - quick_reply_model - INFO - Database already contains 100 quick replies. Skipping initialization.
+2025-05-08 18:15:55,102 - quick_reply_model - INFO - Connecting to MongoDB at: mongodb://localhost:27017/
+2025-05-08 18:15:55,136 - quick_reply_model - INFO - Successfully connected to MongoDB
+2025-05-08 18:15:55,136 - quick_reply_model - INFO - Using database: elite_messaging
+2025-05-08 18:15:55,136 - quick_reply_model - INFO - Using collection: quick_replies
+2025-05-08 18:15:55,139 - quick_reply_model - INFO - Database already contains 100 quick replies. Skipping initialization.
+2025-05-08 18:15:55,462 - enhanced_quick_replies - INFO - Initialized EnhancedQuickReplyGenerator with model: mistral
+2025-05-08 18:15:55,566 - werkzeug - WARNING -  * Debugger is active!
+2025-05-08 18:15:55,591 - werkzeug - INFO -  * Debugger PIN: 760-521-025
+2025-05-08 18:15:55,752 - enhanced_quick_replies - INFO - Initialized EnhancedQuickReplyGenerator with model: mistral
+2025-05-08 18:15:55,871 - werkzeug - WARNING -  * Debugger is active!
+2025-05-08 18:15:55,890 - werkzeug - INFO -  * Debugger PIN: 760-521-025
+2025-05-08 18:15:56,077 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 18:15:56] "GET /socket.io/?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NDY4MDg5ODUsImlhdCI6MTc0NjcyMjU4NSwic3ViIjoiNjgxMGE2YWE2MWVkYTk4ZjMyZTA5OGNiIn0.8lDI9thI5XVNLNxmLehkZ0YiKkrumKy7FbeKL3fk0i8&EIO=4&transport=polling&t=mp29t99q HTTP/1.1" 200 -
+2025-05-08 18:15:56,126 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 18:15:56] "POST /socket.io/?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NDY4MDg5ODUsImlhdCI6MTc0NjcyMjU4NSwic3ViIjoiNjgxMGE2YWE2MWVkYTk4ZjMyZTA5OGNiIn0.8lDI9thI5XVNLNxmLehkZ0YiKkrumKy7FbeKL3fk0i8&EIO=4&transport=polling&t=mp99t9vt&sid=Z2Q_WePUBY3HilzyAAAA HTTP/1.1" 200 -
+2025-05-08 18:15:56,432 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 18:15:56] "GET /socket.io/?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NDY4MDg5ODUsImlhdCI6MTc0NjcyMjU4NSwic3ViIjoiNjgxMGE2YWE2MWVkYTk4ZjMyZTA5OGNiIn0.8lDI9thI5XVNLNxmLehkZ0YiKkrumKy7FbeKL3fk0i8&EIO=4&transport=polling&t=mp99v3tw&sid=Z2Q_WePUBY3HilzyAAAA HTTP/1.1" 200 -
+2025-05-08 18:15:56,789 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 18:15:56] "OPTIONS /api/groups/681685fb2bbe2d434305d4b1/messages HTTP/1.1" 200 -
+2025-05-08 18:15:57,055 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 18:15:57] "GET /api/groups/681685fb2bbe2d434305d4b1/messages HTTP/1.1" 200 -
+2025-05-08 18:26:31,760 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 18:26:31] "GET /api/health HTTP/1.1" 200 -
+2025-05-08 18:26:32,051 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 18:26:32] "[35m[1mPOST /api/quick-replies?test=true HTTP/1.1[0m" 500 -
+2025-05-08 18:33:24,551 - werkzeug - INFO -  * Detected change in 'C:\\PFE_PROJECT\\ReactJs\\elite\\backend\\app.py', reloading
+2025-05-08 18:33:25,117 - werkzeug - INFO -  * Detected change in 'C:\\PFE_PROJECT\\ReactJs\\elite\\backend\\app.py', reloading
+2025-05-08 18:33:33,686 - quick_reply_model - INFO - Connecting to MongoDB at: mongodb://localhost:27017/
+2025-05-08 18:33:33,700 - quick_reply_model - INFO - Successfully connected to MongoDB
+2025-05-08 18:33:33,701 - quick_reply_model - INFO - Using database: elite_messaging
+2025-05-08 18:33:33,701 - quick_reply_model - INFO - Using collection: quick_replies
+2025-05-08 18:33:33,703 - quick_reply_model - INFO - Database already contains 100 quick replies. Skipping initialization.
+2025-05-08 18:33:33,847 - quick_reply_model - INFO - Connecting to MongoDB at: mongodb://localhost:27017/
+2025-05-08 18:33:33,859 - quick_reply_model - INFO - Successfully connected to MongoDB
+2025-05-08 18:33:33,859 - quick_reply_model - INFO - Using database: elite_messaging
+2025-05-08 18:33:33,859 - quick_reply_model - INFO - Using collection: quick_replies
+2025-05-08 18:33:33,861 - quick_reply_model - INFO - Database already contains 100 quick replies. Skipping initialization.
+2025-05-08 18:33:34,179 - enhanced_quick_replies - INFO - Initialized EnhancedQuickReplyGenerator with model: mistral
+2025-05-08 18:33:34,254 - werkzeug - WARNING -  * Debugger is active!
+2025-05-08 18:33:34,270 - werkzeug - INFO -  * Debugger PIN: 760-521-025
+2025-05-08 18:33:34,322 - enhanced_quick_replies - INFO - Initialized EnhancedQuickReplyGenerator with model: mistral
+2025-05-08 18:33:34,387 - werkzeug - WARNING -  * Debugger is active!
+2025-05-08 18:33:34,402 - werkzeug - INFO -  * Debugger PIN: 760-521-025
+2025-05-08 18:33:34,557 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 18:33:34] "GET /socket.io/?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NDY4MDg5ODUsImlhdCI6MTc0NjcyMjU4NSwic3ViIjoiNjgxMGE2YWE2MWVkYTk4ZjMyZTA5OGNiIn0.8lDI9thI5XVNLNxmLehkZ0YiKkrumKy7FbeKL3fk0i8&EIO=4&transport=polling&t=nbstf87r HTTP/1.1" 200 -
+2025-05-08 18:33:34,569 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 18:33:34] "POST /socket.io/?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NDY4MDg5ODUsImlhdCI6MTc0NjcyMjU4NSwic3ViIjoiNjgxMGE2YWE2MWVkYTk4ZjMyZTA5OGNiIn0.8lDI9thI5XVNLNxmLehkZ0YiKkrumKy7FbeKL3fk0i8&EIO=4&transport=polling&t=nby01dc4&sid=SZfJi0bJNXYAe81VAAAA HTTP/1.1" 200 -
+2025-05-08 18:33:34,875 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 18:33:34] "GET /socket.io/?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NDY4MDg5ODUsImlhdCI6MTc0NjcyMjU4NSwic3ViIjoiNjgxMGE2YWE2MWVkYTk4ZjMyZTA5OGNiIn0.8lDI9thI5XVNLNxmLehkZ0YiKkrumKy7FbeKL3fk0i8&EIO=4&transport=polling&t=nby03u35&sid=SZfJi0bJNXYAe81VAAAA HTTP/1.1" 200 -
+2025-05-08 18:33:35,201 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 18:33:35] "GET /socket.io/?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NDY4MDg5ODUsImlhdCI6MTc0NjcyMjU4NSwic3ViIjoiNjgxMGE2YWE2MWVkYTk4ZjMyZTA5OGNiIn0.8lDI9thI5XVNLNxmLehkZ0YiKkrumKy7FbeKL3fk0i8&EIO=4&transport=polling&t=nby8x819&sid=SZfJi0bJNXYAe81VAAAA HTTP/1.1" 200 -
+2025-05-08 18:33:35,260 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 18:33:35] "OPTIONS /api/groups/681685fb2bbe2d434305d4b1/messages HTTP/1.1" 200 -
+2025-05-08 18:33:35,469 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 18:33:35] "GET /api/groups/681685fb2bbe2d434305d4b1/messages HTTP/1.1" 200 -
+2025-05-08 18:33:42,106 - werkzeug - INFO -  * Detected change in 'C:\\PFE_PROJECT\\ReactJs\\elite\\backend\\app.py', reloading
+2025-05-08 18:33:42,719 - werkzeug - INFO -  * Detected change in 'C:\\PFE_PROJECT\\ReactJs\\elite\\backend\\app.py', reloading
+2025-05-08 18:33:49,042 - quick_reply_model - INFO - Connecting to MongoDB at: mongodb://localhost:27017/
+2025-05-08 18:33:49,079 - quick_reply_model - INFO - Successfully connected to MongoDB
+2025-05-08 18:33:49,079 - quick_reply_model - INFO - Using database: elite_messaging
+2025-05-08 18:33:49,080 - quick_reply_model - INFO - Using collection: quick_replies
+2025-05-08 18:33:49,086 - quick_reply_model - INFO - Database already contains 100 quick replies. Skipping initialization.
+2025-05-08 18:33:49,640 - quick_reply_model - INFO - Connecting to MongoDB at: mongodb://localhost:27017/
+2025-05-08 18:33:49,657 - quick_reply_model - INFO - Successfully connected to MongoDB
+2025-05-08 18:33:49,657 - quick_reply_model - INFO - Using database: elite_messaging
+2025-05-08 18:33:49,657 - quick_reply_model - INFO - Using collection: quick_replies
+2025-05-08 18:33:49,659 - quick_reply_model - INFO - Database already contains 100 quick replies. Skipping initialization.
+2025-05-08 18:33:54,458 - enhanced_quick_replies - INFO - Initialized EnhancedQuickReplyGenerator with model: mistral
+2025-05-08 18:33:54,521 - werkzeug - WARNING -  * Debugger is active!
+2025-05-08 18:33:54,535 - werkzeug - INFO -  * Debugger PIN: 760-521-025
+2025-05-08 18:33:54,598 - enhanced_quick_replies - INFO - Initialized EnhancedQuickReplyGenerator with model: mistral
+2025-05-08 18:33:54,684 - werkzeug - WARNING -  * Debugger is active!
+2025-05-08 18:33:54,723 - werkzeug - INFO -  * Debugger PIN: 760-521-025
+2025-05-08 18:33:55,030 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 18:33:55] "GET /socket.io/?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NDY4MDg5ODUsImlhdCI6MTc0NjcyMjU4NSwic3ViIjoiNjgxMGE2YWE2MWVkYTk4ZjMyZTA5OGNiIn0.8lDI9thI5XVNLNxmLehkZ0YiKkrumKy7FbeKL3fk0i8&EIO=4&transport=polling&t=nc5xfpol HTTP/1.1" 200 -
+2025-05-08 18:33:55,073 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 18:33:55] "POST /socket.io/?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NDY4MDg5ODUsImlhdCI6MTc0NjcyMjU4NSwic3ViIjoiNjgxMGE2YWE2MWVkYTk4ZjMyZTA5OGNiIn0.8lDI9thI5XVNLNxmLehkZ0YiKkrumKy7FbeKL3fk0i8&EIO=4&transport=polling&t=ncdsu0es&sid=OtdqQT2tVgq2fO8cAAAA HTTP/1.1" 200 -
+2025-05-08 18:33:55,359 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 18:33:55] "GET /socket.io/?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NDY4MDg5ODUsImlhdCI6MTc0NjcyMjU4NSwic3ViIjoiNjgxMGE2YWE2MWVkYTk4ZjMyZTA5OGNiIn0.8lDI9thI5XVNLNxmLehkZ0YiKkrumKy7FbeKL3fk0i8&EIO=4&transport=polling&t=ncdsx0el&sid=OtdqQT2tVgq2fO8cAAAA HTTP/1.1" 200 -
+2025-05-08 18:33:55,728 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 18:33:55] "OPTIONS /api/groups/681685fb2bbe2d434305d4b1/messages HTTP/1.1" 200 -
+2025-05-08 18:33:55,979 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 18:33:55] "GET /api/groups/681685fb2bbe2d434305d4b1/messages HTTP/1.1" 200 -
+2025-05-08 18:34:11,882 - werkzeug - INFO -  * Detected change in 'C:\\PFE_PROJECT\\ReactJs\\elite\\backend\\app.py', reloading
+2025-05-08 18:34:12,336 - werkzeug - INFO -  * Detected change in 'C:\\PFE_PROJECT\\ReactJs\\elite\\backend\\app.py', reloading
+2025-05-08 18:34:20,145 - quick_reply_model - INFO - Connecting to MongoDB at: mongodb://localhost:27017/
+2025-05-08 18:34:20,157 - quick_reply_model - INFO - Successfully connected to MongoDB
+2025-05-08 18:34:20,158 - quick_reply_model - INFO - Using database: elite_messaging
+2025-05-08 18:34:20,158 - quick_reply_model - INFO - Using collection: quick_replies
+2025-05-08 18:34:20,160 - quick_reply_model - INFO - Database already contains 100 quick replies. Skipping initialization.
+2025-05-08 18:34:20,260 - quick_reply_model - INFO - Connecting to MongoDB at: mongodb://localhost:27017/
+2025-05-08 18:34:20,271 - quick_reply_model - INFO - Successfully connected to MongoDB
+2025-05-08 18:34:20,271 - quick_reply_model - INFO - Using database: elite_messaging
+2025-05-08 18:34:20,272 - quick_reply_model - INFO - Using collection: quick_replies
+2025-05-08 18:34:20,273 - quick_reply_model - INFO - Database already contains 100 quick replies. Skipping initialization.
+2025-05-08 18:34:24,175 - enhanced_quick_replies - INFO - Initialized EnhancedQuickReplyGenerator with model: mistral
+2025-05-08 18:34:24,253 - werkzeug - WARNING -  * Debugger is active!
+2025-05-08 18:34:24,256 - werkzeug - WARNING -  * Debugger is active!
+2025-05-08 18:34:24,271 - werkzeug - INFO -  * Debugger PIN: 760-521-025
+2025-05-08 18:34:24,274 - werkzeug - INFO -  * Debugger PIN: 760-521-025
+2025-05-08 18:34:24,624 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 18:34:24] "GET /socket.io/?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NDY4MDg5ODUsImlhdCI6MTc0NjcyMjU4NSwic3ViIjoiNjgxMGE2YWE2MWVkYTk4ZjMyZTA5OGNiIn0.8lDI9thI5XVNLNxmLehkZ0YiKkrumKy7FbeKL3fk0i8&EIO=4&transport=polling&t=nct3ttyo HTTP/1.1" 200 -
+2025-05-08 18:34:24,638 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 18:34:24] "POST /socket.io/?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NDY4MDg5ODUsImlhdCI6MTc0NjcyMjU4NSwic3ViIjoiNjgxMGE2YWE2MWVkYTk4ZjMyZTA5OGNiIn0.8lDI9thI5XVNLNxmLehkZ0YiKkrumKy7FbeKL3fk0i8&EIO=4&transport=polling&t=nd0mrbhn&sid=04-0OxTXPFGcuLuZAAAA HTTP/1.1" 200 -
+2025-05-08 18:34:24,943 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 18:34:24] "GET /socket.io/?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NDY4MDg5ODUsImlhdCI6MTc0NjcyMjU4NSwic3ViIjoiNjgxMGE2YWE2MWVkYTk4ZjMyZTA5OGNiIn0.8lDI9thI5XVNLNxmLehkZ0YiKkrumKy7FbeKL3fk0i8&EIO=4&transport=polling&t=nd0mtedc&sid=04-0OxTXPFGcuLuZAAAA HTTP/1.1" 200 -
+2025-05-08 18:34:25,254 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 18:34:25] "GET /socket.io/?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NDY4MDg5ODUsImlhdCI6MTc0NjcyMjU4NSwic3ViIjoiNjgxMGE2YWE2MWVkYTk4ZjMyZTA5OGNiIn0.8lDI9thI5XVNLNxmLehkZ0YiKkrumKy7FbeKL3fk0i8&EIO=4&transport=polling&t=nd0vmts9&sid=04-0OxTXPFGcuLuZAAAA HTTP/1.1" 200 -
+2025-05-08 18:34:25,286 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 18:34:25] "OPTIONS /api/groups/681685fb2bbe2d434305d4b1/messages HTTP/1.1" 200 -
+2025-05-08 18:34:25,524 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 18:34:25] "GET /api/groups/681685fb2bbe2d434305d4b1/messages HTTP/1.1" 200 -
+2025-05-08 19:15:36,220 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 19:15:36] "GET /socket.io/?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NDY4MDg5ODUsImlhdCI6MTc0NjcyMjU4NSwic3ViIjoiNjgxMGE2YWE2MWVkYTk4ZjMyZTA5OGNiIn0.8lDI9thI5XVNLNxmLehkZ0YiKkrumKy7FbeKL3fk0i8&EIO=4&transport=websocket&sid=04-0OxTXPFGcuLuZAAAA HTTP/1.1" 200 -
+2025-05-08 20:21:30,884 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 20:21:30] "GET /socket.io/?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NDY4MDg5ODUsImlhdCI6MTc0NjcyMjU4NSwic3ViIjoiNjgxMGE2YWE2MWVkYTk4ZjMyZTA5OGNiIn0.8lDI9thI5XVNLNxmLehkZ0YiKkrumKy7FbeKL3fk0i8&EIO=4&transport=polling&t=r6p3az2s HTTP/1.1" 200 -
+2025-05-08 20:21:33,699 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 20:21:33] "POST /socket.io/?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NDY4MDg5ODUsImlhdCI6MTc0NjcyMjU4NSwic3ViIjoiNjgxMGE2YWE2MWVkYTk4ZjMyZTA5OGNiIn0.8lDI9thI5XVNLNxmLehkZ0YiKkrumKy7FbeKL3fk0i8&EIO=4&transport=polling&t=r6rn7daw&sid=R2MSyxranf8JVRISAAAC HTTP/1.1" 200 -
+2025-05-08 20:21:33,700 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 20:21:33] "GET /socket.io/?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NDY4MDg5ODUsImlhdCI6MTc0NjcyMjU4NSwic3ViIjoiNjgxMGE2YWE2MWVkYTk4ZjMyZTA5OGNiIn0.8lDI9thI5XVNLNxmLehkZ0YiKkrumKy7FbeKL3fk0i8&EIO=4&transport=polling&t=r6rs9eto&sid=R2MSyxranf8JVRISAAAC HTTP/1.1" 200 -
+2025-05-08 20:21:33,955 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 20:21:33] "OPTIONS /api/groups/681685fb2bbe2d434305d4b1/messages HTTP/1.1" 200 -
+2025-05-08 20:21:34,563 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 20:21:34] "GET /api/groups/681685fb2bbe2d434305d4b1/messages HTTP/1.1" 200 -
+2025-05-08 20:38:14,473 - urllib3.connectionpool - DEBUG - Starting new HTTP connection (1): localhost:11434
+2025-05-08 20:38:16,505 - urllib3.connectionpool - DEBUG - http://localhost:11434 "GET /api/tags HTTP/1.1" 200 343
+2025-05-08 20:38:16,510 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 20:38:16] "GET /api/health HTTP/1.1" 200 -
+2025-05-08 20:38:17,229 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 20:38:17] "[35m[1mPOST /api/quick-replies?test=true HTTP/1.1[0m" 500 -
+2025-05-08 20:38:17,346 - werkzeug - ERROR - Error on request:
+Traceback (most recent call last):
+  File "C:\Users\ilyes\AppData\Local\Programs\Python\Python313\Lib\site-packages\werkzeug\debug\__init__.py", line 343, in debug_application
+    app_iter = self.app(environ, start_response)
+  File "C:\Users\ilyes\AppData\Local\Programs\Python\Python313\Lib\site-packages\flask\app.py", line 1488, in __call__
+    return self.wsgi_app(environ, start_response)
+           ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\ilyes\AppData\Local\Programs\Python\Python313\Lib\site-packages\flask_socketio\__init__.py", line 43, in __call__
+    return super(_SocketIOMiddleware, self).__call__(environ,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\ilyes\AppData\Local\Programs\Python\Python313\Lib\site-packages\engineio\middleware.py", line 74, in __call__
+    return self.wsgi_app(environ, start_response)
+           ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\ilyes\AppData\Local\Programs\Python\Python313\Lib\site-packages\flask\app.py", line 1466, in wsgi_app
+    response = self.handle_exception(e)
+  File "C:\Users\ilyes\AppData\Local\Programs\Python\Python313\Lib\site-packages\flask_cors\extension.py", line 176, in wrapped_function
+    return cors_after_request(app.make_response(f(*args, **kwargs)))
+                                                ~^^^^^^^^^^^^^^^^^
+  File "C:\Users\ilyes\AppData\Local\Programs\Python\Python313\Lib\site-packages\flask\app.py", line 1463, in wsgi_app
+    response = self.full_dispatch_request()
+  File "C:\Users\ilyes\AppData\Local\Programs\Python\Python313\Lib\site-packages\flask\app.py", line 872, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+  File "C:\Users\ilyes\AppData\Local\Programs\Python\Python313\Lib\site-packages\flask_cors\extension.py", line 176, in wrapped_function
+    return cors_after_request(app.make_response(f(*args, **kwargs)))
+                                                ~^^^^^^^^^^^^^^^^^
+  File "C:\Users\ilyes\AppData\Local\Programs\Python\Python313\Lib\site-packages\flask\app.py", line 870, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "C:\Users\ilyes\AppData\Local\Programs\Python\Python313\Lib\site-packages\flask\app.py", line 855, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "C:\PFE_PROJECT\ReactJs\elite\backend\app.py", line 1566, in generate_quick_replies
+    replies = get_enhanced_quick_replies(
+    
+  File "C:\PFE_PROJECT\ReactJs\elite\backend\enhanced_quick_replies.py", line 469, in get_enhanced_quick_replies
+    return enhanced_quick_reply_generator.generate_replies(
+    
+  File "C:\PFE_PROJECT\ReactJs\elite\backend\enhanced_quick_replies.py", line 412, in generate_replies
+    keywords = self.extract_keywords(message)
+  File "C:\PFE_PROJECT\ReactJs\elite\backend\enhanced_quick_replies.py", line 154, in extract_keywords
+    processed_text = self.preprocess_text(text)
+  File "C:\PFE_PROJECT\ReactJs\elite\backend\enhanced_quick_replies.py", line 133, in preprocess_text
+    tokens = word_tokenize(text)
+  File "C:\Users\ilyes\AppData\Local\Programs\Python\Python313\Lib\site-packages\nltk\tokenize\__init__.py", line 142, in word_tokenize
+  File "C:\Users\ilyes\AppData\Local\Programs\Python\Python313\Lib\site-packages\nltk\tokenize\__init__.py", line 119, in sent_tokenize
+    along with :class:`.PunktSentenceTokenizer`
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\ilyes\AppData\Local\Programs\Python\Python313\Lib\site-packages\nltk\tokenize\__init__.py", line 105, in _get_punkt_tokenizer
+    """
+    
+  File "C:\Users\ilyes\AppData\Local\Programs\Python\Python313\Lib\site-packages\nltk\tokenize\punkt.py", line 1744, in __init__
+    known abbreviation: {type1_in_abbrs}
+        ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\ilyes\AppData\Local\Programs\Python\Python313\Lib\site-packages\nltk\tokenize\punkt.py", line 1749, in load_lang
+    orthographic contexts in training: {type2_ortho_contexts}
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\ilyes\AppData\Local\Programs\Python\Python313\Lib\site-packages\nltk\data.py", line 579, in find
+LookupError: 
+**********************************************************************
+  Resource [93mpunkt_tab[0m not found.
+  Please use the NLTK Downloader to obtain the resource:
+
+  [31m>>> import nltk
+  >>> nltk.download('punkt_tab')
+  [0m
+  For more information see: https://www.nltk.org/data.html
+
+  Attempted to load [93mtokenizers/punkt_tab/english/[0m
+
+  Searched in:
+    - 'C:\\Users\\ilyes/nltk_data'
+    - 'C:\\Users\\ilyes\\AppData\\Local\\Programs\\Python\\Python313\\nltk_data'
+    - 'C:\\Users\\ilyes\\AppData\\Local\\Programs\\Python\\Python313\\share\\nltk_data'
+    - 'C:\\Users\\ilyes\\AppData\\Local\\Programs\\Python\\Python313\\lib\\nltk_data'
+    - 'C:\\Users\\ilyes\\AppData\\Roaming\\nltk_data'
+    - 'C:\\nltk_data'
+    - 'D:\\nltk_data'
+    - 'E:\\nltk_data'
+**********************************************************************
+
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\ilyes\AppData\Local\Programs\Python\Python313\Lib\site-packages\werkzeug\serving.py", line 370, in run_wsgi
+    execute(self.server.app)
+    ~~~~~~~^^^^^^^^^^^^^^^^^
+  File "C:\Users\ilyes\AppData\Local\Programs\Python\Python313\Lib\site-packages\werkzeug\serving.py", line 333, in execute
+    for data in application_iter:
+                ^^^^^^^^^^^^^^^^
+  File "C:\Users\ilyes\AppData\Local\Programs\Python\Python313\Lib\site-packages\werkzeug\debug\__init__.py", line 358, in debug_application
+    html = tb.render_debugger_html(
+    
+  File "C:\Users\ilyes\AppData\Local\Programs\Python\Python313\Lib\site-packages\werkzeug\debug\tbtools.py", line 346, in render_debugger_html
+    "summary": self.render_traceback_html(include_title=False),
+               ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\ilyes\AppData\Local\Programs\Python\Python313\Lib\site-packages\werkzeug\debug\tbtools.py", line 295, in render_traceback_html
+    row_parts.append(f"<li{info}>{frame.render_html(mark_library)}")
+                                  ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^
+  File "C:\Users\ilyes\AppData\Local\Programs\Python\Python313\Lib\site-packages\werkzeug\debug\tbtools.py", line 428, in render_html
+    render_line(lines[line_idx], "current")
+                ~~~~~^^^^^^^^^^
+IndexError: list index out of range
+2025-05-08 20:49:56,889 - urllib3.connectionpool - DEBUG - Starting new HTTP connection (1): localhost:11434
+2025-05-08 20:49:58,903 - urllib3.connectionpool - DEBUG - http://localhost:11434 "GET /api/tags HTTP/1.1" 200 343
+2025-05-08 20:49:58,905 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 20:49:58] "GET /api/health HTTP/1.1" 200 -
+2025-05-08 20:49:59,376 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 20:49:59] "[35m[1mPOST /api/quick-replies?test=true HTTP/1.1[0m" 500 -
+2025-05-08 20:49:59,386 - werkzeug - ERROR - Error on request:
+Traceback (most recent call last):
+  File "C:\Users\ilyes\AppData\Local\Programs\Python\Python313\Lib\site-packages\werkzeug\debug\__init__.py", line 343, in debug_application
+    app_iter = self.app(environ, start_response)
+  File "C:\Users\ilyes\AppData\Local\Programs\Python\Python313\Lib\site-packages\flask\app.py", line 1488, in __call__
+    return self.wsgi_app(environ, start_response)
+           ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\ilyes\AppData\Local\Programs\Python\Python313\Lib\site-packages\flask_socketio\__init__.py", line 43, in __call__
+    return super(_SocketIOMiddleware, self).__call__(environ,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\ilyes\AppData\Local\Programs\Python\Python313\Lib\site-packages\engineio\middleware.py", line 74, in __call__
+    return self.wsgi_app(environ, start_response)
+           ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\ilyes\AppData\Local\Programs\Python\Python313\Lib\site-packages\flask\app.py", line 1466, in wsgi_app
+    response = self.handle_exception(e)
+  File "C:\Users\ilyes\AppData\Local\Programs\Python\Python313\Lib\site-packages\flask_cors\extension.py", line 176, in wrapped_function
+    return cors_after_request(app.make_response(f(*args, **kwargs)))
+                                                ~^^^^^^^^^^^^^^^^^
+  File "C:\Users\ilyes\AppData\Local\Programs\Python\Python313\Lib\site-packages\flask\app.py", line 1463, in wsgi_app
+    response = self.full_dispatch_request()
+  File "C:\Users\ilyes\AppData\Local\Programs\Python\Python313\Lib\site-packages\flask\app.py", line 872, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+  File "C:\Users\ilyes\AppData\Local\Programs\Python\Python313\Lib\site-packages\flask_cors\extension.py", line 176, in wrapped_function
+    return cors_after_request(app.make_response(f(*args, **kwargs)))
+                                                ~^^^^^^^^^^^^^^^^^
+  File "C:\Users\ilyes\AppData\Local\Programs\Python\Python313\Lib\site-packages\flask\app.py", line 870, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "C:\Users\ilyes\AppData\Local\Programs\Python\Python313\Lib\site-packages\flask\app.py", line 855, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "C:\PFE_PROJECT\ReactJs\elite\backend\app.py", line 1566, in generate_quick_replies
+    replies = get_enhanced_quick_replies(
+    
+  File "C:\PFE_PROJECT\ReactJs\elite\backend\enhanced_quick_replies.py", line 469, in get_enhanced_quick_replies
+    return enhanced_quick_reply_generator.generate_replies(
+    
+  File "C:\PFE_PROJECT\ReactJs\elite\backend\enhanced_quick_replies.py", line 412, in generate_replies
+    keywords = self.extract_keywords(message)
+  File "C:\PFE_PROJECT\ReactJs\elite\backend\enhanced_quick_replies.py", line 154, in extract_keywords
+    processed_text = self.preprocess_text(text)
+  File "C:\PFE_PROJECT\ReactJs\elite\backend\enhanced_quick_replies.py", line 133, in preprocess_text
+    tokens = word_tokenize(text)
+  File "C:\Users\ilyes\AppData\Local\Programs\Python\Python313\Lib\site-packages\nltk\tokenize\__init__.py", line 142, in word_tokenize
+  File "C:\Users\ilyes\AppData\Local\Programs\Python\Python313\Lib\site-packages\nltk\tokenize\__init__.py", line 119, in sent_tokenize
+    along with :class:`.PunktSentenceTokenizer`
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\ilyes\AppData\Local\Programs\Python\Python313\Lib\site-packages\nltk\tokenize\__init__.py", line 105, in _get_punkt_tokenizer
+    """
+    
+  File "C:\Users\ilyes\AppData\Local\Programs\Python\Python313\Lib\site-packages\nltk\tokenize\punkt.py", line 1744, in __init__
+    known abbreviation: {type1_in_abbrs}
+        ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\ilyes\AppData\Local\Programs\Python\Python313\Lib\site-packages\nltk\tokenize\punkt.py", line 1749, in load_lang
+    orthographic contexts in training: {type2_ortho_contexts}
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\ilyes\AppData\Local\Programs\Python\Python313\Lib\site-packages\nltk\data.py", line 579, in find
+LookupError: 
+**********************************************************************
+  Resource [93mpunkt_tab[0m not found.
+  Please use the NLTK Downloader to obtain the resource:
+
+  [31m>>> import nltk
+  >>> nltk.download('punkt_tab')
+  [0m
+  For more information see: https://www.nltk.org/data.html
+
+  Attempted to load [93mtokenizers/punkt_tab/english/[0m
+
+  Searched in:
+    - 'C:\\Users\\ilyes/nltk_data'
+    - 'C:\\Users\\ilyes\\AppData\\Local\\Programs\\Python\\Python313\\nltk_data'
+    - 'C:\\Users\\ilyes\\AppData\\Local\\Programs\\Python\\Python313\\share\\nltk_data'
+    - 'C:\\Users\\ilyes\\AppData\\Local\\Programs\\Python\\Python313\\lib\\nltk_data'
+    - 'C:\\Users\\ilyes\\AppData\\Roaming\\nltk_data'
+    - 'C:\\nltk_data'
+    - 'D:\\nltk_data'
+    - 'E:\\nltk_data'
+**********************************************************************
+
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\ilyes\AppData\Local\Programs\Python\Python313\Lib\site-packages\werkzeug\serving.py", line 370, in run_wsgi
+    execute(self.server.app)
+    ~~~~~~~^^^^^^^^^^^^^^^^^
+  File "C:\Users\ilyes\AppData\Local\Programs\Python\Python313\Lib\site-packages\werkzeug\serving.py", line 333, in execute
+    for data in application_iter:
+                ^^^^^^^^^^^^^^^^
+  File "C:\Users\ilyes\AppData\Local\Programs\Python\Python313\Lib\site-packages\werkzeug\debug\__init__.py", line 358, in debug_application
+    html = tb.render_debugger_html(
+    
+  File "C:\Users\ilyes\AppData\Local\Programs\Python\Python313\Lib\site-packages\werkzeug\debug\tbtools.py", line 346, in render_debugger_html
+    "summary": self.render_traceback_html(include_title=False),
+               ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\ilyes\AppData\Local\Programs\Python\Python313\Lib\site-packages\werkzeug\debug\tbtools.py", line 295, in render_traceback_html
+    row_parts.append(f"<li{info}>{frame.render_html(mark_library)}")
+                                  ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^
+  File "C:\Users\ilyes\AppData\Local\Programs\Python\Python313\Lib\site-packages\werkzeug\debug\tbtools.py", line 428, in render_html
+    render_line(lines[line_idx], "current")
+                ~~~~~^^^^^^^^^^
+IndexError: list index out of range
+2025-05-08 21:06:40,313 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 21:06:40] "GET /socket.io/?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NDY4MDg5ODUsImlhdCI6MTc0NjcyMjU4NSwic3ViIjoiNjgxMGE2YWE2MWVkYTk4ZjMyZTA5OGNiIn0.8lDI9thI5XVNLNxmLehkZ0YiKkrumKy7FbeKL3fk0i8&EIO=4&transport=websocket&sid=R2MSyxranf8JVRISAAAC HTTP/1.1" 200 -
+2025-05-08 21:42:12,418 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 21:42:12] "GET /socket.io/?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NDY4MDg5ODUsImlhdCI6MTc0NjcyMjU4NSwic3ViIjoiNjgxMGE2YWE2MWVkYTk4ZjMyZTA5OGNiIn0.8lDI9thI5XVNLNxmLehkZ0YiKkrumKy7FbeKL3fk0i8&EIO=4&transport=polling&t=u2ijomrr HTTP/1.1" 200 -
+2025-05-08 21:42:12,657 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 21:42:12] "POST /socket.io/?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NDY4MDg5ODUsImlhdCI6MTc0NjcyMjU4NSwic3ViIjoiNjgxMGE2YWE2MWVkYTk4ZjMyZTA5OGNiIn0.8lDI9thI5XVNLNxmLehkZ0YiKkrumKy7FbeKL3fk0i8&EIO=4&transport=polling&t=u2ixhjzk&sid=eAbINtvaTZ_jUwRLAAAE HTTP/1.1" 200 -
+2025-05-08 21:42:12,748 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 21:42:12] "GET /socket.io/?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NDY4MDg5ODUsImlhdCI6MTc0NjcyMjU4NSwic3ViIjoiNjgxMGE2YWE2MWVkYTk4ZjMyZTA5OGNiIn0.8lDI9thI5XVNLNxmLehkZ0YiKkrumKy7FbeKL3fk0i8&EIO=4&transport=polling&t=u2ixl1sd&sid=eAbINtvaTZ_jUwRLAAAE HTTP/1.1" 200 -
+2025-05-08 21:42:12,766 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 21:42:12] "GET /socket.io/?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NDY4MDg5ODUsImlhdCI6MTc0NjcyMjU4NSwic3ViIjoiNjgxMGE2YWE2MWVkYTk4ZjMyZTA5OGNiIn0.8lDI9thI5XVNLNxmLehkZ0YiKkrumKy7FbeKL3fk0i8&EIO=4&transport=polling&t=u2j6h32d&sid=eAbINtvaTZ_jUwRLAAAE HTTP/1.1" 200 -
+2025-05-08 21:42:13,148 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 21:42:13] "OPTIONS /api/groups/681685fb2bbe2d434305d4b1/messages HTTP/1.1" 200 -
+2025-05-08 21:42:13,413 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 21:42:13] "GET /api/groups/681685fb2bbe2d434305d4b1/messages HTTP/1.1" 200 -
+2025-05-08 21:44:24,260 - urllib3.connectionpool - DEBUG - Starting new HTTP connection (1): localhost:11434
+2025-05-08 21:44:26,279 - urllib3.connectionpool - DEBUG - http://localhost:11434 "GET /api/tags HTTP/1.1" 200 343
+2025-05-08 21:44:26,281 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 21:44:26] "GET /api/health HTTP/1.1" 200 -
+2025-05-08 21:44:26,457 - werkzeug - INFO - 127.0.0.1 - - [08/May/2025 21:44:26] "[35m[1mPOST /api/quick-replies?test=true HTTP/1.1[0m" 500 -
+2025-05-08 21:44:26,471 - werkzeug - ERROR - Error on request:
+Traceback (most recent call last):
+  File "C:\Users\ilyes\AppData\Local\Programs\Python\Python313\Lib\site-packages\werkzeug\debug\__init__.py", line 343, in debug_application
+    app_iter = self.app(environ, start_response)
+  File "C:\Users\ilyes\AppData\Local\Programs\Python\Python313\Lib\site-packages\flask\app.py", line 1488, in __call__
+    return self.wsgi_app(environ, start_response)
+           ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\ilyes\AppData\Local\Programs\Python\Python313\Lib\site-packages\flask_socketio\__init__.py", line 43, in __call__
+    return super(_SocketIOMiddleware, self).__call__(environ,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\ilyes\AppData\Local\Programs\Python\Python313\Lib\site-packages\engineio\middleware.py", line 74, in __call__
+    return self.wsgi_app(environ, start_response)
+           ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\ilyes\AppData\Local\Programs\Python\Python313\Lib\site-packages\flask\app.py", line 1466, in wsgi_app
+    response = self.handle_exception(e)
+  File "C:\Users\ilyes\AppData\Local\Programs\Python\Python313\Lib\site-packages\flask_cors\extension.py", line 176, in wrapped_function
+    return cors_after_request(app.make_response(f(*args, **kwargs)))
+                                                ~^^^^^^^^^^^^^^^^^
+  File "C:\Users\ilyes\AppData\Local\Programs\Python\Python313\Lib\site-packages\flask\app.py", line 1463, in wsgi_app
+    response = self.full_dispatch_request()
+  File "C:\Users\ilyes\AppData\Local\Programs\Python\Python313\Lib\site-packages\flask\app.py", line 872, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+  File "C:\Users\ilyes\AppData\Local\Programs\Python\Python313\Lib\site-packages\flask_cors\extension.py", line 176, in wrapped_function
+    return cors_after_request(app.make_response(f(*args, **kwargs)))
+                                                ~^^^^^^^^^^^^^^^^^
+  File "C:\Users\ilyes\AppData\Local\Programs\Python\Python313\Lib\site-packages\flask\app.py", line 870, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "C:\Users\ilyes\AppData\Local\Programs\Python\Python313\Lib\site-packages\flask\app.py", line 855, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "C:\PFE_PROJECT\ReactJs\elite\backend\app.py", line 1566, in generate_quick_replies
+    replies = get_enhanced_quick_replies(
+    
+  File "C:\PFE_PROJECT\ReactJs\elite\backend\enhanced_quick_replies.py", line 469, in get_enhanced_quick_replies
+    return enhanced_quick_reply_generator.generate_replies(
+    
+  File "C:\PFE_PROJECT\ReactJs\elite\backend\enhanced_quick_replies.py", line 412, in generate_replies
+    keywords = self.extract_keywords(message)
+  File "C:\PFE_PROJECT\ReactJs\elite\backend\enhanced_quick_replies.py", line 154, in extract_keywords
+    processed_text = self.preprocess_text(text)
+  File "C:\PFE_PROJECT\ReactJs\elite\backend\enhanced_quick_replies.py", line 133, in preprocess_text
+    tokens = word_tokenize(text)
+  File "C:\Users\ilyes\AppData\Local\Programs\Python\Python313\Lib\site-packages\nltk\tokenize\__init__.py", line 142, in word_tokenize
+  File "C:\Users\ilyes\AppData\Local\Programs\Python\Python313\Lib\site-packages\nltk\tokenize\__init__.py", line 119, in sent_tokenize
+    along with :class:`.PunktSentenceTokenizer`
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\ilyes\AppData\Local\Programs\Python\Python313\Lib\site-packages\nltk\tokenize\__init__.py", line 105, in _get_punkt_tokenizer
+    """
+    
+  File "C:\Users\ilyes\AppData\Local\Programs\Python\Python313\Lib\site-packages\nltk\tokenize\punkt.py", line 1744, in __init__
+    known abbreviation: {type1_in_abbrs}
+        ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\ilyes\AppData\Local\Programs\Python\Python313\Lib\site-packages\nltk\tokenize\punkt.py", line 1749, in load_lang
+    orthographic contexts in training: {type2_ortho_contexts}
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\ilyes\AppData\Local\Programs\Python\Python313\Lib\site-packages\nltk\data.py", line 579, in find
+LookupError: 
+**********************************************************************
+  Resource [93mpunkt_tab[0m not found.
+  Please use the NLTK Downloader to obtain the resource:
+
+  [31m>>> import nltk
+  >>> nltk.download('punkt_tab')
+  [0m
+  For more information see: https://www.nltk.org/data.html
+
+  Attempted to load [93mtokenizers/punkt_tab/english/[0m
+
+  Searched in:
+    - 'C:\\Users\\ilyes/nltk_data'
+    - 'C:\\Users\\ilyes\\AppData\\Local\\Programs\\Python\\Python313\\nltk_data'
+    - 'C:\\Users\\ilyes\\AppData\\Local\\Programs\\Python\\Python313\\share\\nltk_data'
+    - 'C:\\Users\\ilyes\\AppData\\Local\\Programs\\Python\\Python313\\lib\\nltk_data'
+    - 'C:\\Users\\ilyes\\AppData\\Roaming\\nltk_data'
+    - 'C:\\nltk_data'
+    - 'D:\\nltk_data'
+    - 'E:\\nltk_data'
+**********************************************************************
+
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\ilyes\AppData\Local\Programs\Python\Python313\Lib\site-packages\werkzeug\serving.py", line 370, in run_wsgi
+    execute(self.server.app)
+    ~~~~~~~^^^^^^^^^^^^^^^^^
+  File "C:\Users\ilyes\AppData\Local\Programs\Python\Python313\Lib\site-packages\werkzeug\serving.py", line 333, in execute
+    for data in application_iter:
+                ^^^^^^^^^^^^^^^^
+  File "C:\Users\ilyes\AppData\Local\Programs\Python\Python313\Lib\site-packages\werkzeug\debug\__init__.py", line 358, in debug_application
+    html = tb.render_debugger_html(
+    
+  File "C:\Users\ilyes\AppData\Local\Programs\Python\Python313\Lib\site-packages\werkzeug\debug\tbtools.py", line 346, in render_debugger_html
+    "summary": self.render_traceback_html(include_title=False),
+               ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\ilyes\AppData\Local\Programs\Python\Python313\Lib\site-packages\werkzeug\debug\tbtools.py", line 295, in render_traceback_html
+    row_parts.append(f"<li{info}>{frame.render_html(mark_library)}")
+                                  ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^
+  File "C:\Users\ilyes\AppData\Local\Programs\Python\Python313\Lib\site-packages\werkzeug\debug\tbtools.py", line 428, in render_html
+    render_line(lines[line_idx], "current")
+                ~~~~~^^^^^^^^^^
+IndexError: list index out of range
+2025-05-08 21:45:04,826 - werkzeug - INFO -  * Detected change in 'C:\\PFE_PROJECT\\ReactJs\\elite\\backend\\app.py', reloading
+2025-05-08 21:45:05,124 - werkzeug - INFO -  * Detected change in 'C:\\PFE_PROJECT\\ReactJs\\elite\\backend\\app.py', reloading

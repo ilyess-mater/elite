@@ -52,7 +52,7 @@ function MessagingPage({ user, textSize }) {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Fetch categories first
+        // Fetch categories first - this will also create department categories automatically
         const categoriesResponse = await axios.get("/api/categories", {
           headers: {
             Authorization: `Bearer ${localStorage.getItem("token")}`,
@@ -61,7 +61,11 @@ function MessagingPage({ user, textSize }) {
         setCategories(categoriesResponse.data);
 
         // Then fetch contacts
-        const contactsResponse = await axios.get("/api/contacts");
+        const contactsResponse = await axios.get("/api/contacts", {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+        });
 
         // Get IDs of removed chats from localStorage
         const removedChats = JSON.parse(
@@ -93,6 +97,14 @@ function MessagingPage({ user, textSize }) {
         });
 
         setContacts(contactsWithAvatars);
+
+        // Fetch categories again to ensure we have the latest department categories
+        const updatedCategoriesResponse = await axios.get("/api/categories", {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+        });
+        setCategories(updatedCategoriesResponse.data);
       } catch (error) {
         console.error("Error fetching data:", error);
       }
@@ -621,6 +633,207 @@ function MessagingPage({ user, textSize }) {
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
+
+  // Handle department categories scrolling and hover effects
+  useEffect(() => {
+    // Create a reference to the ResizeObserver that we can access in the cleanup function
+    let resizeObserver;
+
+    // Wait for DOM to be fully rendered
+    setTimeout(() => {
+      // Get scroll buttons and containers
+      const deptScrollLeftBtn = document.querySelector(
+        ".department-categories-scroll-container .scroll-left-btn"
+      );
+      const deptScrollRightBtn = document.querySelector(
+        ".department-categories-scroll-container .scroll-right-btn"
+      );
+      const deptScrollContainer = document.querySelector(
+        ".department-categories-scroll-content"
+      );
+
+      const userScrollLeftBtn = document.querySelector(
+        ".user-categories-scroll-container .scroll-left-btn"
+      );
+      const userScrollRightBtn = document.querySelector(
+        ".user-categories-scroll-container .scroll-right-btn"
+      );
+      const userScrollContainer = document.querySelector(
+        ".user-categories-scroll-content"
+      );
+
+      // Function to check if scrolling is needed
+      function checkScrollNeeded(container, leftBtn, rightBtn) {
+        if (!container || !leftBtn || !rightBtn) return;
+
+        // Check if content width is greater than container width
+        const isScrollNeeded = container.scrollWidth > container.clientWidth;
+
+        // Add or remove the 'scrollable' class based on whether scrolling is needed
+        if (isScrollNeeded) {
+          container.parentNode.classList.add("scrollable");
+        } else {
+          container.parentNode.classList.remove("scrollable");
+        }
+      }
+
+      // Define scroll functions
+      function scrollLeftDept() {
+        if (deptScrollContainer) {
+          deptScrollContainer.scrollBy({ left: -80, behavior: "smooth" });
+        }
+      }
+
+      function scrollRightDept() {
+        if (deptScrollContainer) {
+          deptScrollContainer.scrollBy({ left: 80, behavior: "smooth" });
+        }
+      }
+
+      function scrollLeftUser() {
+        if (userScrollContainer) {
+          userScrollContainer.scrollBy({ left: -80, behavior: "smooth" });
+        }
+      }
+
+      function scrollRightUser() {
+        if (userScrollContainer) {
+          userScrollContainer.scrollBy({ left: 80, behavior: "smooth" });
+        }
+      }
+
+      // Add event listeners for department categories
+      if (deptScrollLeftBtn && deptScrollContainer) {
+        deptScrollLeftBtn.onclick = scrollLeftDept;
+      }
+
+      if (deptScrollRightBtn && deptScrollContainer) {
+        deptScrollRightBtn.onclick = scrollRightDept;
+      }
+
+      // Add event listeners for user categories
+      if (userScrollLeftBtn && userScrollContainer) {
+        userScrollLeftBtn.onclick = scrollLeftUser;
+      }
+
+      if (userScrollRightBtn && userScrollContainer) {
+        userScrollRightBtn.onclick = scrollRightUser;
+      }
+
+      // Check if scrolling is needed initially
+      checkScrollNeeded(
+        deptScrollContainer,
+        deptScrollLeftBtn,
+        deptScrollRightBtn
+      );
+      checkScrollNeeded(
+        userScrollContainer,
+        userScrollLeftBtn,
+        userScrollRightBtn
+      );
+
+      // Add resize observer to check when content changes
+      resizeObserver = new ResizeObserver(() => {
+        checkScrollNeeded(
+          deptScrollContainer,
+          deptScrollLeftBtn,
+          deptScrollRightBtn
+        );
+        checkScrollNeeded(
+          userScrollContainer,
+          userScrollLeftBtn,
+          userScrollRightBtn
+        );
+      });
+
+      if (deptScrollContainer) resizeObserver.observe(deptScrollContainer);
+      if (userScrollContainer) resizeObserver.observe(userScrollContainer);
+
+      // Add hover effect with category color for all category items
+      const allCategoryItems = document.querySelectorAll(
+        ".department-category, .user-categories-scroll-content .category-filter-item"
+      );
+
+      allCategoryItems.forEach((category) => {
+        const colorElement = category.querySelector(".category-filter-color");
+        if (colorElement) {
+          const color = window.getComputedStyle(colorElement).backgroundColor;
+
+          // Add mouseenter event to set the glow color
+          category.addEventListener("mouseenter", () => {
+            // Extract RGB values and create a more vibrant glow color
+            const rgbValues = color.match(/\d+/g);
+            if (rgbValues && rgbValues.length >= 3) {
+              const glowColor = `rgba(${rgbValues[0]}, ${rgbValues[1]}, ${rgbValues[2]}, 0.7)`;
+              category.style.setProperty("--hover-glow-color", glowColor);
+            } else {
+              category.style.setProperty("--hover-glow-color", color);
+            }
+          });
+        }
+      });
+
+      // Set glow color for "All" button
+      const allButton = document.querySelector(".all-filter-item");
+      if (allButton) {
+        allButton.addEventListener("mouseenter", () => {
+          allButton.style.setProperty(
+            "--hover-glow-color",
+            "rgba(74, 118, 168, 0.7)"
+          );
+        });
+      }
+
+      // Log for debugging
+      console.log("Scroll buttons initialized:", {
+        deptLeft: deptScrollLeftBtn,
+        deptRight: deptScrollRightBtn,
+        userLeft: userScrollLeftBtn,
+        userRight: userScrollRightBtn,
+      });
+    }, 500); // Wait 500ms for DOM to be ready
+
+    // Clean up
+    return () => {
+      const deptScrollLeftBtn = document.querySelector(
+        ".department-categories-scroll-container .scroll-left-btn"
+      );
+      const deptScrollRightBtn = document.querySelector(
+        ".department-categories-scroll-container .scroll-right-btn"
+      );
+      const userScrollLeftBtn = document.querySelector(
+        ".user-categories-scroll-container .scroll-left-btn"
+      );
+      const userScrollRightBtn = document.querySelector(
+        ".user-categories-scroll-container .scroll-right-btn"
+      );
+
+      // Remove event listeners
+      if (deptScrollLeftBtn) deptScrollLeftBtn.onclick = null;
+      if (deptScrollRightBtn) deptScrollRightBtn.onclick = null;
+      if (userScrollLeftBtn) userScrollLeftBtn.onclick = null;
+      if (userScrollRightBtn) userScrollRightBtn.onclick = null;
+
+      // Disconnect resize observer if it exists
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+      }
+
+      // Remove hover event listeners
+      const allCategoryItems = document.querySelectorAll(
+        ".department-category, .user-categories-scroll-content .category-filter-item"
+      );
+      allCategoryItems.forEach((category) => {
+        category.removeEventListener("mouseenter", () => {});
+      });
+
+      // Remove All button event listener
+      const allButton = document.querySelector(".all-filter-item");
+      if (allButton) {
+        allButton.removeEventListener("mouseenter", () => {});
+      }
+    };
+  }, [categories]); // Re-run when categories change
 
   // Generate random avatar color based on user name
   function generateAvatar(name) {
@@ -1560,40 +1773,160 @@ function MessagingPage({ user, textSize }) {
 
         {/* Category filter */}
         {categories.length > 0 && (
-          <div className="category-filter">
-            <div
-              className={`category-filter-item ${
-                selectedCategory === null ? "active" : ""
-              }`}
-              style={
-                selectedCategory === null
-                  ? { backgroundColor: "#4A76A8", color: "white" }
-                  : {}
-              }
-              onClick={() => setSelectedCategory(null)}
-            >
-              <span className="category-filter-name">All</span>
+          <div className="category-filter-wrapper">
+            <div className="category-filter-sections">
+              {/* Department categories section */}
+              {categories.some((c) => c.isDepartmentCategory) && (
+                <div className="category-filter-section">
+                  <div className="category-section-label">Departments</div>
+                  <div className="department-categories-scroll-container">
+                    <button className="scroll-left-btn dept-scroll-btn">
+                      <i className="fas fa-chevron-left"></i>
+                    </button>
+                    <div className="department-categories-scroll-content">
+                      {/* All button as first item */}
+                      <div
+                        className={`category-filter-item all-filter-item ${
+                          selectedCategory === null ? "active" : ""
+                        }`}
+                        style={
+                          selectedCategory === null
+                            ? {
+                                backgroundColor: "#4A76A8",
+                                color: "white",
+                                minWidth: "fit-content",
+                              }
+                            : {
+                                borderColor: "#4A76A8",
+                                minWidth: "fit-content",
+                              }
+                        }
+                        onClick={() => setSelectedCategory(null)}
+                        title="Show all conversations"
+                      >
+                        <span className="category-filter-name">All</span>
+                      </div>
+
+                      {/* Department categories */}
+                      {categories
+                        .filter((category) => category.isDepartmentCategory)
+                        .map((category) => (
+                          <div
+                            key={category.id}
+                            className={`category-filter-item department-category ${
+                              selectedCategory === category.id ? "active" : ""
+                            }`}
+                            style={
+                              selectedCategory === category.id
+                                ? {
+                                    backgroundColor: category.color,
+                                    color: "white",
+                                    minWidth: "fit-content",
+                                  }
+                                : {
+                                    borderColor: category.color,
+                                    minWidth: "fit-content",
+                                  }
+                            }
+                            onClick={() => setSelectedCategory(category.id)}
+                            title={`${category.name} Department`}
+                          >
+                            <div
+                              className="category-filter-color"
+                              style={{ backgroundColor: category.color }}
+                            ></div>
+                            <span className="category-filter-name">
+                              {category.name}
+                            </span>
+                            <span className="category-filter-badge">
+                              Department
+                            </span>
+                          </div>
+                        ))}
+                    </div>
+                    <button className="scroll-right-btn dept-scroll-btn">
+                      <i className="fas fa-chevron-right"></i>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Real divider line */}
+              {categories.some((c) => c.isDepartmentCategory) &&
+                categories.some((c) => !c.isDepartmentCategory) && (
+                  <hr className="category-filter-hr" />
+                )}
+
+              {/* Custom categories section */}
+              {categories.some((c) => !c.isDepartmentCategory) && (
+                <div className="category-filter-section">
+                  <div className="category-section-label">
+                    Custom Categories
+                  </div>
+                  <div className="user-categories-scroll-container">
+                    <button className="scroll-left-btn user-scroll-btn">
+                      <i className="fas fa-chevron-left"></i>
+                    </button>
+                    <div className="user-categories-scroll-content">
+                      {/* All button for custom categories */}
+                      <div
+                        className={`category-filter-item all-filter-item custom-all-filter-item ${
+                          selectedCategory === null ? "active" : ""
+                        }`}
+                        style={
+                          selectedCategory === null
+                            ? {
+                                backgroundColor: "#4A76A8",
+                                color: "white",
+                                borderColor: "#4A76A8",
+                                minWidth: "fit-content",
+                              }
+                            : {
+                                borderColor: "#4A76A8",
+                                minWidth: "fit-content",
+                              }
+                        }
+                        onClick={() => setSelectedCategory(null)}
+                        title="Show all conversations"
+                      >
+                        <span className="category-filter-name">All</span>
+                      </div>
+
+                      {categories
+                        .filter((category) => !category.isDepartmentCategory)
+                        .map((category) => (
+                          <div
+                            key={category.id}
+                            className={`category-filter-item ${
+                              selectedCategory === category.id ? "active" : ""
+                            }`}
+                            style={
+                              selectedCategory === category.id
+                                ? {
+                                    backgroundColor: category.color,
+                                    color: "white",
+                                  }
+                                : { borderColor: category.color }
+                            }
+                            onClick={() => setSelectedCategory(category.id)}
+                          >
+                            <div
+                              className="category-filter-color"
+                              style={{ backgroundColor: category.color }}
+                            ></div>
+                            <span className="category-filter-name">
+                              {category.name}
+                            </span>
+                          </div>
+                        ))}
+                    </div>
+                    <button className="scroll-right-btn user-scroll-btn">
+                      <i className="fas fa-chevron-right"></i>
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
-            {categories.map((category) => (
-              <div
-                key={category.id}
-                className={`category-filter-item ${
-                  selectedCategory === category.id ? "active" : ""
-                }`}
-                style={
-                  selectedCategory === category.id
-                    ? { backgroundColor: category.color, color: "white" }
-                    : { borderColor: category.color }
-                }
-                onClick={() => setSelectedCategory(category.id)}
-              >
-                <div
-                  className="category-filter-color"
-                  style={{ backgroundColor: category.color }}
-                ></div>
-                <span className="category-filter-name">{category.name}</span>
-              </div>
-            ))}
           </div>
         )}
 
@@ -1679,9 +2012,22 @@ function MessagingPage({ user, textSize }) {
                         e.stopPropagation();
                         // Calculate position for the dropdown
                         const rect = e.currentTarget.getBoundingClientRect();
+
+                        // Calculate better positioning to ensure dropdown is fully visible
+                        const windowWidth = window.innerWidth;
+                        const dropdownWidth = 250; // Width of the dropdown
+
+                        // Ensure the dropdown doesn't go off-screen to the left
+                        let leftPos = Math.max(10, rect.left - 170);
+
+                        // Ensure the dropdown doesn't go off-screen to the right
+                        if (leftPos + dropdownWidth > windowWidth - 10) {
+                          leftPos = windowWidth - dropdownWidth - 10;
+                        }
+
                         setCategoryDropdownPosition({
                           top: rect.top - 10, // Position above the icon
-                          left: rect.left - 170, // Position to the left of the icon
+                          left: leftPos, // Adjusted left position
                         });
                         setShowCategoryDropdown(
                           showCategoryDropdown === contact.id
@@ -1747,8 +2093,28 @@ function MessagingPage({ user, textSize }) {
                   <div className="chat-contact-name">
                     {selectedContact.name}
                   </div>
-                  <div className="chat-contact-status">
-                    {selectedContact.isActive ? "Online" : "Offline"}
+                  <div className="chat-contact-info-row">
+                    <div className="chat-contact-status">
+                      {selectedContact.isActive ? "Online" : "Offline"}
+                    </div>
+                    {selectedContact.department && (
+                      <div className="chat-contact-department">
+                        <span className="department-label">Department:</span>
+                        <span
+                          className="department-value"
+                          style={{
+                            backgroundColor:
+                              categories.find(
+                                (c) =>
+                                  c.isDepartmentCategory &&
+                                  c.name === selectedContact.department
+                              )?.color || "#4A76A8",
+                          }}
+                        >
+                          {selectedContact.department}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -2318,50 +2684,89 @@ function MessagingPage({ user, textSize }) {
             </button>
           </div>
           <div className="category-dropdown-items">
-            <div
-              className="category-dropdown-item"
-              onClick={(e) => {
-                e.stopPropagation();
-                setContactCategory(showCategoryDropdown, null);
-              }}
-            >
-              <span className="category-dropdown-name">No Category</span>
-            </div>
-            {/* Find the current contact */}
-            {contacts.find((contact) => contact.id === showCategoryDropdown)
-              ?.categoryId && (
-              <div
-                className="category-dropdown-item remove-category"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setContactCategory(showCategoryDropdown, null);
-                }}
-              >
-                <div
-                  className="category-dropdown-color"
-                  style={{ backgroundColor: "#ff4d4d" }}
-                ></div>
-                <span className="category-dropdown-name">
-                  Remove from Category
-                </span>
+            {/* General options section */}
+            {(() => {
+              // Get the current contact's category
+              const contactId = showCategoryDropdown;
+              const contact = contacts.find((c) => c.id === contactId);
+              const categoryId = contact?.categoryId;
+              const category = categories.find((c) => c.id === categoryId);
+
+              if (categoryId) {
+                // If contact has a category and it's not a department category, show remove option
+                if (category && !category.isDepartmentCategory) {
+                  return (
+                    <div
+                      className="category-dropdown-item remove-category"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setContactCategory(showCategoryDropdown, null);
+                      }}
+                    >
+                      <div
+                        className="category-dropdown-color category-remove-indicator"
+                        style={{
+                          backgroundColor: category
+                            ? category.color
+                            : "#ff4d4d",
+                          boxShadow: `0 0 5px ${
+                            category ? category.color : "#ff4d4d"
+                          }`,
+                        }}
+                      ></div>
+                      <span className="category-dropdown-name">
+                        <div className="remove-category-line">Remove from</div>
+                        <div className="remove-category-line">
+                          <span style={{ color: category.color }}>
+                            {category.name}
+                          </span>{" "}
+                          Category
+                        </div>
+                      </span>
+                    </div>
+                  );
+                }
+              } else {
+                // If contact has no category, show "No Category" as selected
+                return (
+                  <div className="category-dropdown-item active">
+                    <span className="category-dropdown-name">No Category</span>
+                    <span className="category-dropdown-selected">
+                      <i className="fas fa-check"></i>
+                    </span>
+                  </div>
+                );
+              }
+              return null;
+            })()}
+
+            {/* User categories section */}
+            {categories.some((category) => !category.isDepartmentCategory) && (
+              <div className="category-dropdown-section-label">
+                Your Categories
               </div>
             )}
-            {categories.map((category) => (
-              <div
-                key={category.id}
-                className="category-dropdown-item"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setContactCategory(showCategoryDropdown, category.id);
-                }}
-              >
+
+            {categories
+              .filter((category) => !category.isDepartmentCategory)
+              .map((category) => (
                 <div
-                  className="category-dropdown-color"
-                  style={{ backgroundColor: category.color }}
-                ></div>
-                <span className="category-dropdown-name">{category.name}</span>
-              </div>
-            ))}
+                  key={category.id}
+                  className="category-dropdown-item"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setContactCategory(showCategoryDropdown, category.id);
+                  }}
+                >
+                  <div
+                    className="category-dropdown-color"
+                    style={{ backgroundColor: category.color }}
+                  ></div>
+                  <span className="category-dropdown-name">
+                    {category.name}
+                  </span>
+                </div>
+              ))}
           </div>
         </div>
       )}

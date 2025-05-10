@@ -2593,6 +2593,7 @@
   padding: 15px 20px 0;
   border-bottom: 1px solid #eaeaea;
   background-color: #fff;
+  border-radius: 8px 8px 0 0;
 }
 
 .dark-mode .group-tabs {

@@ -22,6 +22,134 @@ def verify_token(token):
     except jwt.InvalidTokenError:
         return None
 
+# Department color mapping
+DEPARTMENT_COLORS = {
+    "Human Resources": "#ff6b6b",
+    "Marketing": "#4ecdc4",
+    "Finance": "#45b7d1",
+    "IT": "#7367f0",
+    "Operations": "#ff9f43",
+    "Sales": "#28c76f",
+    "Customer Service": "#ea5455",
+    "Research & Development": "#9f44d3",
+    "Development": "#5a8dee",
+    "Legal": "#a66a2c",
+    "Executive": "#475f7b"
+}
+
+# Helper function to create department categories
+def ensure_department_categories(user_id):
+    """Create department categories for a user if they don't exist"""
+    from app import db, users_collection, contacts_collection
+
+    print(f"Ensuring department categories for user {user_id}")
+
+    # Get user's department
+    user = users_collection.find_one({"_id": ObjectId(user_id)})
+    if user and user.get("department"):
+        user_department = user.get("department")
+
+        # Check if user already has a category for their department
+        existing_category = db.categories.find_one({
+            "userId": ObjectId(user_id),
+            "name": user_department,
+            "isDepartmentCategory": True
+        })
+
+        # If not, create it
+        if not existing_category:
+            print(f"Creating department category for user's department: {user_department}")
+            color = DEPARTMENT_COLORS.get(user_department, "#4A76A8")
+            category = {
+                "userId": ObjectId(user_id),
+                "name": user_department,
+                "color": color,
+                "isDepartmentCategory": True,
+                "createdAt": datetime.utcnow()
+            }
+
+            category_id = db.categories.insert_one(category).inserted_id
+            print(f"Created department category with ID: {category_id}")
+
+            # Find all contacts in the same department
+            contacts = contacts_collection.find({
+                "userId": ObjectId(user_id),
+                "department": user_department
+            })
+
+            # Assign them to this category
+            update_count = 0
+            for contact in contacts:
+                contacts_collection.update_one(
+                    {"_id": contact["_id"]},
+                    {"$set": {"categoryId": category_id}}
+                )
+                update_count += 1
+
+            print(f"Updated {update_count} contacts with the new department category")
+
+    # Get all departments from user's contacts
+    contact_departments = contacts_collection.distinct(
+        "department",
+        {"userId": ObjectId(user_id)}
+    )
+
+    print(f"Found {len(contact_departments)} distinct departments in contacts")
+
+    # Create categories for each department if they don't exist
+    for department in contact_departments:
+        if not department:
+            continue
+
+        print(f"Processing department: {department}")
+        existing_category = db.categories.find_one({
+            "userId": ObjectId(user_id),
+            "name": department,
+            "isDepartmentCategory": True
+        })
+
+        if not existing_category:
+            print(f"Creating category for department: {department}")
+            color = DEPARTMENT_COLORS.get(department, "#4A76A8")
+            category = {
+                "userId": ObjectId(user_id),
+                "name": department,
+                "color": color,
+                "isDepartmentCategory": True,
+                "createdAt": datetime.utcnow()
+            }
+
+            category_id = db.categories.insert_one(category).inserted_id
+            print(f"Created department category with ID: {category_id}")
+
+            # Assign all contacts from this department to this category
+            result = contacts_collection.update_many(
+                {
+                    "userId": ObjectId(user_id),
+                    "department": department
+                },
+                {"$set": {"categoryId": category_id}}
+            )
+
+            print(f"Updated {result.modified_count} contacts with the new department category")
+        else:
+            print(f"Department category already exists for {department}")
+
+            # Make sure all contacts in this department have the category assigned
+            result = contacts_collection.update_many(
+                {
+                    "userId": ObjectId(user_id),
+                    "department": department,
+                    "$or": [
+                        {"categoryId": {"$exists": False}},
+                        {"categoryId": None}
+                    ]
+                },
+                {"$set": {"categoryId": existing_category["_id"]}}
+            )
+
+            print(f"Updated {result.modified_count} contacts that were missing the department category")
+
 # Routes for category management
 @category_routes.route('/api/categories', methods=['GET'])
 def get_categories():
@@ -34,6 +162,11 @@ def get_categories():
 
     # Get database reference
     from app import db
+
+    # Ensure department categories exist
+    ensure_department_categories(user_id)
+
+    # Get all categories
     categories = db.categories.find({"userId": ObjectId(user_id)})
 
     # Format categories for the frontend
@@ -43,6 +176,7 @@ def get_categories():
             "id": str(category["_id"]),
             "name": category["name"],
             "color": category.get("color", "#4A76A8"),
+            "isDepartmentCategory": category.get("isDepartmentCategory", False),
             "createdAt": category["createdAt"].isoformat() if "createdAt" in category else None
         })
 
