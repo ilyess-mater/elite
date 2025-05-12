@@ -207,11 +207,9 @@ function AdminMaster({ user }) {
 
   // Filtrer les messages en fonction du terme de recherche
   const filteredMessages = allMessages.filter((message) => {
-    // Check if the message is from the current admin master and is encrypted
-    // If so, don't show it in the admin panel (same behavior as regular admin)
-    if (message.senderId === user.id && message.encrypted) {
-      return false;
-    }
+    // For encrypted messages, we'll show them with a placeholder text
+    // so we need to include them in the filter results
+    // The actual display is handled in the render section
 
     return (
       message.senderName
@@ -220,30 +218,38 @@ function AdminMaster({ user }) {
       message.receiverName
         .toLowerCase()
         .includes(messageSearchTerm.toLowerCase()) ||
-      message.text.toLowerCase().includes(messageSearchTerm.toLowerCase())
+      // For encrypted messages, we'll search for the placeholder text
+      (message.encrypted
+        ? "end-to-end encrypted message".includes(
+            messageSearchTerm.toLowerCase()
+          )
+        : message.text.toLowerCase().includes(messageSearchTerm.toLowerCase()))
     );
   });
 
   // Filtrer les messages de groupe en fonction du terme de recherche
-  const filteredGroupMessages = groupMessages.filter(
-    (message) => {
-      // Check if the message is from the current admin master and is encrypted
-      // If so, don't show it in the admin panel (same behavior as regular admin)
-      if (message.senderId === user.id && message.encrypted) {
-        return false;
-      }
-      
-      return (
-        message.senderName
-          .toLowerCase()
-          .includes(groupMessageSearchTerm.toLowerCase()) ||
-        message.groupName
-          .toLowerCase()
-          .includes(groupMessageSearchTerm.toLowerCase()) ||
-        message.text.toLowerCase().includes(groupMessageSearchTerm.toLowerCase())
-      );
-    }
-  );
+  const filteredGroupMessages = groupMessages.filter((message) => {
+    // For encrypted messages, we'll show them with a placeholder text
+    // so we need to include them in the filter results
+    // The actual display is handled in the render section
+
+    return (
+      message.senderName
+        .toLowerCase()
+        .includes(groupMessageSearchTerm.toLowerCase()) ||
+      message.groupName
+        .toLowerCase()
+        .includes(groupMessageSearchTerm.toLowerCase()) ||
+      // For encrypted messages, we'll search for the placeholder text
+      (message.encrypted
+        ? "end-to-end encrypted message".includes(
+            groupMessageSearchTerm.toLowerCase()
+          )
+        : message.text
+            .toLowerCase()
+            .includes(groupMessageSearchTerm.toLowerCase()))
+    );
+  });
 
   // Get current users for pagination
   const indexOfLastUser = currentPage * usersPerPage;
