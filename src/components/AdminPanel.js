@@ -893,13 +893,17 @@ function AdminPanel({ user }) {
                           message.encrypted ? "encrypted-message" : ""
                         }`}
                       >
-                        {message.encrypted && (
-                          <i
-                            className="fas fa-lock encrypted-icon"
-                            title="End-to-End Encrypted Message"
-                          ></i>
+                        {message.encrypted ? (
+                          <>
+                            <i
+                              className="fas fa-lock encrypted-icon"
+                              title="End-to-End Encrypted Message"
+                            ></i>
+                            🔒 End-to-End Encrypted Message
+                          </>
+                        ) : (
+                          message.text
                         )}
-                        {message.text}
                       </td>
                       <td>{formatDate(message.timestamp)}</td>
                     </tr>
@@ -971,13 +975,17 @@ function AdminPanel({ user }) {
                           message.encrypted ? "encrypted-message" : ""
                         }`}
                       >
-                        {message.encrypted && (
-                          <i
-                            className="fas fa-lock encrypted-icon"
-                            title="End-to-End Encrypted Message"
-                          ></i>
+                        {message.encrypted ? (
+                          <>
+                            <i
+                              className="fas fa-lock encrypted-icon"
+                              title="End-to-End Encrypted Message"
+                            ></i>
+                            🔒 End-to-End Encrypted Message
+                          </>
+                        ) : (
+                          message.text
                         )}
-                        {message.text}
                       </td>
                       <td>{formatDate(message.timestamp)}</td>
                     </tr>

@@ -28,12 +28,6 @@ const UrgencySelector = forwardRef(
 
     // Urgency levels with their display names and icons
     const urgencyLevels = [
-      {
-        id: "low",
-        name: "Low Priority",
-        icon: "fa-arrow-down",
-        color: "#4caf50",
-      },
       { id: "normal", name: "Normal", icon: "fa-minus", color: "#2196f3" },
       {
         id: "high",
@@ -77,22 +71,41 @@ const UrgencySelector = forwardRef(
     // Toggle dropdown
     const toggleDropdown = (e) => {
       e.stopPropagation(); // Prevent event from bubbling up
+      e.preventDefault(); // Prevent form submission
       setIsOpen(!isOpen);
     };
 
     // Handle urgency selection
-    const handleUrgencySelect = (urgency) => {
+    const handleUrgencySelect = (urgency, e) => {
+      if (e) {
+        e.stopPropagation(); // Prevent event from bubbling up
+        e.preventDefault(); // Prevent form submission
+      }
       onUrgencyChange(urgency);
       setIsOpen(false);
     };
 
+    // Handle keydown to prevent form submission when pressing Enter
+    const handleKeyDown = (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+
     return (
-      <div className="urgency-selector" ref={dropdownRef}>
+      <div
+        className="urgency-selector"
+        ref={dropdownRef}
+        onKeyDown={handleKeyDown}
+      >
         <button
+          type="button"
           className="urgency-button"
           onClick={toggleDropdown}
           title={`Message Priority: ${selectedLevel.name}`}
           style={{ color: selectedLevel.color }}
+          onKeyDown={handleKeyDown}
         >
           <i className={`fas ${selectedLevel.icon}`}></i>
         </button>
@@ -108,7 +121,7 @@ const UrgencySelector = forwardRef(
                   className={`urgency-option ${
                     selectedUrgency === level.id ? "selected" : ""
                   }`}
-                  onClick={() => handleUrgencySelect(level.id)}
+                  onClick={(e) => handleUrgencySelect(level.id, e)}
                 >
                   <i
                     className={`fas ${level.icon}`}

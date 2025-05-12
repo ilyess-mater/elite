@@ -206,8 +206,14 @@ function AdminMaster({ user }) {
   );
 
   // Filtrer les messages en fonction du terme de recherche
-  const filteredMessages = allMessages.filter(
-    (message) =>
+  const filteredMessages = allMessages.filter((message) => {
+    // Check if the message is from the current admin master and is encrypted
+    // If so, don't show it in the admin panel (same behavior as regular admin)
+    if (message.senderId === user.id && message.encrypted) {
+      return false;
+    }
+
+    return (
       message.senderName
         .toLowerCase()
         .includes(messageSearchTerm.toLowerCase()) ||
@@ -215,18 +221,28 @@ function AdminMaster({ user }) {
         .toLowerCase()
         .includes(messageSearchTerm.toLowerCase()) ||
       message.text.toLowerCase().includes(messageSearchTerm.toLowerCase())
-  );
+    );
+  });
 
   // Filtrer les messages de groupe en fonction du terme de recherche
   const filteredGroupMessages = groupMessages.filter(
-    (message) =>
-      message.senderName
-        .toLowerCase()
-        .includes(groupMessageSearchTerm.toLowerCase()) ||
-      message.groupName
-        .toLowerCase()
-        .includes(groupMessageSearchTerm.toLowerCase()) ||
-      message.text.toLowerCase().includes(groupMessageSearchTerm.toLowerCase())
+    (message) => {
+      // Check if the message is from the current admin master and is encrypted
+      // If so, don't show it in the admin panel (same behavior as regular admin)
+      if (message.senderId === user.id && message.encrypted) {
+        return false;
+      }
+      
+      return (
+        message.senderName
+          .toLowerCase()
+          .includes(groupMessageSearchTerm.toLowerCase()) ||
+        message.groupName
+          .toLowerCase()
+          .includes(groupMessageSearchTerm.toLowerCase()) ||
+        message.text.toLowerCase().includes(groupMessageSearchTerm.toLowerCase())
+      );
+    }
   );
 
   // Get current users for pagination
@@ -833,7 +849,23 @@ function AdminMaster({ user }) {
                           <span>{message.receiverName}</span>
                         </div>
                       </td>
-                      <td className="message-content">{message.text}</td>
+                      <td
+                        className={`message-content ${
+                          message.encrypted ? "encrypted-message" : ""
+                        }`}
+                      >
+                        {message.encrypted ? (
+                          <>
+                            <i
+                              className="fas fa-lock encrypted-icon"
+                              title="End-to-End Encrypted Message"
+                            ></i>
+                            🔒 End-to-End Encrypted Message
+                          </>
+                        ) : (
+                          message.text
+                        )}
+                      </td>
                       <td>{formatDate(message.timestamp)}</td>
                     </tr>
                   ))}
@@ -899,7 +931,23 @@ function AdminMaster({ user }) {
                           <span>{message.groupName}</span>
                         </div>
                       </td>
-                      <td className="message-content">{message.text}</td>
+                      <td
+                        className={`message-content ${
+                          message.encrypted ? "encrypted-message" : ""
+                        }`}
+                      >
+                        {message.encrypted ? (
+                          <>
+                            <i
+                              className="fas fa-lock encrypted-icon"
+                              title="End-to-End Encrypted Message"
+                            ></i>
+                            🔒 End-to-End Encrypted Message
+                          </>
+                        ) : (
+                          message.text
+                        )}
+                      </td>
                       <td>{formatDate(message.timestamp)}</td>
                     </tr>
                   ))}

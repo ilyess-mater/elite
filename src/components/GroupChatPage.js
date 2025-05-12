@@ -2,10 +2,12 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import "../styles/groupchat.css";
 import "../styles/emoji-picker.css";
 import "../styles/search-results-list.css";
+import "../styles/urgency-selector.css";
 import axios from "axios";
 import { useAuth } from "../contexts/AuthContext";
 import TaskManagement from "./TaskManagement";
 import EmojiPicker from "emoji-picker-react";
+import UrgencySelector from "./UrgencySelector";
 
 function GroupChatPage({ user, textSize }) {
   const [groups, setGroups] = useState([]);
@@ -52,6 +54,8 @@ function GroupChatPage({ user, textSize }) {
     useState(false);
   const [messageToDelete, setMessageToDelete] = useState(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [messageUrgency, setMessageUrgency] = useState("normal"); // Default to normal priority
+  const urgencySelectorRef = useRef(null);
 
   // Search functionality
   const [searchResults, setSearchResults] = useState([]);
@@ -196,13 +200,18 @@ function GroupChatPage({ user, textSize }) {
           const groupName = group ? group.name : "Group";
           const senderName = message.senderName || "Someone";
 
-          const notification = new Notification(
-            `New message in ${groupName} from ${senderName}`,
-            {
-              body: message.text || "Sent an attachment",
-              icon: "/logo192.png",
-            }
-          );
+          // Create notification title based on urgency level - only for urgent and high priority
+          let notificationTitle = `New message in ${groupName} from ${senderName}`;
+          if (message.urgencyLevel === "high") {
+            notificationTitle = `🔶 HIGH PRIORITY: Message in ${groupName} from ${senderName}`;
+          } else if (message.urgencyLevel === "urgent") {
+            notificationTitle = `🔴 URGENT: Message in ${groupName} from ${senderName}`;
+          }
+
+          const notification = new Notification(notificationTitle, {
+            body: message.text || "Sent an attachment",
+            icon: "/logo192.png",
+          });
 
           notification.onclick = function () {
             window.focus();
@@ -319,8 +328,16 @@ function GroupChatPage({ user, textSize }) {
 
         // Only update title if we have a message or unread count
         if (message && totalUnreadCount > 0) {
-          // Create the new title with unread count
-          const newTitle = `(${totalUnreadCount}) ${message}`;
+          // Check if the message contains priority information
+          let priorityPrefix = "";
+          if (message.includes("URGENT:")) {
+            priorityPrefix = "🔴 ";
+          } else if (message.includes("HIGH PRIORITY:")) {
+            priorityPrefix = "🔶 ";
+          }
+
+          // Create the new title with unread count and priority prefix
+          const newTitle = `(${totalUnreadCount}) ${priorityPrefix}${message}`;
 
           // Set the title immediately
           document.title = newTitle;
@@ -536,8 +553,19 @@ function GroupChatPage({ user, textSize }) {
 
           // Update page title with sender and group name
           if (document.hidden) {
+            // Add priority prefix for tab notification
+            let priorityPrefix = "";
+            if (newMessage.urgencyLevel === "urgent") {
+              priorityPrefix = "URGENT: ";
+            } else if (newMessage.urgencyLevel === "high") {
+              priorityPrefix = "HIGH PRIORITY: ";
+            }
+
+            // Use the priority prefix in the title
+            const notificationTitle = `${priorityPrefix}New message in ${groupName} from ${senderName}`;
+
             updateTitle(
-              `New message in ${groupName} from ${senderName}`,
+              notificationTitle,
               true,
               1,
               newMessage.sender,
@@ -1173,6 +1201,7 @@ function GroupChatPage({ user, textSize }) {
       fileUrl: fileUrl,
       fileType: fileType,
       fileName: fileName,
+      urgencyLevel: messageUrgency,
       _isOptimistic: true, // Flag to identify optimistic messages
     };
 
@@ -1207,6 +1236,7 @@ function GroupChatPage({ user, textSize }) {
         fileUrl: fileUrl,
         fileType: fileType,
         fileName: fileName,
+        urgencyLevel: messageUrgency,
       });
 
       // No need to decrement the counter anymore since we're tracking per sender
@@ -1226,6 +1256,8 @@ function GroupChatPage({ user, textSize }) {
 
     // Close any open UI elements
     setShowEmojiPicker(false);
+
+    // Don't reset messageUrgency to keep the selected priority for the next message
   };
 
   const handleCreateGroup = async () => {
@@ -2130,58 +2162,83 @@ function GroupChatPage({ user, textSize }) {
           </div>
         </div>
         <div className="groups-list">
-          {sortedGroups.map((group) => (
-            <div
-              key={group.id}
-              className={`group-item ${
-                selectedGroup && selectedGroup.id === group.id ? "active" : ""
-              }`}
-              onClick={() => handleGroupSelect(group)}
-            >
-              <div
-                className="group-avatar"
-                style={{ backgroundColor: group.avatar }}
-              >
-                {group.name.charAt(0)}
-              </div>
-              <div className="group-info">
-                <div className="group-name">{group.name}</div>
-                <div className="group-last-message">
-                  {messages[group.id]?.length > 0
-                    ? (() => {
-                        const lastMessage =
-                          messages[group.id][messages[group.id].length - 1];
+          {sortedGroups.map((group) => {
+            // Check if there are any priority messages in this group
+            const groupMessages = messages[group.id] || [];
+            const hasUrgentMessage = groupMessages.some(
+              (msg) =>
+                msg.urgencyLevel === "urgent" &&
+                msg.sender !== user.id &&
+                !msg.isDeleted
+            );
+            const hasHighPriorityMessage = groupMessages.some(
+              (msg) =>
+                msg.urgencyLevel === "high" &&
+                msg.sender !== user.id &&
+                !msg.isDeleted
+            );
 
-                        return lastMessage.isDeleted
-                          ? "Message was deleted"
-                          : lastMessage.text ||
-                              (lastMessage.fileUrl || lastMessage.fileData
-                                ? "Sent a file"
-                                : "");
-                      })()
-                    : "No messages yet"}
+            // Determine priority class
+            let priorityClass = "";
+            if (hasUrgentMessage) {
+              priorityClass = "priority-urgent";
+            } else if (hasHighPriorityMessage) {
+              priorityClass = "priority-high";
+            }
+
+            return (
+              <div
+                key={group.id}
+                className={`group-item ${
+                  selectedGroup && selectedGroup.id === group.id ? "active" : ""
+                } ${priorityClass}`}
+                onClick={() => handleGroupSelect(group)}
+              >
+                <div
+                  className="group-avatar"
+                  style={{ backgroundColor: group.avatar }}
+                >
+                  {group.name.charAt(0)}
                 </div>
-              </div>
-              <div className="group-meta">
-                {group.lastMessageTime && (
-                  <div className="group-time">
-                    {formatTime(group.lastMessageTime)}
+                <div className="group-info">
+                  <div className="group-name">{group.name}</div>
+                  <div className="group-last-message">
+                    {messages[group.id]?.length > 0
+                      ? (() => {
+                          const lastMessage =
+                            messages[group.id][messages[group.id].length - 1];
+
+                          return lastMessage.isDeleted
+                            ? "Message was deleted"
+                            : lastMessage.text ||
+                                (lastMessage.fileUrl || lastMessage.fileData
+                                  ? "Sent a file"
+                                  : "");
+                        })()
+                      : "No messages yet"}
                   </div>
-                )}
-                <div className="group-info-meta">
-                  {group.unreadCount > 0 && (
-                    <div className="unread-count-bubble">
-                      {group.unreadCount > 9 ? "9+" : group.unreadCount}
+                </div>
+                <div className="group-meta">
+                  {group.lastMessageTime && (
+                    <div className="group-time">
+                      {formatTime(group.lastMessageTime)}
                     </div>
                   )}
-                  <div className="group-members-count">
-                    <i className="fas fa-users"></i>
-                    <span>{groupMemberCounts[group.id] || 0}</span>
+                  <div className="group-info-meta">
+                    {group.unreadCount > 0 && (
+                      <div className="unread-count-bubble">
+                        {group.unreadCount > 9 ? "9+" : group.unreadCount}
+                      </div>
+                    )}
+                    <div className="group-members-count">
+                      <i className="fas fa-users"></i>
+                      <span>{groupMemberCounts[group.id] || 0}</span>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
@@ -2262,7 +2319,7 @@ function GroupChatPage({ user, textSize }) {
             {activeTab === "chat" ? (
               <>
                 <div className="chat-messages">
-                  {messages[selectedGroup?.id]?.map((msg, index) => (
+                  {messages[selectedGroup?.id]?.map((msg) => (
                     <div
                       key={msg.id}
                       data-message-id={msg.id}
@@ -2272,6 +2329,10 @@ function GroupChatPage({ user, textSize }) {
                           : msg.sender === user.id
                           ? "outgoing"
                           : "incoming"
+                      } ${msg._isOptimistic ? "optimistic" : ""} ${
+                        msg.isDeleted ? "deleted" : ""
+                      } ${
+                        msg.urgencyLevel ? `urgency-${msg.urgencyLevel}` : ""
                       }`}
                     >
                       {!msg.isSystem && msg.sender !== user.id && (
@@ -2494,6 +2555,11 @@ function GroupChatPage({ user, textSize }) {
                     >
                       <i className="far fa-grin-alt"></i>
                     </button>
+                    <UrgencySelector
+                      ref={urgencySelectorRef}
+                      selectedUrgency={messageUrgency}
+                      onUrgencyChange={setMessageUrgency}
+                    />
                     <input
                       type="text"
                       value={message}

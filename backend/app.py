@@ -733,8 +733,9 @@ def get_all_messages():
         message_text = msg["text"]
         is_encrypted = msg.get("encrypted", False)
 
-        # If message is encrypted and admin is not an admin master, show placeholder text
-        if is_encrypted and not is_admin_master:
+        # If message is encrypted, always show placeholder text regardless of who sent it
+        # This ensures admin's own messages are also shown as encrypted
+        if is_encrypted:
             message_text = "🔒 End-to-End Encrypted Message"
 
         messages_list.append({
@@ -806,8 +807,9 @@ def get_all_group_messages():
         message_text = msg["text"]
         is_encrypted = msg.get("encrypted", False)
 
-        # If message is encrypted and admin is not an admin master, show placeholder text
-        if is_encrypted and not is_admin_master:
+        # If message is encrypted, always show placeholder text regardless of who sent it
+        # This ensures admin's own messages are also shown as encrypted
+        if is_encrypted:
             message_text = "🔒 End-to-End Encrypted Message"
 
         messages_list.append({
@@ -1621,9 +1623,12 @@ def handle_send_group_message(data):
         encrypted_data = data.get('encryptedData')
         iv = data.get('iv')
 
+        # Get urgency level if available
+        urgency_level = data.get('urgencyLevel', 'normal')  # Default to normal if not specified
+
         print(f"Group message data received: groupId={group_id}, hasText={bool(message_text.strip())}, "
               f"fileType={file_type}, fileName={file_name}, hasFileData={bool(file_data)}, fileUrl={file_url}, "
-              f"encrypted={encrypted}")
+              f"encrypted={encrypted}, urgencyLevel={urgency_level}")
 
         if not group_id or (not message_text.strip() and not file_data and not file_url and not encrypted_data):
             print("Missing required data for group message")
@@ -1689,7 +1694,8 @@ def handle_send_group_message(data):
             "fileType": file_type,
             "fileName": file_name,
             "messageType": message_type,
-            "encrypted": encrypted
+            "encrypted": encrypted,
+            "urgencyLevel": urgency_level
         }
 
         # Add encryption data if message is encrypted
@@ -1718,7 +1724,8 @@ def handle_send_group_message(data):
             "fileType": file_type,
             "fileName": file_name,
             "messageType": message_type,
-            "encrypted": encrypted
+            "encrypted": encrypted,
+            "urgencyLevel": urgency_level
         }
 
         # Add encryption data if message is encrypted
