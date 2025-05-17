@@ -1,6 +1,9 @@
 import React, { createContext, useState, useEffect, useContext } from "react";
 import axios from "../utils/axiosConfig";
-import { io } from "socket.io-client";
+import {
+  createSocketConnection,
+  setupEnhancedErrorHandling,
+} from "../utils/socketUtils";
 
 // Create the context
 const AuthContext = createContext();
@@ -28,10 +31,7 @@ export const AuthProvider = ({ children }) => {
           setUser(JSON.parse(storedUser));
 
           // Initialize socket connection with token for authentication
-          socket = io({
-            query: { token: storedToken },
-            path: "/socket.io",
-          });
+          socket = createSocketConnection(storedToken);
 
           // Set up socket event listeners
           setupSocketListeners();
@@ -55,21 +55,17 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const setupSocketListeners = () => {
-    socket.on("connect", () => {
-      console.log("Socket connected");
-    });
-
+    // Add JWT expiration handling
     socket.on("connect_error", (err) => {
-      console.error("Socket connection error:", err);
-      // Handle socket connection error (possibly token expired)
+      // Handle token expiration
       if (err.message === "jwt expired") {
+        console.error("JWT token expired, logging out");
         logout();
       }
     });
 
-    socket.on("disconnect", () => {
-      console.log("Socket disconnected");
-    });
+    // Setup enhanced error handling from our utility
+    setupEnhancedErrorHandling(socket);
   };
 
   const signIn = async (email, password) => {
@@ -92,10 +88,7 @@ export const AuthProvider = ({ children }) => {
       setUser(user);
 
       // Initialize socket connection
-      socket = io({
-        query: { token },
-        path: "/socket.io",
-      });
+      socket = createSocketConnection(token);
 
       // Set up socket event listeners
       setupSocketListeners();

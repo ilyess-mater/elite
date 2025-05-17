@@ -2003,40 +2003,14 @@
   box-shadow: 0 8px 16px rgba(0, 0, 0, 0.08);
 }
 
+/* Removed glow effect from main card */
 .analytics-card::before {
-  content: "";
-  position: absolute;
-  top: -50%;
-  left: -50%;
-  width: 200%;
-  height: 200%;
-  background: linear-gradient(
-    45deg,
-    rgba(255, 255, 255, 0) 0%,
-    rgba(74, 108, 247, 0.3) 50%,
-    rgba(255, 255, 255, 0) 100%
-  );
-  transform: rotate(45deg);
-  animation: admin-wave-shine 6s linear infinite,
-    admin-wave-pulse 8s ease-in-out infinite;
-  z-index: 1;
+  content: none;
 }
 
+/* Removed glow effect from main card */
 .analytics-card::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(
-    145deg,
-    rgba(74, 108, 247, 0.25) 0%,
-    rgba(255, 255, 255, 0) 60%
-  );
-  border-radius: 12px;
-  z-index: 0;
-  animation: admin-wave-ripple 10s ease-in-out infinite;
+  content: none;
 }
 
 .analytics-card:hover {
@@ -2618,7 +2592,14 @@
   overflow: hidden;
 }
 
-.analytics-stat::before {
+/* Apply glow effect only to specific inner elements */
+/* User Growth card: Total Users and Active Users sections */
+/* Message Activity card: Total Messages, Private, and Group sections */
+.analytics-card:nth-child(1) .analytics-stat:nth-child(1)::before,
+.analytics-card:nth-child(1) .analytics-stat:nth-child(2)::before,
+.analytics-card:nth-child(2) .analytics-stat:nth-child(1)::before,
+.analytics-card:nth-child(2) .breakdown-item:nth-child(1)::before,
+.analytics-card:nth-child(2) .breakdown-item:nth-child(2)::before {
   content: "";
   position: absolute;
   top: -50%;
@@ -2638,7 +2619,19 @@
   pointer-events: none;
 }
 
-.analytics-stat::after {
+/* For all other stat elements, remove the glow */
+.analytics-stat::before {
+  content: none;
+}
+
+/* Apply glow effect only to specific inner elements */
+/* User Growth card: Total Users and Active Users sections */
+/* Message Activity card: Total Messages, Private, and Group sections */
+.analytics-card:nth-child(1) .analytics-stat:nth-child(1)::after,
+.analytics-card:nth-child(1) .analytics-stat:nth-child(2)::after,
+.analytics-card:nth-child(2) .analytics-stat:nth-child(1)::after,
+.analytics-card:nth-child(2) .breakdown-item:nth-child(1)::after,
+.analytics-card:nth-child(2) .breakdown-item:nth-child(2)::after {
   content: "";
   position: absolute;
   top: 0;
@@ -2656,11 +2649,21 @@
   pointer-events: none;
 }
 
+/* For all other stat elements, remove the glow */
+.analytics-stat::after {
+  content: none;
+}
+
 .dark-mode .analytics-stat {
   background: #353547;
 }
 
-.dark-mode .analytics-stat::before {
+/* Dark mode styles for specific inner elements */
+.dark-mode .analytics-card:nth-child(1) .analytics-stat:nth-child(1)::before,
+.dark-mode .analytics-card:nth-child(1) .analytics-stat:nth-child(2)::before,
+.dark-mode .analytics-card:nth-child(2) .analytics-stat:nth-child(1)::before,
+.dark-mode .analytics-card:nth-child(2) .breakdown-item:nth-child(1)::before,
+.dark-mode .analytics-card:nth-child(2) .breakdown-item:nth-child(2)::before {
   background: linear-gradient(
     45deg,
     rgba(0, 0, 0, 0) 0%,
@@ -2669,7 +2672,12 @@
   );
 }
 
-.dark-mode .analytics-stat::after {
+/* Dark mode styles for specific inner elements */
+.dark-mode .analytics-card:nth-child(1) .analytics-stat:nth-child(1)::after,
+.dark-mode .analytics-card:nth-child(1) .analytics-stat:nth-child(2)::after,
+.dark-mode .analytics-card:nth-child(2) .analytics-stat:nth-child(1)::after,
+.dark-mode .analytics-card:nth-child(2) .breakdown-item:nth-child(1)::after,
+.dark-mode .analytics-card:nth-child(2) .breakdown-item:nth-child(2)::after {
   background: linear-gradient(
     145deg,
     rgba(74, 108, 247, 0.2) 0%,
@@ -2743,6 +2751,8 @@
   padding: 12px;
   border-radius: 8px;
   background: #f8f9fa;
+  position: relative;
+  overflow: hidden;
 }
 
 .dark-mode .breakdown-item {

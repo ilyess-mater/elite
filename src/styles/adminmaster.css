@@ -1733,6 +1733,8 @@
   padding: 12px;
   border-radius: 8px;
   background: #f8f9fa;
+  position: relative;
+  overflow: hidden;
 }
 
 .dark-mode .analytics-stat {
@@ -1805,6 +1807,8 @@
   padding: 12px;
   border-radius: 8px;
   background: #f8f9fa;
+  position: relative;
+  overflow: hidden;
 }
 
 .dark-mode .breakdown-item {

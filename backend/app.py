@@ -2481,13 +2481,15 @@ def handle_edit_message(data):
                 "isEdited": True
             }
 
-            # Notify sender and receiver
+            # Notify sender
             emit('message_edited', edited_message, room=sender_id)
-            if receiver_id in active_users:
-                emit('message_edited', edited_message, room=receiver_id)
+
+            # Notify receiver (even if not active - they'll see it when they connect)
+            emit('message_edited', edited_message, room=receiver_id)
 
     except Exception as e:
         print(f"Error editing message: {e}")
+        emit('error', {'message': 'Failed to edit message'})
 
 @socketio.on('edit_group_message')
 def handle_edit_group_message(data):
@@ -2564,10 +2566,16 @@ def handle_delete_message(data):
             if str(message["senderId"]) != user_id:
                 return
 
-            # Add user to deletedBy array instead of marking as globally deleted
+            # Mark the message as globally deleted instead of just adding to deletedBy
             db.group_messages.update_one(
                 {"_id": ObjectId(message_id)},
-                {"$addToSet": {"deletedBy": ObjectId(user_id)}}
+                {"$set": {
+                    "isDeleted": True,
+                    "text": "This message was deleted",
+                    "fileUrl": None,
+                    "fileType": None,
+                    "fileName": None
+                }}
             )
 
             # Get group ID
@@ -2577,23 +2585,29 @@ def handle_delete_message(data):
             sender = users_collection.find_one({"_id": ObjectId(user_id)})
             sender_name = sender["name"] if sender else "Unknown"
 
-            # Notify only the user who deleted the message
+            # Notify all users in the group
             emit('message_deleted', {
                 "groupId": group_id,
                 "messageId": message_id,
                 "senderName": sender_name,
                 "sender": user_id
-            }, room=request.sid)  # Only send to the user who deleted it
+            }, room=f"group_{group_id}")  # Send to all users in the group
 
         else:
             # Verify sender is the same as the deleter
             if str(message["senderId"]) != user_id:
                 return
 
-            # Add user to deletedBy array instead of marking as globally deleted
+            # Mark the message as globally deleted instead of just adding to deletedBy
             messages_collection.update_one(
                 {"_id": ObjectId(message_id)},
-                {"$addToSet": {"deletedBy": ObjectId(user_id)}}
+                {"$set": {
+                    "isDeleted": True,
+                    "text": "This message was deleted",
+                    "fileUrl": None,
+                    "fileType": None,
+                    "fileName": None
+                }}
             )
 
             # Get sender and receiver IDs
@@ -2604,11 +2618,13 @@ def handle_delete_message(data):
             deleted_message = {
                 "id": message_id,
                 "sender": sender_id,
-                "receiver": receiver_id
+                "receiver": receiver_id,
+                "isDeleted": True
             }
 
-            # Emit only to the user who deleted the message
-            emit('message_deleted', deleted_message, room=request.sid)
+            # Notify both sender and receiver
+            emit('message_deleted', deleted_message, room=sender_id)
+            emit('message_deleted', deleted_message, room=receiver_id)
     except Exception as e:
         print(f"Error deleting message: {e}")
         emit('error', {'message': 'Failed to delete message'})
@@ -2637,23 +2653,30 @@ def handle_delete_group_message(data):
         if str(message["senderId"]) != user_id:
             return
 
-        # Add user to deletedBy array instead of marking as globally deleted
+        # Mark the message as globally deleted instead of just adding to deletedBy
         db.group_messages.update_one(
             {"_id": ObjectId(message_id)},
-            {"$addToSet": {"deletedBy": ObjectId(user_id)}}
+            {"$set": {
+                "isDeleted": True,
+                "text": "This message was deleted",
+                "fileUrl": None,
+                "fileType": None,
+                "fileName": None
+            }}
         )
 
         # Get sender name for notification
         sender = users_collection.find_one({"_id": ObjectId(user_id)})
         sender_name = sender["name"] if sender else "Unknown"
 
-        # Notify only the user who deleted the message
+        # Notify all users in the group
         emit('message_deleted', {
             "groupId": group_id,
             "messageId": message_id,
             "senderName": sender_name,
-            "sender": user_id
-        }, room=request.sid)  # Only send to the user who deleted it
+            "sender": user_id,
+            "isDeleted": True
+        }, room=f"group_{group_id}")  # Send to all users in the group
     except Exception as e:
         print(f"Error deleting group message: {e}")
         emit('error', {'message': 'Failed to delete message'})
