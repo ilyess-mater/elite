@@ -217,87 +217,103 @@ function Sidebar({ activePage, setActivePage, isAdmin, onLogout, userName }) {
         </div>
 
         <nav className="sidebar-nav">
-          <ul>
-            <li
-              className={`sidebar-icon ${
-                activePage === "messaging" ? "active" : ""
-              }`}
-              onClick={() => setActivePage("messaging")}
-              title="Messages"
-            >
-              <i className="far fa-comment-dots"></i>
-              <span className="sidebar-text">Messages</span>
-            </li>
-
-            <li
-              className={`sidebar-icon ${
-                activePage === "contacts" ? "active" : ""
-              }`}
-              onClick={() => setActivePage("contacts")}
-              title="Contacts"
-            >
-              <i className="far fa-address-card"></i>
-              <span className="sidebar-text">Contacts</span>
-            </li>
-
-            <li
-              className={`sidebar-icon ${
-                activePage === "groups" ? "active" : ""
-              }`}
-              onClick={() => setActivePage("groups")}
-              title="Group Chats"
-            >
-              <i className="fas fa-user-friends"></i>
-              <span className="sidebar-text">Group Chats</span>
-            </li>
-
-            <li
-              className={`sidebar-icon ${
-                activePage === "settings" ? "active" : ""
-              }`}
-              onClick={() => setActivePage("settings")}
-              title="Settings"
-            >
-              <i className="fas fa-cog"></i>
-              <span className="sidebar-text">Settings</span>
-            </li>
-
-            <li
-              className={`sidebar-icon ${
-                activePage === "security" ? "active" : ""
-              }`}
-              onClick={() => setActivePage("security")}
-              title="Security"
-            >
-              <i className="fas fa-lock"></i>
-              <span className="sidebar-text">Security</span>
-            </li>
-
-            {isAdmin && (
+          {/* Messaging group */}
+          <div className="nav-group">
+            <div className="nav-group-title">Messaging</div>
+            <ul>
               <li
                 className={`sidebar-icon ${
-                  activePage === "admin" ? "active" : ""
+                  activePage === "messaging" ? "active" : ""
                 }`}
-                onClick={() => setActivePage("admin")}
-                title={
-                  userName &&
-                  window.user &&
-                  window.user.adminRole === "admin_master"
-                    ? "Admin Master"
-                    : "Admin Panel"
-                }
+                onClick={() => setActivePage("messaging")}
+                title="Messages"
               >
-                <i className="fas fa-user-cog"></i>
-                <span className="sidebar-text">
-                  {userName &&
-                  window.user &&
-                  window.user.adminRole === "admin_master"
-                    ? "Admin Master"
-                    : "Admin Panel"}
-                </span>
+                <i className="far fa-comment-dots"></i>
+                <span className="sidebar-text">Messages</span>
               </li>
-            )}
-          </ul>
+
+              <li
+                className={`sidebar-icon ${
+                  activePage === "contacts" ? "active" : ""
+                }`}
+                onClick={() => setActivePage("contacts")}
+                title="Contacts"
+              >
+                <i className="far fa-address-card"></i>
+                <span className="sidebar-text">Contacts</span>
+              </li>
+
+              <li
+                className={`sidebar-icon ${
+                  activePage === "groups" ? "active" : ""
+                }`}
+                onClick={() => setActivePage("groups")}
+                title="Group Chats"
+              >
+                <i className="fas fa-user-friends"></i>
+                <span className="sidebar-text">Group Chats</span>
+              </li>
+            </ul>
+          </div>
+
+          {/* Settings group */}
+          <div className="nav-group">
+            <div className="nav-group-title">Settings</div>
+            <ul>
+              <li
+                className={`sidebar-icon ${
+                  activePage === "settings" ? "active" : ""
+                }`}
+                onClick={() => setActivePage("settings")}
+                title="Preferences"
+              >
+                <i className="fas fa-cog"></i>
+                <span className="sidebar-text">Preferences</span>
+              </li>
+
+              <li
+                className={`sidebar-icon ${
+                  activePage === "security" ? "active" : ""
+                }`}
+                onClick={() => setActivePage("security")}
+                title="Security"
+              >
+                <i className="fas fa-lock"></i>
+                <span className="sidebar-text">Security</span>
+              </li>
+            </ul>
+          </div>
+
+          {/* Admin group - only shown if user is admin */}
+          {isAdmin && (
+            <div className="nav-group admin-group">
+              <div className="nav-group-title">Administration</div>
+              <ul>
+                <li
+                  className={`sidebar-icon ${
+                    activePage === "admin" ? "active" : ""
+                  }`}
+                  onClick={() => setActivePage("admin")}
+                  title={
+                    userName &&
+                    window.user &&
+                    window.user.adminRole === "admin_master"
+                      ? "Admin Master"
+                      : "Admin Panel"
+                  }
+                >
+                  <i className="fas fa-user-cog"></i>
+                  <span className="sidebar-text">
+                    {userName &&
+                    window.user &&
+                    window.user.adminRole === "admin_master"
+                      ? "Admin Master"
+                      : "Admin Panel"}
+                  </span>
+                </li>
+              </ul>
+            </div>
+          )}
         </nav>
 
         <div className="sidebar-footer">

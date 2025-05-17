@@ -1,0 +1,22 @@
+"filename", "language", "JSON", "JavaScript", "CSS", "pip requirements", "Python", "comment", "blank", "total"
+"c:\PFE_PROJECT\ReactJs\elite\backend\app.py", "Python", 0, 0, 0, 0, 117, 33, 29, 179
+"c:\PFE_PROJECT\ReactJs\elite\backend\encryption.py", "Python", 0, 0, 0, 0, 88, 17, 24, 129
+"c:\PFE_PROJECT\ReactJs\elite\backend\requirements.txt", "pip requirements", 0, 0, 0, 1, 0, 0, 0, 1
+"c:\PFE_PROJECT\ReactJs\elite\package-lock.json", "JSON", 7, 0, 0, 0, 0, 0, 0, 7
+"c:\PFE_PROJECT\ReactJs\elite\package.json", "JSON", 1, 0, 0, 0, 0, 0, 0, 1
+"c:\PFE_PROJECT\ReactJs\elite\src\components\AdminMaster.js", "JavaScript", 0, 44, 0, 0, 0, 8, 2, 54
+"c:\PFE_PROJECT\ReactJs\elite\src\components\AdminPanel.js", "JavaScript", 0, 32, 0, 0, 0, 0, 0, 32
+"c:\PFE_PROJECT\ReactJs\elite\src\components\AuthContainer.js", "JavaScript", 0, 3, 0, 0, 0, 0, 0, 3
+"c:\PFE_PROJECT\ReactJs\elite\src\components\GroupChatPage.js", "JavaScript", 0, 254, 0, 0, 0, 56, 53, 363
+"c:\PFE_PROJECT\ReactJs\elite\src\components\MessagingPage.js", "JavaScript", 0, 263, 0, 0, 0, 40, 44, 347
+"c:\PFE_PROJECT\ReactJs\elite\src\components\SettingsPage.js", "JavaScript", 0, 30, 0, 0, 0, 0, 1, 31
+"c:\PFE_PROJECT\ReactJs\elite\src\components\UrgencySelector.js", "JavaScript", 0, 115, 0, 0, 0, 15, 12, 142
+"c:\PFE_PROJECT\ReactJs\elite\src\contexts\EncryptionContext.js", "JavaScript", 0, 139, 0, 0, 0, 16, 32, 187
+"c:\PFE_PROJECT\ReactJs\elite\src\styles\admin.css", "CSS", 0, 0, 16, 0, 0, 0, 4, 20
+"c:\PFE_PROJECT\ReactJs\elite\src\styles\groupchat.css", "CSS", 0, 0, 219, 0, 0, 4, 23, 246
+"c:\PFE_PROJECT\ReactJs\elite\src\styles\messaging.css", "CSS", 0, 0, 136, 0, 0, 8, 28, 172
+"c:\PFE_PROJECT\ReactJs\elite\src\styles\settings.css", "CSS", 0, 0, 9, 0, 0, 0, 2, 11
+"c:\PFE_PROJECT\ReactJs\elite\src\styles\urgency-selector.css", "CSS", 0, 0, 163, 0, 0, 3, 32, 198
+"c:\PFE_PROJECT\ReactJs\elite\src\utils\encryption.js", "JavaScript", 0, 77, 0, 0, 0, 60, 16, 153
+"c:\PFE_PROJECT\ReactJs\elite\src\utils\globalnotificationmanager.js", "JavaScript", 0, 123, 0, 0, 0, 65, 36, 224
+"Total", "-", 8, 1080, 543, 1, 205, 325, 338, 2500

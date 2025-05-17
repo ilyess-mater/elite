@@ -4,6 +4,7 @@ import "../styles/emoji-picker.css";
 import "../styles/search-results-list.css";
 import "../styles/category-manager.css";
 import "../styles/urgency-selector.css";
+
 import axios from "axios";
 import { useAuth } from "../contexts/AuthContext";
 import { useEncryption } from "../contexts/EncryptionContext";
@@ -249,19 +250,85 @@ function MessagingPage({ user, textSize }) {
     left: 0,
   });
 
-  // Fetch categories, contacts, and all messages when component mounts
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        // Fetch categories first - this will also create department categories automatically
-        const categoriesResponse = await axios.get("/api/categories", {
+  // Function to update department categories based on current contacts in conversations
+  const updateDepartmentCategories = () => {
+    try {
+      // Get all contacts (including those removed from conversations)
+      axios
+        .get("/api/contacts", {
           headers: {
             Authorization: `Bearer ${localStorage.getItem("token")}`,
           },
-        });
-        setCategories(categoriesResponse.data);
+        })
+        .then((response) => {
+          const allContacts = response.data;
 
-        // Then fetch contacts
+          // Get IDs of removed chats from localStorage
+          const removedChats = JSON.parse(
+            localStorage.getItem("removedChats") || "[]"
+          );
+
+          // Get contacts that are in conversations (not removed)
+          const activeContacts = allContacts.filter(
+            (contact) => !removedChats.includes(contact.id)
+          );
+
+          // Get all departments from active contacts
+          const activeDepartments = new Set();
+          activeContacts.forEach((contact) => {
+            if (contact.department) {
+              activeDepartments.add(contact.department);
+            }
+          });
+
+          console.log("Active departments:", Array.from(activeDepartments));
+
+          // Fetch updated categories from server
+          axios
+            .get("/api/categories", {
+              headers: {
+                Authorization: `Bearer ${localStorage.getItem("token")}`,
+              },
+            })
+            .then((categoriesResponse) => {
+              // Filter out department categories that don't have active contacts
+              const filteredCategories = categoriesResponse.data.filter(
+                (category) => {
+                  // Keep non-department categories
+                  if (!category.isDepartmentCategory) return true;
+
+                  // Only keep department categories that have active contacts
+                  return activeDepartments.has(category.name);
+                }
+              );
+
+              console.log("Filtered categories:", filteredCategories);
+              setCategories(filteredCategories);
+            });
+        });
+    } catch (error) {
+      console.error("Error updating department categories:", error);
+    }
+  };
+
+  // Call updateDepartmentCategories when contacts change
+  useEffect(() => {
+    updateDepartmentCategories();
+  }, [contacts]);
+
+  // Fetch categories, contacts, and all messages when component mounts
+  useEffect(() => {
+    // Check if we need to update department categories (flag set by ContactsPage)
+    const needsUpdate =
+      localStorage.getItem("updateDepartmentCategories") === "true";
+    if (needsUpdate) {
+      // Clear the flag
+      localStorage.removeItem("updateDepartmentCategories");
+    }
+
+    const fetchData = async () => {
+      try {
+        // First fetch contacts
         const contactsResponse = await axios.get("/api/contacts", {
           headers: {
             Authorization: `Bearer ${localStorage.getItem("token")}`,
@@ -297,15 +364,42 @@ function MessagingPage({ user, textSize }) {
           };
         });
 
-        setContacts(contactsWithAvatars);
+        // Get all departments from active contacts
+        const activeDepartments = new Set();
+        filteredContacts.forEach((contact) => {
+          if (contact.department) {
+            activeDepartments.add(contact.department);
+          }
+        });
 
-        // Fetch categories again to ensure we have the latest department categories
-        const updatedCategoriesResponse = await axios.get("/api/categories", {
+        console.log(
+          "Active departments on mount:",
+          Array.from(activeDepartments)
+        );
+
+        // Then fetch categories and filter them immediately
+        const categoriesResponse = await axios.get("/api/categories", {
           headers: {
             Authorization: `Bearer ${localStorage.getItem("token")}`,
           },
         });
-        setCategories(updatedCategoriesResponse.data);
+
+        // Filter out department categories that don't have active contacts
+        const filteredCategories = categoriesResponse.data.filter(
+          (category) => {
+            // Keep non-department categories
+            if (!category.isDepartmentCategory) return true;
+
+            // Only keep department categories that have active contacts
+            return activeDepartments.has(category.name);
+          }
+        );
+
+        console.log("Filtered categories on mount:", filteredCategories);
+        setCategories(filteredCategories);
+
+        // Set contacts after filtering categories
+        setContacts(contactsWithAvatars);
 
         // Fetch all messages for all contacts to ensure proper sorting
         const allMessagesPromises = contactsWithAvatars.map(async (contact) => {
@@ -708,12 +802,7 @@ function MessagingPage({ user, textSize }) {
   const confirmDeleteChat = async () => {
     if (contactToDelete) {
       try {
-        // Delete the contact and associated messages on the backend
-        await axios.delete(`/api/contacts/${contactToDelete.id}`, {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
-        });
+        // We're not deleting the contact from the database anymore, just removing from conversations
 
         // Delete messages for this contact locally
         setMessages((prevMessages) => {
@@ -739,10 +828,13 @@ function MessagingPage({ user, textSize }) {
         if (!removedChats.includes(contactToDelete.id)) {
           removedChats.push(contactToDelete.id);
           localStorage.setItem("removedChats", JSON.stringify(removedChats));
+
+          // Check if we need to remove any department categories
+          updateDepartmentCategories();
         }
       } catch (error) {
-        console.error("Error deleting contact:", error);
-        alert("Failed to delete conversation. Please try again.");
+        console.error("Error removing conversation:", error);
+        alert("Failed to remove conversation. Please try again.");
       }
     }
 
@@ -1696,6 +1788,14 @@ function MessagingPage({ user, textSize }) {
 
   // Sort contacts by urgency level first, then by most recent message timestamp
   const sortedContacts = [...filteredContacts].sort((a, b) => {
+    // First check if contacts have lastMessageTime property (from new messages)
+    const aLastMessageTime = a.lastMessageTime
+      ? new Date(a.lastMessageTime).getTime()
+      : 0;
+    const bLastMessageTime = b.lastMessageTime
+      ? new Date(b.lastMessageTime).getTime()
+      : 0;
+
     // Get the latest message for each contact
     const aLastMessage =
       messages[a.id]?.length > 0
@@ -1726,12 +1826,17 @@ function MessagingPage({ user, textSize }) {
     }
 
     // If urgency levels are the same, sort by timestamp
-    const aTimestamp = aLastMessage?.timestamp
-      ? new Date(aLastMessage.timestamp).getTime()
-      : 0;
-    const bTimestamp = bLastMessage?.timestamp
-      ? new Date(bLastMessage.timestamp).getTime()
-      : 0;
+    // Use lastMessageTime if available, otherwise use message timestamp
+    const aTimestamp =
+      aLastMessageTime ||
+      (aLastMessage?.timestamp
+        ? new Date(aLastMessage.timestamp).getTime()
+        : 0);
+    const bTimestamp =
+      bLastMessageTime ||
+      (bLastMessage?.timestamp
+        ? new Date(bLastMessage.timestamp).getTime()
+        : 0);
 
     // Sort in descending order (newest first)
     return bTimestamp - aTimestamp;
@@ -2270,24 +2375,27 @@ function MessagingPage({ user, textSize }) {
                               messages[contact.id].length - 1
                             ];
 
-                          // Show urgency prefix for non-normal urgency levels
+                          // Show urgency prefix for non-normal urgency levels, but only for receivers
                           return (
                             <>
-                              {lastMessage.urgencyLevel === "urgent" && (
-                                <span className="urgency-prefix urgent">
-                                  URGENT:{" "}
-                                </span>
-                              )}
-                              {lastMessage.urgencyLevel === "high" && (
-                                <span className="urgency-prefix high">
-                                  HIGH:{" "}
-                                </span>
-                              )}
-                              {lastMessage.urgencyLevel === "low" && (
-                                <span className="urgency-prefix low">
-                                  Low:{" "}
-                                </span>
-                              )}
+                              {lastMessage.urgencyLevel === "urgent" &&
+                                lastMessage.sender !== user?.id && (
+                                  <span className="urgency-prefix urgent">
+                                    URGENT:{" "}
+                                  </span>
+                                )}
+                              {lastMessage.urgencyLevel === "high" &&
+                                lastMessage.sender !== user?.id && (
+                                  <span className="urgency-prefix high">
+                                    HIGH:{" "}
+                                  </span>
+                                )}
+                              {lastMessage.urgencyLevel === "low" &&
+                                lastMessage.sender !== user?.id && (
+                                  <span className="urgency-prefix low">
+                                    Low:{" "}
+                                  </span>
+                                )}
                               {/* Show message text or file indicator */}
                               {lastMessage.isDeleted
                                 ? "Message was deleted"
@@ -2338,12 +2446,12 @@ function MessagingPage({ user, textSize }) {
                         )}
                       </div>
                     )}
-                  {contact.unreadCount > 0 && (
-                    <div className="unread-badge">
-                      {contact.unreadCount > 9 ? "9+" : contact.unreadCount}
-                    </div>
-                  )}
                   <div className="contact-category-wrapper">
+                    {contact.unreadCount > 0 && (
+                      <div className="unread-badge">
+                        {contact.unreadCount > 9 ? "9+" : contact.unreadCount}
+                      </div>
+                    )}
                     <div
                       className="contact-category-dropdown"
                       onClick={(e) => {
@@ -2985,14 +3093,15 @@ function MessagingPage({ user, textSize }) {
         <div className="confirm-dialog-overlay">
           <div className="confirm-dialog">
             <div className="confirm-dialog-header">
-              <h3>Delete Conversation</h3>
+              <h3>Remove from Conversation</h3>
             </div>
             <div className="confirm-dialog-content">
               <p>
-                Are you sure you want to delete your conversation with{" "}
-                {contactToDelete?.name}?
+                Are you sure you want to remove {contactToDelete?.name} from
+                your conversations?
                 <br />
-                This action cannot be undone.
+                They will remain in your contacts list but won't appear in the
+                messaging sidebar.
               </p>
             </div>
             <div className="confirm-dialog-actions">

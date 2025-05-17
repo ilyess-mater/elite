@@ -28,8 +28,9 @@ export const AuthProvider = ({ children }) => {
           setUser(JSON.parse(storedUser));
 
           // Initialize socket connection with token for authentication
-          socket = io("http://localhost:5000", {
+          socket = io({
             query: { token: storedToken },
+            path: "/socket.io",
           });
 
           // Set up socket event listeners
@@ -91,8 +92,9 @@ export const AuthProvider = ({ children }) => {
       setUser(user);
 
       // Initialize socket connection
-      socket = io("http://localhost:5000", {
+      socket = io({
         query: { token },
+        path: "/socket.io",
       });
 
       // Set up socket event listeners

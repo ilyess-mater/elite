@@ -193,7 +193,7 @@
 }
 
 .group-item.priority-urgent::before {
-  content: '';
+  content: "";
   position: absolute;
   top: -3px;
   left: -3px;
@@ -242,7 +242,7 @@
 }
 
 .dark-mode .group-item.priority-urgent::before {
-  content: '';
+  content: "";
   position: absolute;
   top: -3px;
   left: -3px;
@@ -523,7 +523,7 @@
   transition: color 0.3s ease;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: normal;
 }
 
 .unread-badge {
@@ -561,10 +561,36 @@
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 180px;
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
 }
 
 .dark-mode .group-last-message {
   color: #a7a7b3;
+}
+
+/* Urgency prefix styles */
+.urgency-prefix {
+  font-weight: bold;
+  margin-right: 2px;
+  white-space: nowrap;
+}
+
+.urgency-prefix.urgent {
+  color: #f44336;
+}
+
+.urgency-prefix.high {
+  color: #ff9800;
+}
+
+.dark-mode .urgency-prefix.urgent {
+  color: #ff8a80;
+}
+
+.dark-mode .urgency-prefix.high {
+  color: #ffcc80;
 }
 
 .group-meta {
@@ -1487,6 +1513,34 @@
   margin-bottom: 15px;
 }
 
+/* Organize the group actions buttons */
+.group-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  padding-top: 15px;
+}
+
+/* Create sections in the group actions */
+.group-actions-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 10px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.dark-mode .group-actions-section {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.group-actions-section:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
 .chat-search-bar {
   width: 90%;
   margin: 5px auto;
@@ -1959,6 +2013,33 @@
   background-color: rgba(234, 134, 143, 0.1);
 }
 
+/* Delete messages button */
+.delete-messages-button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border: none;
+  border-radius: 4px;
+  background-color: #f5f5f5;
+  color: #dc3545;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.dark-mode .delete-messages-button {
+  background-color: #35354a;
+  color: #ea868f;
+}
+
+.delete-messages-button:hover {
+  background-color: rgba(220, 53, 69, 0.1);
+}
+
+.dark-mode .delete-messages-button:hover {
+  background-color: rgba(234, 134, 143, 0.1);
+}
+
 /* Create Group Modal */
 .modal-overlay {
   position: fixed;
@@ -2071,6 +2152,49 @@
 
 .dark-mode .modal-footer {
   border-top: 1px solid #3a3a48;
+}
+
+.modal-footer .cancel-button {
+  background-color: #f0f0f0;
+  color: #333;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  margin-right: 10px;
+}
+
+.modal-footer .confirm-button {
+  background-color: #4a76a8;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+/* Dark mode styles for modal buttons */
+.dark-mode .modal-footer .cancel-button {
+  background-color: #3a3a3a;
+  color: #e0e0e0;
+  border: 1px solid #555;
+}
+
+.dark-mode .modal-footer .confirm-button {
+  background-color: #4a76a8;
+  color: white;
+}
+
+/* Bell animation for mute/unmute toggle */
+.bell-animation {
+  transition: transform 0.3s ease;
+  margin-right: 8px;
+}
+
+.bell-animation:hover {
+  transform: scale(1.2);
 }
 
 /* Add Member Section */
@@ -3962,6 +4086,7 @@
   display: flex;
   align-items: center;
   position: relative;
+  flex-wrap: nowrap;
 }
 
 .group-members-count {
@@ -3974,6 +4099,7 @@
   padding: 3px 8px;
   border-radius: 12px;
   margin-top: 5px;
+  margin-left: 5px; /* Add margin to separate from unread count bubble */
 }
 
 .dark-mode .group-members-count {
@@ -3994,9 +4120,10 @@
   padding: 0 4px;
   font-weight: bold;
   box-shadow: 0 2px 4px rgba(255, 71, 87, 0.3);
-  margin-right: 8px;
   margin-top: 5px;
   animation: pulse-animation 1.5s infinite;
+  order: -1; /* This will position it before the group-members-count */
+  margin-right: 0; /* Remove right margin to position it closer to the group-members-count */
 }
 
 @keyframes pulse-animation {

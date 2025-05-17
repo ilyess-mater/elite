@@ -205,6 +205,10 @@ function ContactsPage({ user }) {
         (id) => id !== contact.id
       );
       localStorage.setItem("removedChats", JSON.stringify(updatedRemovedChats));
+
+      // Trigger department categories update by setting a flag in localStorage
+      // This flag will be checked by MessagingPage to update department categories
+      localStorage.setItem("updateDepartmentCategories", "true");
     }
 
     // Redirect to messaging page
@@ -383,13 +387,6 @@ function ContactsPage({ user }) {
                   onChange={handleInputChange}
                   placeholder="Enter contact email"
                 />
-              </div>
-
-              <div className="form-group">
-                <p className="department-note">
-                  <i className="fas fa-info-circle"></i> Department will be
-                  automatically retrieved from the user's profile.
-                </p>
               </div>
             </div>
 

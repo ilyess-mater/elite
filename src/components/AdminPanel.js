@@ -593,6 +593,7 @@ function AdminPanel({ user }) {
             }`}
             onClick={() => setActiveTab("users")}
           >
+            <div className="glow-effect"></div>
             <i className="fas fa-users"></i>
             <span>Users</span>
           </button>
@@ -602,6 +603,7 @@ function AdminPanel({ user }) {
             }`}
             onClick={() => setActiveTab("messages")}
           >
+            <div className="glow-effect"></div>
             <i className="fas fa-comments"></i>
             <span>Messages</span>
           </button>
@@ -611,6 +613,7 @@ function AdminPanel({ user }) {
             }`}
             onClick={() => setActiveTab("group-messages")}
           >
+            <div className="glow-effect"></div>
             <i className="fas fa-users-rectangle"></i>
             <span>Group Messages</span>
           </button>
@@ -620,6 +623,7 @@ function AdminPanel({ user }) {
             }`}
             onClick={() => setActiveTab("analytics")}
           >
+            <div className="glow-effect"></div>
             <i className="fas fa-chart-bar"></i>
             <span>Analytics</span>
           </button>
@@ -899,7 +903,7 @@ function AdminPanel({ user }) {
                               className="fas fa-lock encrypted-icon"
                               title="End-to-End Encrypted Message"
                             ></i>
-                            🔒 End-to-End Encrypted Message
+                            End-to-End Encrypted Message
                           </>
                         ) : (
                           message.text
@@ -981,7 +985,7 @@ function AdminPanel({ user }) {
                               className="fas fa-lock encrypted-icon"
                               title="End-to-End Encrypted Message"
                             ></i>
-                            🔒 End-to-End Encrypted Message
+                            End-to-End Encrypted Message
                           </>
                         ) : (
                           message.text

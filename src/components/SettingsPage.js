@@ -133,13 +133,13 @@ function SettingsPage({ user, darkMode, textSize, applySettings }) {
   return (
     <div className="settings-container">
       <div className="settings-header">
-        <h1>Settings</h1>
+        <h1>Preferences</h1>
       </div>
 
       <div className="settings-grid">
         <div className="settings-card">
           <div className="settings-card-header">
-            <h2>Security Settings</h2>
+            <h2>Security Preferences</h2>
           </div>
           <div className="settings-card-body">
             <div className="setting-group">
@@ -168,7 +168,7 @@ function SettingsPage({ user, darkMode, textSize, applySettings }) {
 
         <div className="settings-card">
           <div className="settings-card-header">
-            <h2>Display Settings</h2>
+            <h2>Display Preferences</h2>
           </div>
           <div className="settings-card-body">
             <div className="setting-group">

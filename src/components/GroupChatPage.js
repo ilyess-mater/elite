@@ -3,6 +3,7 @@ import "../styles/groupchat.css";
 import "../styles/emoji-picker.css";
 import "../styles/search-results-list.css";
 import "../styles/urgency-selector.css";
+
 import axios from "axios";
 import { useAuth } from "../contexts/AuthContext";
 import TaskManagement from "./TaskManagement";
@@ -45,6 +46,8 @@ function GroupChatPage({ user, textSize }) {
   const [groupMemberCounts, setGroupMemberCounts] = useState({});
   const [showInviteMembers, setShowInviteMembers] = useState(false);
   const [inviteError, setInviteError] = useState("");
+  const [showRenameGroup, setShowRenameGroup] = useState(false);
+  const [newGroupName, setNewGroupName] = useState("");
   const [activeTab, setActiveTab] = useState("chat"); // Added for task management
   const [isMobileView, setIsMobileView] = useState(window.innerWidth < 769);
   const [showMessageOptions, setShowMessageOptions] = useState(null);
@@ -84,15 +87,11 @@ function GroupChatPage({ user, textSize }) {
         const response = await axios.get("/api/groups");
         // Generate avatars for groups and ensure members array exists
         const groupsWithAvatars = response.data.map((group) => {
-          // Get unread count from localStorage
-          const unreadKey = `group_unread_${group.id}`;
-          const unreadCount = parseInt(localStorage.getItem(unreadKey) || "0");
-
           return {
             ...group,
             avatar: generateGroupAvatar(group.name),
             members: Array.isArray(group.members) ? group.members : [],
-            unreadCount: unreadCount,
+            // unreadCount is now provided by the backend
           };
         });
         setGroups(groupsWithAvatars);
@@ -247,6 +246,14 @@ function GroupChatPage({ user, textSize }) {
   // Flag to track if notifications have been seen
   const notificationsSeenRef = useRef(true);
 
+  // Ref to track the selected group
+  const selectedGroupRef = useRef(null);
+
+  // Keep selectedGroupRef in sync with selectedGroup
+  useEffect(() => {
+    selectedGroupRef.current = selectedGroup;
+  }, [selectedGroup]);
+
   // Update the page title to show a notification
   const updateTitle = useCallback(
     (
@@ -259,6 +266,17 @@ function GroupChatPage({ user, textSize }) {
     ) => {
       // Only update title if the page is not visible
       if (document.hidden) {
+        // Check if the group is muted
+        if (groupId) {
+          const mutedGroups = JSON.parse(
+            localStorage.getItem("mutedGroups") || "[]"
+          );
+          if (mutedGroups.includes(groupId)) {
+            console.log(`Tab notification from group ${groupId} muted`);
+            return; // Skip title update for muted group
+          }
+        }
+
         // Check if this is a new message (not just a tab change)
         const isNewMessage =
           messageId && !countedMessagesRef.current.has(messageId);
@@ -380,6 +398,13 @@ function GroupChatPage({ user, textSize }) {
   // Socket.io event listeners for group messages
   useEffect(() => {
     if (!socket) return;
+
+    // Create a function to check if a group is currently selected
+    const isGroupSelected = (groupId) => {
+      return (
+        selectedGroupRef.current && selectedGroupRef.current.id === groupId
+      );
+    };
 
     // Listen for message edits
     socket.on("message_edited", (editedMessage) => {
@@ -580,28 +605,41 @@ function GroupChatPage({ user, textSize }) {
       setGroups((prevGroups) => {
         return prevGroups.map((group) => {
           if (group.id === newMessage.groupId) {
-            // Increment unread count if the message is from someone else and not the selected group
-            if (
-              newMessage.sender !== user?.id &&
-              (!selectedGroup || selectedGroup.id !== newMessage.groupId)
-            ) {
-              // Store unread count in localStorage to persist across page changes
-              const unreadKey = `group_unread_${newMessage.groupId}`;
-              const currentUnread = parseInt(
-                localStorage.getItem(unreadKey) || "0"
-              );
-              const newUnreadCount = currentUnread + 1;
-              localStorage.setItem(unreadKey, newUnreadCount.toString());
+            // Increment unread count if the message is from someone else
+            // Always increment if not viewing this specific group, even if on the group chats page
+            console.log("New message received:", {
+              sender: newMessage.sender,
+              userId: user?.id,
+              selectedGroup: selectedGroupRef.current?.id,
+              messageGroupId: newMessage.groupId,
+              currentGroupId: group.id,
+              currentUnreadCount: group.unreadCount || 0,
+              isGroupSelected: isGroupSelected(newMessage.groupId),
+            });
 
-              console.log(
-                `Incrementing unread count for group ${group.id} to ${newUnreadCount}`
-              );
+            // Only increment unread count if the message is from someone else
+            // AND the user is not currently viewing this specific group
+            if (newMessage.sender !== user?.id) {
+              // Check if this specific group is currently selected and visible
+              const isCurrentlyViewingThisGroup =
+                selectedGroupRef.current &&
+                selectedGroupRef.current.id === newMessage.groupId;
 
-              return {
-                ...group,
-                lastMessageTime: newMessage.timestamp,
-                unreadCount: newUnreadCount,
-              };
+              if (!isCurrentlyViewingThisGroup) {
+                // Increment the unread count in the local state
+                // The backend will track the actual unread count based on lastRead timestamp
+                const newUnreadCount = (group.unreadCount || 0) + 1;
+
+                console.log(
+                  `Incrementing unread count for group ${group.id} to ${newUnreadCount}`
+                );
+
+                return {
+                  ...group,
+                  lastMessageTime: newMessage.timestamp,
+                  unreadCount: newUnreadCount,
+                };
+              }
             }
             return {
               ...group,
@@ -761,7 +799,7 @@ function GroupChatPage({ user, textSize }) {
       socket.off("message_edited");
       socket.off("message_deleted");
     };
-  }, [socket, user?.id, showNotification, groups, selectedGroup, updateTitle]);
+  }, [socket, user?.id, showNotification, groups, updateTitle]);
 
   // Add socket listener for user status updates
   useEffect(() => {
@@ -968,6 +1006,11 @@ function GroupChatPage({ user, textSize }) {
     return colors[colorIndex];
   }
 
+  // Update selectedGroupRef when selectedGroup changes
+  useEffect(() => {
+    selectedGroupRef.current = selectedGroup;
+  }, [selectedGroup]);
+
   // Fetch messages when group is selected
   useEffect(() => {
     if (selectedGroup) {
@@ -1057,10 +1100,8 @@ function GroupChatPage({ user, textSize }) {
 
     // Reset unread count when selecting a group
     if (group.unreadCount) {
-      // Clear the unread count in localStorage as well
-      const unreadKey = `group_unread_${group.id}`;
-      localStorage.setItem(unreadKey, "0");
-
+      // Reset the unread count in the local state
+      // The backend will update the lastRead timestamp when fetching messages
       setGroups((prevGroups) => {
         return prevGroups.map((g) => {
           if (g.id === group.id) {
@@ -1888,9 +1929,9 @@ function GroupChatPage({ user, textSize }) {
         group.description.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
-  // Then sort groups by most recent message timestamp
+  // Sort groups by urgency level first, then by most recent message timestamp
   const sortedGroups = [...filteredGroups].sort((a, b) => {
-    // Get the latest message timestamp for each group
+    // Get the latest message for each group
     const aLastMessage =
       messages[a.id]?.length > 0
         ? messages[a.id][messages[a.id].length - 1]
@@ -1900,7 +1941,49 @@ function GroupChatPage({ user, textSize }) {
         ? messages[b.id][messages[b.id].length - 1]
         : null;
 
-    // Get timestamps or use fallback values
+    // Check if there are any urgent or high priority messages in these groups
+    const aMessages = messages[a.id] || [];
+    const bMessages = messages[b.id] || [];
+
+    const aHasUrgent = aMessages.some(
+      (msg) =>
+        msg.urgencyLevel === "urgent" &&
+        msg.sender !== user?.id &&
+        !msg.isDeleted
+    );
+    const bHasUrgent = bMessages.some(
+      (msg) =>
+        msg.urgencyLevel === "urgent" &&
+        msg.sender !== user?.id &&
+        !msg.isDeleted
+    );
+
+    const aHasHigh = aMessages.some(
+      (msg) =>
+        msg.urgencyLevel === "high" && msg.sender !== user?.id && !msg.isDeleted
+    );
+    const bHasHigh = bMessages.some(
+      (msg) =>
+        msg.urgencyLevel === "high" && msg.sender !== user?.id && !msg.isDeleted
+    );
+
+    // Define urgency priority (higher number = higher priority)
+    const getUrgencyPriority = (hasUrgent, hasHigh) => {
+      if (hasUrgent) return 2;
+      if (hasHigh) return 1;
+      return 0;
+    };
+
+    const aUrgencyPriority = getUrgencyPriority(aHasUrgent, aHasHigh);
+    const bUrgencyPriority = getUrgencyPriority(bHasUrgent, bHasHigh);
+
+    // First sort by urgency level
+    const urgencyDiff = bUrgencyPriority - aUrgencyPriority;
+    if (urgencyDiff !== 0) {
+      return urgencyDiff; // Sort by urgency level first
+    }
+
+    // If urgency levels are the same, sort by timestamp
     const aTimestamp = aLastMessage?.timestamp
       ? new Date(aLastMessage.timestamp).getTime()
       : 0;
@@ -2178,7 +2261,8 @@ function GroupChatPage({ user, textSize }) {
                 !msg.isDeleted
             );
 
-            // Determine priority class
+            // Determine priority class - always apply the class regardless of whether
+            // the user is viewing the conversation or not
             let priorityClass = "";
             if (hasUrgentMessage) {
               priorityClass = "priority-urgent";
@@ -2208,12 +2292,30 @@ function GroupChatPage({ user, textSize }) {
                           const lastMessage =
                             messages[group.id][messages[group.id].length - 1];
 
-                          return lastMessage.isDeleted
-                            ? "Message was deleted"
-                            : lastMessage.text ||
-                                (lastMessage.fileUrl || lastMessage.fileData
-                                  ? "Sent a file"
-                                  : "");
+                          return (
+                            <>
+                              {/* Show urgency prefix for non-normal urgency levels, but only for receivers */}
+                              {lastMessage.urgencyLevel === "urgent" &&
+                                lastMessage.sender !== user?.id && (
+                                  <span className="urgency-prefix urgent">
+                                    URGENT:{" "}
+                                  </span>
+                                )}
+                              {lastMessage.urgencyLevel === "high" &&
+                                lastMessage.sender !== user?.id && (
+                                  <span className="urgency-prefix high">
+                                    HIGH PRIORITY:{" "}
+                                  </span>
+                                )}
+                              {/* Show message text or file indicator */}
+                              {lastMessage.isDeleted
+                                ? "Message was deleted"
+                                : lastMessage.text ||
+                                  (lastMessage.fileUrl || lastMessage.fileData
+                                    ? "Sent a file"
+                                    : "")}
+                            </>
+                          );
                         })()
                       : "No messages yet"}
                   </div>
@@ -2617,163 +2719,327 @@ function GroupChatPage({ user, textSize }) {
             </div>
 
             <div className="group-actions">
-              <div className="search-conversation-container">
-                <button
-                  className="chat-action-button centered-button"
-                  onClick={() => {
-                    const searchBar =
-                      document.querySelector(".chat-search-bar");
-                    if (searchBar) {
-                      searchBar.classList.toggle("active");
-                      if (searchBar.classList.contains("active")) {
-                        searchBar.querySelector("input").focus();
+              {/* Search and Group Management Section */}
+              <div className="group-actions-section">
+                <div className="search-conversation-container">
+                  <button
+                    className="chat-action-button centered-button"
+                    onClick={() => {
+                      const searchBar =
+                        document.querySelector(".chat-search-bar");
+                      if (searchBar) {
+                        searchBar.classList.toggle("active");
+                        if (searchBar.classList.contains("active")) {
+                          searchBar.querySelector("input").focus();
+                        }
                       }
-                    }
+                    }}
+                  >
+                    <i className="fas fa-search"></i> Search in Conversation
+                  </button>
+                  <div className="search-bar chat-search-bar">
+                    <i className="fas fa-search"></i>
+                    <input
+                      type="text"
+                      placeholder="Search messages..."
+                      onChange={(e) => handleSearchMessages(e.target.value)}
+                    />
+                  </div>
+                  <div className="search-navigation" id="search-navigation">
+                    <div className="search-count">
+                      <span id="search-current">0</span> of{" "}
+                      <span id="search-total">0</span> results
+                    </div>
+                    <div className="search-navigation-buttons">
+                      <button
+                        id="search-prev"
+                        onClick={() => navigateSearchResults("prev")}
+                        disabled
+                      >
+                        <i className="fas fa-chevron-up"></i>
+                      </button>
+                      <button
+                        id="search-next"
+                        onClick={() => navigateSearchResults("next")}
+                        disabled
+                      >
+                        <i className="fas fa-chevron-down"></i>
+                      </button>
+                    </div>
+                  </div>
+                  <div className="search-results-list" id="search-results-list">
+                    {searchResults.map((result, index) => {
+                      // Get sender name
+                      const senderName =
+                        result.sender === user.id
+                          ? "You"
+                          : result.senderName || "Unknown";
+
+                      // Format timestamp
+                      const formattedTime = formatTime(result.timestamp);
+
+                      // Highlight the search query in the text
+                      const highlightedText = result.text.replace(
+                        new RegExp(searchQuery, "gi"),
+                        (match) => `<span class="highlight">${match}</span>`
+                      );
+
+                      return (
+                        <div
+                          key={index}
+                          className="search-result-item"
+                          onClick={() => {
+                            setCurrentSearchIndex(index);
+
+                            // Log which result was clicked
+                            console.log(
+                              "Clicked on search result:",
+                              index,
+                              result
+                            );
+
+                            // Ensure messages are loaded
+                            if (
+                              !messages[selectedGroup.id] ||
+                              messages[selectedGroup.id].length === 0
+                            ) {
+                              console.log(
+                                "Messages not loaded, loading now..."
+                              );
+                              axios
+                                .get(`/api/groups/${selectedGroup.id}/messages`)
+                                .then((response) => {
+                                  setMessages((prev) => ({
+                                    ...prev,
+                                    [selectedGroup.id]: response.data,
+                                  }));
+
+                                  // After loading messages, highlight with a delay
+                                  setTimeout(() => {
+                                    highlightSearchResult(index, searchResults);
+
+                                    // Update current result counter
+                                    const searchCount =
+                                      document.getElementById("search-current");
+                                    if (searchCount)
+                                      searchCount.textContent = (
+                                        index + 1
+                                      ).toString();
+                                  }, 500);
+                                })
+                                .catch((err) =>
+                                  console.error("Error loading messages:", err)
+                                );
+                            } else {
+                              // Messages already loaded, highlight immediately
+                              highlightSearchResult(index, searchResults);
+
+                              // Update current result counter
+                              const searchCount =
+                                document.getElementById("search-current");
+                              if (searchCount)
+                                searchCount.textContent = (
+                                  index + 1
+                                ).toString();
+                            }
+                          }}
+                        >
+                          <div
+                            className="search-result-text"
+                            dangerouslySetInnerHTML={{
+                              __html: highlightedText,
+                            }}
+                          />
+                          <div className="search-result-meta">
+                            <span className="search-result-sender">
+                              {senderName}
+                            </span>
+                            <span className="search-result-time">
+                              {formattedTime}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <button
+                  className="group-action-button"
+                  onClick={() => {
+                    setNewGroupName(selectedGroup.name);
+                    setShowRenameGroup(true);
                   }}
                 >
-                  <i className="fas fa-search"></i> Search in Conversation
+                  <i className="fas fa-edit"></i> Rename Group
                 </button>
-                <div className="search-bar chat-search-bar">
-                  <i className="fas fa-search"></i>
-                  <input
-                    type="text"
-                    placeholder="Search messages..."
-                    onChange={(e) => handleSearchMessages(e.target.value)}
-                  />
-                </div>
-                <div className="search-navigation" id="search-navigation">
-                  <div className="search-count">
-                    <span id="search-current">0</span> of{" "}
-                    <span id="search-total">0</span> results
-                  </div>
-                  <div className="search-navigation-buttons">
-                    <button
-                      id="search-prev"
-                      onClick={() => navigateSearchResults("prev")}
-                      disabled
-                    >
-                      <i className="fas fa-chevron-up"></i>
-                    </button>
-                    <button
-                      id="search-next"
-                      onClick={() => navigateSearchResults("next")}
-                      disabled
-                    >
-                      <i className="fas fa-chevron-down"></i>
-                    </button>
-                  </div>
-                </div>
-                <div className="search-results-list" id="search-results-list">
-                  {searchResults.map((result, index) => {
-                    // Get sender name
-                    const senderName =
-                      result.sender === user.id
-                        ? "You"
-                        : result.senderName || "Unknown";
-
-                    // Format timestamp
-                    const formattedTime = formatTime(result.timestamp);
-
-                    // Highlight the search query in the text
-                    const highlightedText = result.text.replace(
-                      new RegExp(searchQuery, "gi"),
-                      (match) => `<span class="highlight">${match}</span>`
-                    );
-
-                    return (
-                      <div
-                        key={index}
-                        className="search-result-item"
-                        onClick={() => {
-                          setCurrentSearchIndex(index);
-
-                          // Log which result was clicked
-                          console.log(
-                            "Clicked on search result:",
-                            index,
-                            result
-                          );
-
-                          // Ensure messages are loaded
-                          if (
-                            !messages[selectedGroup.id] ||
-                            messages[selectedGroup.id].length === 0
-                          ) {
-                            console.log("Messages not loaded, loading now...");
-                            axios
-                              .get(`/api/groups/${selectedGroup.id}/messages`)
-                              .then((response) => {
-                                setMessages((prev) => ({
-                                  ...prev,
-                                  [selectedGroup.id]: response.data,
-                                }));
-
-                                // After loading messages, highlight with a delay
-                                setTimeout(() => {
-                                  highlightSearchResult(index, searchResults);
-
-                                  // Update current result counter
-                                  const searchCount =
-                                    document.getElementById("search-current");
-                                  if (searchCount)
-                                    searchCount.textContent = (
-                                      index + 1
-                                    ).toString();
-                                }, 500);
-                              })
-                              .catch((err) =>
-                                console.error("Error loading messages:", err)
-                              );
-                          } else {
-                            // Messages already loaded, highlight immediately
-                            highlightSearchResult(index, searchResults);
-
-                            // Update current result counter
-                            const searchCount =
-                              document.getElementById("search-current");
-                            if (searchCount)
-                              searchCount.textContent = (index + 1).toString();
-                          }
-                        }}
-                      >
-                        <div
-                          className="search-result-text"
-                          dangerouslySetInnerHTML={{ __html: highlightedText }}
-                        />
-                        <div className="search-result-meta">
-                          <span className="search-result-sender">
-                            {senderName}
-                          </span>
-                          <span className="search-result-time">
-                            {formattedTime}
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
               </div>
 
-              <button className="group-action-button">
-                <i className="fas fa-bell-slash"></i> Mute Notifications
+              {/* Notification and Member Management Section */}
+              <div className="group-actions-section">
+                <button
+                  className="group-action-button"
+                  onClick={() => {
+                    // Get current muted groups
+                    const mutedGroups = JSON.parse(
+                      localStorage.getItem("mutedGroups") || "[]"
+                    );
+
+                    // Check if this group is already muted
+                    const isCurrentlyMuted = mutedGroups.includes(
+                      selectedGroup.id
+                    );
+
+                    if (isCurrentlyMuted) {
+                      // Unmute: Remove from muted list
+                      localStorage.setItem(
+                        "mutedGroups",
+                        JSON.stringify(
+                          mutedGroups.filter((id) => id !== selectedGroup.id)
+                        )
+                      );
+                    } else {
+                      // Mute: Add to muted list
+                      mutedGroups.push(selectedGroup.id);
+                      localStorage.setItem(
+                        "mutedGroups",
+                        JSON.stringify(mutedGroups)
+                      );
+                    }
+
+                    // Force re-render
+                    setGroups((prevGroups) => [...prevGroups]);
+                  }}
+                >
+                  {JSON.parse(
+                    localStorage.getItem("mutedGroups") || "[]"
+                  ).includes(selectedGroup?.id) ? (
+                    <>
+                      <i className="fas fa-bell-slash bell-animation"></i>
+                      Unmute Notifications
+                    </>
+                  ) : (
+                    <>
+                      <i className="fas fa-bell bell-animation"></i>
+                      Mute Notifications
+                    </>
+                  )}
+                </button>
+                <button
+                  className="group-action-button"
+                  onClick={() => setShowInviteMembers(true)}
+                >
+                  <i className="fas fa-user-plus"></i> Invite Members
+                </button>
+              </div>
+
+              {/* Danger Zone Section */}
+              <div className="group-actions-section">
+                <button
+                  className="group-action-button danger"
+                  onClick={() => setShowLeaveConfirm(true)}
+                >
+                  <i className="fas fa-sign-out-alt"></i> Leave Group
+                </button>
+                <button
+                  className="delete-messages-button"
+                  onClick={() => setShowDeleteConfirm(true)}
+                >
+                  <i className="fas fa-trash-alt"></i> Delete Messages
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showRenameGroup && selectedGroup && (
+        <div className="modal-overlay">
+          <div className="modal-container">
+            <div className="modal-header">
+              <div className="modal-title">Rename Group</div>
+              <button
+                className="modal-close"
+                onClick={() => setShowRenameGroup(false)}
+              >
+                <i className="fas fa-times"></i>
+              </button>
+            </div>
+            <div className="modal-body">
+              {error && (
+                <div className="error-message">
+                  <i className="fas fa-exclamation-circle"></i> {error}
+                </div>
+              )}
+              <div className="form-group">
+                <label>New Group Name</label>
+                <input
+                  type="text"
+                  value={newGroupName}
+                  onChange={(e) => setNewGroupName(e.target.value)}
+                  placeholder="Enter new group name"
+                />
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button
+                className="cancel-button"
+                onClick={() => setShowRenameGroup(false)}
+              >
+                Cancel
               </button>
               <button
-                className="group-action-button"
-                onClick={() => setShowInviteMembers(true)}
+                className="confirm-button"
+                onClick={async () => {
+                  if (!newGroupName.trim()) {
+                    setError("Group name cannot be empty");
+                    return;
+                  }
+
+                  try {
+                    // Call API to rename the group
+                    const response = await axios.put(
+                      `/api/groups/${selectedGroup.id}/rename`,
+                      { name: newGroupName.trim() },
+                      {
+                        headers: {
+                          "Content-Type": "application/json",
+                          Authorization: `Bearer ${localStorage.getItem(
+                            "token"
+                          )}`,
+                        },
+                      }
+                    );
+
+                    if (response.data && response.data.success) {
+                      // Update the group in state
+                      setGroups((prevGroups) =>
+                        prevGroups.map((group) =>
+                          group.id === selectedGroup.id
+                            ? { ...group, name: newGroupName.trim() }
+                            : group
+                        )
+                      );
+
+                      // Update selected group
+                      setSelectedGroup((prev) => ({
+                        ...prev,
+                        name: newGroupName.trim(),
+                      }));
+
+                      // Close the modal
+                      setShowRenameGroup(false);
+                      setError("");
+                    } else {
+                      setError("Failed to rename group. Please try again.");
+                    }
+                  } catch (error) {
+                    console.error("Error renaming group:", error);
+                    setError("Failed to rename group. Please try again.");
+                  }
+                }}
               >
-                <i className="fas fa-user-plus"></i> Invite Members
-              </button>
-              <button
-                className="group-action-button danger"
-                onClick={() => setShowLeaveConfirm(true)}
-              >
-                <i className="fas fa-sign-out-alt"></i> Leave Group
-              </button>
-              <button
-                className="delete-messages-button"
-                onClick={() => setShowDeleteConfirm(true)}
-              >
-                <i className="fas fa-trash-alt"></i> Delete Messages
+                Rename
               </button>
             </div>
           </div>

@@ -387,7 +387,8 @@ def get_contacts():
                 "name": contact_user["name"],
                 "email": contact_user["email"],
                 "department": contact_user.get("department", ""),
-                "isActive": str(contact_user["_id"]) in active_users
+                "isActive": str(contact_user["_id"]) in active_users,
+                "lastActivity": contact.get("lastActivity", contact.get("createdAt", datetime.utcnow())).isoformat()
             }
 
             # Add categoryId if it exists in the contact document
@@ -398,6 +399,9 @@ def get_contacts():
                 print(f"Contact {contact_data['name']} has no category")
 
             contacts_list.append(contact_data)
+
+    # Sort contacts by lastActivity (most recent first)
+    contacts_list.sort(key=lambda x: x["lastActivity"], reverse=True)
 
     print(f"Returning {len(contacts_list)} contacts")
     return jsonify(contacts_list), 200
@@ -434,11 +438,13 @@ def add_contact():
     department = contact_user.get("department", "")
 
     # Add the contact
+    current_time = datetime.utcnow()
     contact = {
         "userId": ObjectId(user_id),
         "contactId": contact_user["_id"],
         "department": department,
-        "createdAt": datetime.utcnow()
+        "createdAt": current_time,
+        "lastActivity": current_time
     }
 
     # Insert the contact first
@@ -578,6 +584,22 @@ def messages_operations(contact_id):
                 "fileName": msg.get("fileName"),
                 "isDeleted": msg.get("isDeleted", False)
             })
+
+        # Always update lastActivity for this conversation when messages are viewed
+        # This ensures conversations move to the top when messages are received, not just when sent
+        current_time = datetime.utcnow()
+
+        # Update lastActivity in contacts collection for both users
+        contacts_collection.update_one(
+            {"userId": ObjectId(user_id), "contactId": ObjectId(contact_id)},
+            {"$set": {"lastActivity": current_time}}
+        )
+
+        # Also update the contact in the other user's contact list
+        contacts_collection.update_one(
+            {"userId": ObjectId(contact_id), "contactId": ObjectId(user_id)},
+            {"$set": {"lastActivity": current_time}}
+        )
 
         return jsonify(messages_list), 200
 
@@ -736,7 +758,7 @@ def get_all_messages():
         # If message is encrypted, always show placeholder text regardless of who sent it
         # This ensures admin's own messages are also shown as encrypted
         if is_encrypted:
-            message_text = "🔒 End-to-End Encrypted Message"
+            message_text = "End-to-End Encrypted Message"
 
         messages_list.append({
             "id": str(msg["_id"]),
@@ -810,7 +832,7 @@ def get_all_group_messages():
         # If message is encrypted, always show placeholder text regardless of who sent it
         # This ensures admin's own messages are also shown as encrypted
         if is_encrypted:
-            message_text = "🔒 End-to-End Encrypted Message"
+            message_text = "End-to-End Encrypted Message"
 
         messages_list.append({
             "id": str(msg["_id"]),
@@ -1226,12 +1248,15 @@ def handle_send_message(data):
             else:
                 message_type = "file"
 
+        # Get current timestamp
+        current_time = datetime.utcnow()
+
         # Create message record
         message = {
             "senderId": ObjectId(user_id),
             "receiverId": ObjectId(receiver_id),
             "text": message_text,
-            "timestamp": datetime.utcnow(),
+            "timestamp": current_time,
             "fileUrl": file_url,
             "fileType": file_type,
             "fileName": file_name,
@@ -1274,6 +1299,19 @@ def handle_send_message(data):
         if encrypted and encrypted_data:
             message_data["encryptedData"] = encrypted_data
             message_data["iv"] = iv
+
+        # Update lastActivity for both sender and receiver contacts
+        # For sender's contact list
+        contacts_collection.update_one(
+            {"userId": ObjectId(user_id), "contactId": ObjectId(receiver_id)},
+            {"$set": {"lastActivity": current_time}}
+        )
+
+        # For receiver's contact list
+        contacts_collection.update_one(
+            {"userId": ObjectId(receiver_id), "contactId": ObjectId(user_id)},
+            {"$set": {"lastActivity": current_time}}
+        )
 
         print(f"Sending message to sender (room {user_id}): {message_data}")
         # Send to sender's room
@@ -1830,6 +1868,7 @@ def get_groups():
 
         # Get full member details
         members = []
+        user_last_read = None
         for member in group["members"]:
             member_user = users_collection.find_one({"_id": member["userId"]})
             if member_user:
@@ -1840,6 +1879,20 @@ def get_groups():
                     "isActive": str(member_user["_id"]) in active_users,
                 })
 
+                # Store the user's last read timestamp
+                if str(member["userId"]) == user_id and "lastRead" in member:
+                    user_last_read = member["lastRead"]
+
+        # Calculate unread count for this group
+        unread_count = 0
+        if user_last_read:
+            # Count messages that were sent after the user's last read timestamp
+            unread_count = db.group_messages.count_documents({
+                "groupId": group["_id"],
+                "senderId": {"$ne": ObjectId(user_id)},  # Don't count user's own messages
+                "timestamp": {"$gt": user_last_read}
+            })
+
         groups_list.append({
             "id": str(group["_id"]),
             "name": group["name"],
@@ -1848,7 +1901,7 @@ def get_groups():
             "members": members,
             "lastMessage": last_message["text"] if last_message else "",
             "lastMessageTime": last_message["timestamp"].isoformat() if last_message else None,
-            "unreadCount": 0,
+            "unreadCount": unread_count,
             "memberCount": len(members)
         })
 
@@ -2169,6 +2222,37 @@ def delete_group(group_id):
     except Exception as e:
         print(f"Error deleting group: {e}")
         return jsonify({"error": "An error occurred while deleting the group"}), 500
+
+@app.route('/api/groups/<group_id>/rename', methods=['PUT'])
+def rename_group(group_id):
+    token = request.headers.get('Authorization', '').replace('Bearer ', '')
+    user_id = verify_token(token)
+
+    if not user_id:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    # Check if user is member of the group
+    group = groups_collection.find_one({
+        "_id": ObjectId(group_id),
+        "members": {"$elemMatch": {"userId": ObjectId(user_id)}}
+    })
+
+    if not group:
+        return jsonify({"error": "Forbidden"}), 403
+
+    data = request.get_json()
+    new_name = data.get('name')
+
+    if not new_name or not new_name.strip():
+        return jsonify({"error": "Group name is required"}), 400
+
+    # Update the group name
+    groups_collection.update_one(
+        {"_id": ObjectId(group_id)},
+        {"$set": {"name": new_name.strip()}}
+    )
+
+    return jsonify({"success": True, "message": "Group renamed successfully"}), 200
 
 @app.route('/api/groups/<group_id>/invite', methods=['POST'])
 def invite_to_group(group_id):
