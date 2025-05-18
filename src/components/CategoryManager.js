@@ -32,12 +32,58 @@ const CategoryManager = ({ onClose, onCategoryChange }) => {
   const fetchCategories = async () => {
     try {
       setLoading(true);
+
+      // Get removed chats from localStorage
+      const removedChats = JSON.parse(
+        localStorage.getItem("removedChats") || "[]"
+      );
+
+      // Get all contacts to determine active departments
+      const contactsResponse = await axios.get("/api/contacts", {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+      });
+
+      // Filter out contacts with removed chats
+      const activeContacts = contactsResponse.data.filter(
+        (contact) => !removedChats.includes(contact.id)
+      );
+
+      // Get all departments from active contacts
+      const activeDepartments = new Set();
+      activeContacts.forEach((contact) => {
+        if (contact.department) {
+          activeDepartments.add(contact.department);
+        }
+      });
+
+      console.log(
+        "Active departments in CategoryManager:",
+        Array.from(activeDepartments)
+      );
+
+      // Fetch categories
       const response = await axios.get("/api/categories", {
         headers: {
           Authorization: `Bearer ${localStorage.getItem("token")}`,
         },
       });
-      setCategories(response.data);
+
+      // Filter out department categories that don't have active contacts
+      const filteredCategories = response.data.filter((category) => {
+        // Keep non-department categories
+        if (!category.isDepartmentCategory) return true;
+
+        // Only keep department categories that have active contacts
+        return activeDepartments.has(category.name);
+      });
+
+      console.log(
+        "Filtered categories in CategoryManager:",
+        filteredCategories
+      );
+      setCategories(filteredCategories);
       setError("");
     } catch (err) {
       console.error("Error fetching categories:", err);
@@ -68,8 +114,8 @@ const CategoryManager = ({ onClose, onCategoryChange }) => {
         }
       );
 
-      // Add new category to the list
-      setCategories([...categories, response.data]);
+      // Fetch all categories again to ensure proper filtering
+      await fetchCategories();
 
       // Reset form
       setNewCategory({ name: "", color: "#4A76A8" });
@@ -96,7 +142,7 @@ const CategoryManager = ({ onClose, onCategoryChange }) => {
     }
 
     try {
-      const response = await axios.put(
+      await axios.put(
         `/api/categories/${editingCategory.id}`,
         {
           name: editingCategory.name,
@@ -109,12 +155,8 @@ const CategoryManager = ({ onClose, onCategoryChange }) => {
         }
       );
 
-      // Update category in the list
-      setCategories(
-        categories.map((cat) =>
-          cat.id === editingCategory.id ? response.data : cat
-        )
-      );
+      // Fetch all categories again to ensure proper filtering
+      await fetchCategories();
 
       // Reset editing state
       setEditingCategory(null);
@@ -167,8 +209,8 @@ const CategoryManager = ({ onClose, onCategoryChange }) => {
           )
         );
 
-        // Remove all user categories from the list
-        setCategories(categories.filter((cat) => cat.isDepartmentCategory));
+        // Fetch all categories again to ensure proper filtering
+        await fetchCategories();
 
         // Reset editing state
         setEditingCategory(null);
@@ -180,10 +222,8 @@ const CategoryManager = ({ onClose, onCategoryChange }) => {
           },
         });
 
-        // Remove category from the list
-        setCategories(
-          categories.filter((cat) => cat.id !== categoryToDelete.id)
-        );
+        // Fetch all categories again to ensure proper filtering
+        await fetchCategories();
 
         // Reset editing state if deleting the category being edited
         if (editingCategory && editingCategory.id === categoryToDelete.id) {

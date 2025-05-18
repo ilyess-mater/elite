@@ -251,7 +251,7 @@ function MessagingPage({ user, textSize }) {
   });
 
   // Function to update department categories based on current contacts in conversations
-  const updateDepartmentCategories = () => {
+  const updateDepartmentCategories = useCallback(() => {
     try {
       // Get all contacts (including those removed from conversations)
       axios
@@ -303,18 +303,30 @@ function MessagingPage({ user, textSize }) {
               );
 
               console.log("Filtered categories:", filteredCategories);
+
+              // Update the categories state with filtered categories
               setCategories(filteredCategories);
+
+              // If we have a selected category that's no longer in the filtered list, reset it
+              if (selectedCategory) {
+                const categoryStillExists = filteredCategories.some(
+                  (category) => category.id === selectedCategory
+                );
+                if (!categoryStillExists) {
+                  setSelectedCategory(null);
+                }
+              }
             });
         });
     } catch (error) {
       console.error("Error updating department categories:", error);
     }
-  };
+  }, [selectedCategory]);
 
   // Call updateDepartmentCategories when contacts change
   useEffect(() => {
     updateDepartmentCategories();
-  }, [contacts]);
+  }, [contacts, updateDepartmentCategories]);
 
   // Fetch categories, contacts, and all messages when component mounts
   useEffect(() => {
@@ -456,12 +468,57 @@ function MessagingPage({ user, textSize }) {
   // Function to handle category changes
   const handleCategoryChange = async () => {
     try {
+      // Get removed chats from localStorage
+      const removedChats = JSON.parse(
+        localStorage.getItem("removedChats") || "[]"
+      );
+
+      // Get all contacts to determine active departments
+      const contactsResponse = await axios.get("/api/contacts", {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+      });
+
+      // Filter out contacts with removed chats
+      const activeContacts = contactsResponse.data.filter(
+        (contact) => !removedChats.includes(contact.id)
+      );
+
+      // Get all departments from active contacts
+      const activeDepartments = new Set();
+      activeContacts.forEach((contact) => {
+        if (contact.department) {
+          activeDepartments.add(contact.department);
+        }
+      });
+
+      console.log(
+        "Active departments in handleCategoryChange:",
+        Array.from(activeDepartments)
+      );
+
+      // Fetch categories
       const response = await axios.get("/api/categories", {
         headers: {
           Authorization: `Bearer ${localStorage.getItem("token")}`,
         },
       });
-      setCategories(response.data);
+
+      // Filter out department categories that don't have active contacts
+      const filteredCategories = response.data.filter((category) => {
+        // Keep non-department categories
+        if (!category.isDepartmentCategory) return true;
+
+        // Only keep department categories that have active contacts
+        return activeDepartments.has(category.name);
+      });
+
+      console.log(
+        "Filtered categories in handleCategoryChange:",
+        filteredCategories
+      );
+      setCategories(filteredCategories);
     } catch (error) {
       console.error("Error fetching categories:", error);
     }
@@ -489,15 +546,50 @@ function MessagingPage({ user, textSize }) {
 
       console.log("Category update response:", response.data);
 
-      // Update the contact in the local state
-      setContacts((prevContacts) => {
-        const updatedContacts = prevContacts.map((contact) =>
-          contact.id === contactId ? { ...contact, categoryId } : contact
-        );
-
-        console.log("Updated contacts:", updatedContacts);
-        return updatedContacts;
+      // Fetch the updated contact to get the new categoryIds array
+      const contactsResponse = await axios.get("/api/contacts", {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
       });
+
+      const updatedContact = contactsResponse.data.find(
+        (c) => c.id === contactId
+      );
+
+      if (updatedContact) {
+        // Update the contact in the local state with the new categoryIds
+        setContacts((prevContacts) => {
+          const updatedContacts = prevContacts.map((contact) =>
+            contact.id === contactId
+              ? {
+                  ...contact,
+                  categoryId: updatedContact.categoryId,
+                  categoryIds: updatedContact.categoryIds || [],
+                }
+              : contact
+          );
+
+          console.log("Updated contacts:", updatedContacts);
+          return updatedContacts;
+        });
+      } else {
+        // Fallback to just updating the categoryId if we couldn't get the full contact
+        setContacts((prevContacts) => {
+          const updatedContacts = prevContacts.map((contact) =>
+            contact.id === contactId
+              ? {
+                  ...contact,
+                  categoryId: categoryId,
+                  categoryIds: categoryId ? [categoryId] : [],
+                }
+              : contact
+          );
+
+          console.log("Updated contacts (fallback):", updatedContacts);
+          return updatedContacts;
+        });
+      }
 
       // Close the dropdown
       setShowCategoryDropdown(null);
@@ -829,7 +921,44 @@ function MessagingPage({ user, textSize }) {
           removedChats.push(contactToDelete.id);
           localStorage.setItem("removedChats", JSON.stringify(removedChats));
 
-          // Check if we need to remove any department categories
+          // Get all contacts to check if we need to update department categories
+          const response = await axios.get("/api/contacts", {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("token")}`,
+            },
+          });
+
+          const allContacts = response.data;
+
+          // Get active contacts (not removed from conversations)
+          const activeContacts = allContacts.filter(
+            (contact) => !removedChats.includes(contact.id)
+          );
+
+          // Get all departments from active contacts
+          const activeDepartments = new Set();
+          activeContacts.forEach((contact) => {
+            if (contact.department) {
+              activeDepartments.add(contact.department);
+            }
+          });
+
+          console.log(
+            "Active departments after removal:",
+            Array.from(activeDepartments)
+          );
+
+          // Check if the removed contact's department is no longer active
+          if (
+            contactToDelete.department &&
+            !activeDepartments.has(contactToDelete.department)
+          ) {
+            console.log(
+              `Department ${contactToDelete.department} is no longer active, updating categories`
+            );
+          }
+
+          // Update department categories to reflect the change
           updateDepartmentCategories();
         }
       } catch (error) {
@@ -2319,6 +2448,8 @@ function MessagingPage({ user, textSize }) {
             .filter(
               (contact) =>
                 selectedCategory === null ||
+                (contact.categoryIds &&
+                  contact.categoryIds.includes(selectedCategory)) ||
                 contact.categoryId === selectedCategory
             )
             .map((contact) => (
@@ -2347,23 +2478,104 @@ function MessagingPage({ user, textSize }) {
                 <div className="contact-info">
                   <div className="contact-name-row">
                     <div className="contact-name">{contact.name}</div>
-                    {contact.categoryId && (
-                      <div className="contact-category-badge">
-                        <div
-                          className="contact-category-indicator"
-                          style={{
-                            backgroundColor:
-                              categories.find(
+
+                    {/* Show all categories in a single row */}
+                    <div className="contact-additional-categories">
+                      {/* Show department category first */}
+                      {contact.department && (
+                        <div className="contact-category-badge additional">
+                          <div
+                            className="contact-category-indicator"
+                            style={{
+                              backgroundColor:
+                                categories.find(
+                                  (c) =>
+                                    c.isDepartmentCategory &&
+                                    c.name === contact.department
+                                )?.color || "#4A76A8",
+                            }}
+                          ></div>
+                          <span className="contact-category-name">
+                            {contact.department}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Show primary category (for backward compatibility) */}
+                      {contact.categoryId &&
+                        !categories.find((c) => c.id === contact.categoryId)
+                          ?.isDepartmentCategory && (
+                          <div className="contact-category-badge additional">
+                            <div
+                              className="contact-category-indicator"
+                              style={{
+                                backgroundColor:
+                                  categories.find(
+                                    (c) => c.id === contact.categoryId
+                                  )?.color || "#ccc",
+                              }}
+                            ></div>
+                            <span className="contact-category-name">
+                              {categories.find(
                                 (c) => c.id === contact.categoryId
-                              )?.color || "#ccc",
-                          }}
-                        ></div>
-                        <span className="contact-category-name">
-                          {categories.find((c) => c.id === contact.categoryId)
-                            ?.name || "Category"}
-                        </span>
-                      </div>
-                    )}
+                              )?.name || "Category"}
+                            </span>
+                          </div>
+                        )}
+
+                      {/* Show additional categories if they exist */}
+                      {contact.categoryIds &&
+                        contact.categoryIds.length > 0 &&
+                        contact.categoryIds
+                          .filter(
+                            (catId) =>
+                              catId !== contact.categoryId &&
+                              !categories.find((c) => c.id === catId)
+                                ?.isDepartmentCategory
+                          ) // Skip the primary category and department categories
+                          .slice(0, 2) // Show max 2 additional categories
+                          .map((catId) => {
+                            const category = categories.find(
+                              (c) => c.id === catId
+                            );
+                            if (!category) return null;
+                            return (
+                              <div
+                                key={catId}
+                                className="contact-category-badge additional"
+                              >
+                                <div
+                                  className="contact-category-indicator"
+                                  style={{
+                                    backgroundColor: category.color || "#ccc",
+                                  }}
+                                ></div>
+                                <span className="contact-category-name">
+                                  {category.name}
+                                </span>
+                              </div>
+                            );
+                          })}
+
+                      {/* Show more indicator if needed */}
+                      {contact.categoryIds &&
+                        contact.categoryIds.filter(
+                          (catId) =>
+                            catId !== contact.categoryId &&
+                            !categories.find((c) => c.id === catId)
+                              ?.isDepartmentCategory
+                        ).length > 2 && (
+                          <div className="more-categories-badge">
+                            +
+                            {contact.categoryIds.filter(
+                              (catId) =>
+                                catId !== contact.categoryId &&
+                                !categories.find((c) => c.id === catId)
+                                  ?.isDepartmentCategory
+                            ).length - 2}
+                          </div>
+                        )}
+                    </div>
                   </div>
                   <div className="contact-last-message">
                     {messages[contact.id]?.length > 0 ? (
@@ -2461,19 +2673,44 @@ function MessagingPage({ user, textSize }) {
 
                         // Calculate better positioning to ensure dropdown is fully visible
                         const windowWidth = window.innerWidth;
+                        const windowHeight = window.innerHeight;
                         const dropdownWidth = 250; // Width of the dropdown
+                        const dropdownHeight = 300; // Approximate height of the dropdown
+
+                        // Position the dropdown right next to the conversation item
+                        let leftPos = rect.left + 20; // Position it just to the right of the conversation item
 
                         // Ensure the dropdown doesn't go off-screen to the left
-                        let leftPos = Math.max(10, rect.left - 170);
+                        if (leftPos < 10) {
+                          leftPos = 10;
+                        }
 
                         // Ensure the dropdown doesn't go off-screen to the right
                         if (leftPos + dropdownWidth > windowWidth - 10) {
                           leftPos = windowWidth - dropdownWidth - 10;
                         }
 
+                        // Position the dropdown vertically aligned with the conversation item
+                        const spaceBelow = windowHeight - rect.bottom;
+                        const spaceAbove = rect.top;
+
+                        // Position dropdown vertically centered with the conversation item
+                        let topPos = rect.top - 10; // Align near the top of the conversation item
+
+                        // Make sure it doesn't go off-screen
+                        if (topPos + dropdownHeight > windowHeight - 10) {
+                          topPos = windowHeight - dropdownHeight - 10;
+                        }
+
+                        // Ensure dropdown is always visible on screen
+                        if (topPos < 10) topPos = 10;
+                        if (topPos + dropdownHeight > windowHeight - 10) {
+                          topPos = windowHeight - dropdownHeight - 10;
+                        }
+
                         setCategoryDropdownPosition({
-                          top: rect.top - 10, // Position above the icon
-                          left: leftPos, // Adjusted left position
+                          top: topPos,
+                          left: leftPos,
                         });
                         setShowCategoryDropdown(
                           showCategoryDropdown === contact.id
@@ -3177,6 +3414,7 @@ function MessagingPage({ user, textSize }) {
           style={{
             top: `${categoryDropdownPosition.top}px`,
             left: `${categoryDropdownPosition.left}px`,
+            maxHeight: "350px", // Ensure it doesn't get too tall
           }}
         >
           <div className="category-dropdown-header">
@@ -3200,9 +3438,29 @@ function MessagingPage({ user, textSize }) {
               const categoryId = contact?.categoryId;
               const category = categories.find((c) => c.id === categoryId);
 
-              if (categoryId) {
-                // If contact has a category and it's not a department category, show remove option
-                if (category && !category.isDepartmentCategory) {
+              // Check if contact has any custom (non-department) category
+              const hasCustomCategory = categories
+                .filter((cat) => !cat.isDepartmentCategory)
+                .some(
+                  (cat) =>
+                    contact?.categoryId === cat.id ||
+                    (contact?.categoryIds &&
+                      contact.categoryIds.includes(cat.id))
+                );
+
+              if (hasCustomCategory) {
+                // If contact has any custom category, show remove option
+                // Find the first custom category to display in the remove option
+                const customCategory = categories
+                  .filter((cat) => !cat.isDepartmentCategory)
+                  .find(
+                    (cat) =>
+                      contact?.categoryId === cat.id ||
+                      (contact?.categoryIds &&
+                        contact.categoryIds.includes(cat.id))
+                  );
+
+                if (customCategory) {
                   return (
                     <div
                       className="category-dropdown-item remove-category"
@@ -3214,19 +3472,15 @@ function MessagingPage({ user, textSize }) {
                       <div
                         className="category-dropdown-color category-remove-indicator"
                         style={{
-                          backgroundColor: category
-                            ? category.color
-                            : "#ff4d4d",
-                          boxShadow: `0 0 5px ${
-                            category ? category.color : "#ff4d4d"
-                          }`,
+                          backgroundColor: customCategory.color,
+                          boxShadow: `0 0 5px ${customCategory.color}`,
                         }}
                       ></div>
                       <span className="category-dropdown-name">
                         <div className="remove-category-line">Remove from</div>
                         <div className="remove-category-line">
-                          <span style={{ color: category.color }}>
-                            {category.name}
+                          <span style={{ color: customCategory.color }}>
+                            {customCategory.name}
                           </span>{" "}
                           Category
                         </div>
@@ -3234,7 +3488,7 @@ function MessagingPage({ user, textSize }) {
                     </div>
                   );
                 }
-              } else {
+              } else if (!categoryId) {
                 // If contact has no category, show "No Category" as selected
                 return (
                   <div className="category-dropdown-item active">
@@ -3257,24 +3511,57 @@ function MessagingPage({ user, textSize }) {
 
             {categories
               .filter((category) => !category.isDepartmentCategory)
-              .map((category) => (
-                <div
-                  key={category.id}
-                  className="category-dropdown-item"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setContactCategory(showCategoryDropdown, category.id);
-                  }}
-                >
+              .map((category) => {
+                // Get the current contact
+                const contactId = showCategoryDropdown;
+                const contact = contacts.find((c) => c.id === contactId);
+
+                // Check if contact already has this category
+                const hasCategory =
+                  contact?.categoryIds?.includes(category.id) ||
+                  contact?.categoryId === category.id;
+
+                return (
                   <div
-                    className="category-dropdown-color"
-                    style={{ backgroundColor: category.color }}
-                  ></div>
-                  <span className="category-dropdown-name">
-                    {category.name}
-                  </span>
-                </div>
-              ))}
+                    key={category.id}
+                    className={`category-dropdown-item ${
+                      hasCategory ? "active" : ""
+                    }`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      // If contact already has this category, remove it
+                      if (hasCategory) {
+                        // Only allow removing if it's not the primary category or if there are other categories
+                        if (
+                          contact.categoryId !== category.id ||
+                          (contact.categoryIds &&
+                            contact.categoryIds.length > 1)
+                        ) {
+                          // For now, we'll just set the category to null to remove it
+                          // In the future, we could implement a proper remove-specific-category API
+                          setContactCategory(showCategoryDropdown, null);
+                        }
+                      } else {
+                        // Add the category
+                        setContactCategory(showCategoryDropdown, category.id);
+                      }
+                    }}
+                  >
+                    <div
+                      className="category-dropdown-color"
+                      style={{ backgroundColor: category.color }}
+                    ></div>
+                    <span className="category-dropdown-name">
+                      {category.name}
+                    </span>
+                    {hasCategory && (
+                      <span className="category-dropdown-selected">
+                        <i className="fas fa-check"></i>
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
           </div>
         </div>
       )}

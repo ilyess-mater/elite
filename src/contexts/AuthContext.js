@@ -3,6 +3,7 @@ import axios from "../utils/axiosConfig";
 import {
   createSocketConnection,
   setupEnhancedErrorHandling,
+  cleanupSocketConnection,
 } from "../utils/socketUtils";
 
 // Create the context
@@ -49,7 +50,7 @@ export const AuthProvider = ({ children }) => {
     // Cleanup socket connection on unmount
     return () => {
       if (socket) {
-        socket.disconnect();
+        cleanupSocketConnection(socket);
       }
     };
   }, []);
@@ -136,9 +137,9 @@ export const AuthProvider = ({ children }) => {
     // Clear axios default header
     delete axios.defaults.headers.common["Authorization"];
 
-    // Disconnect socket
+    // Properly cleanup socket connection
     if (socket) {
-      socket.disconnect();
+      cleanupSocketConnection(socket);
     }
 
     // Clear user from state

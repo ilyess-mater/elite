@@ -161,24 +161,47 @@ def get_categories():
         return jsonify({"error": "Unauthorized"}), 401
 
     # Get database reference
-    from app import db
+    from app import db, contacts_collection
 
     # Ensure department categories exist
     ensure_department_categories(user_id)
 
+    # Get IDs of removed chats from request parameters or default to empty list
+    removed_chats_param = request.args.get('removedChats', '[]')
+    try:
+        removed_chats = [ObjectId(id) for id in eval(removed_chats_param) if id]
+    except:
+        removed_chats = []
+
+    # Get all active contacts (not removed from conversations)
+    active_contacts = list(contacts_collection.find({
+        "userId": ObjectId(user_id),
+        "_id": {"$nin": removed_chats}
+    }))
+
+    # Get all departments from active contacts
+    active_departments = set()
+    for contact in active_contacts:
+        if contact.get("department"):
+            active_departments.add(contact.get("department"))
+
+    print(f"Active departments: {active_departments}")
+
     # Get all categories
     categories = db.categories.find({"userId": ObjectId(user_id)})
 
-    # Format categories for the frontend
+    # Format categories for the frontend, filtering out department categories without active contacts
     categories_list = []
     for category in categories:
-        categories_list.append({
-            "id": str(category["_id"]),
-            "name": category["name"],
-            "color": category.get("color", "#4A76A8"),
-            "isDepartmentCategory": category.get("isDepartmentCategory", False),
-            "createdAt": category["createdAt"].isoformat() if "createdAt" in category else None
-        })
+        # Include non-department categories or department categories with active contacts
+        if not category.get("isDepartmentCategory", False) or category.get("name") in active_departments:
+            categories_list.append({
+                "id": str(category["_id"]),
+                "name": category["name"],
+                "color": category.get("color", "#4A76A8"),
+                "isDepartmentCategory": category.get("isDepartmentCategory", False),
+                "createdAt": category["createdAt"].isoformat() if "createdAt" in category else None
+            })
 
     return jsonify(categories_list), 200
 
@@ -335,14 +358,42 @@ def set_contact_category(contact_id):
     if not contact:
         return jsonify({"error": "Contact not found"}), 404
 
-    # If category_id is None, remove the category
+    # If category_id is None, remove the custom category but keep department category
     if category_id is None:
+        # Check if contact has a department category
+        department = contact.get("department", "")
+        if department:
+            # Find the department category
+            department_category = db.categories.find_one({
+                "userId": ObjectId(user_id),
+                "name": department,
+                "isDepartmentCategory": True
+            })
+
+            if department_category:
+                # Keep only the department category
+                db.contacts.update_one(
+                    {
+                        "userId": ObjectId(user_id),
+                        "contactId": ObjectId(contact_id)
+                    },
+                    {
+                        "$set": {"categoryIds": [department_category["_id"]]},
+                        "$unset": {"categoryId": ""}  # Remove old single categoryId field
+                    }
+                )
+                return jsonify({"message": "Custom category removed, department category kept"}), 200
+
+        # If no department category, remove all categories
         db.contacts.update_one(
             {
                 "userId": ObjectId(user_id),
                 "contactId": ObjectId(contact_id)
             },
-            {"$unset": {"categoryId": ""}}
+            {
+                "$set": {"categoryIds": []},
+                "$unset": {"categoryId": ""}  # Remove old single categoryId field
+            }
         )
         return jsonify({"message": "Category removed from contact"}), 200
 
@@ -355,13 +406,52 @@ def set_contact_category(contact_id):
     if not category:
         return jsonify({"error": "Category not found"}), 404
 
-    # Update contact with category
+    # Initialize categoryIds array if it doesn't exist
+    if not contact.get("categoryIds"):
+        contact["categoryIds"] = []
+
+        # If there's an old categoryId, add it to the array
+        if "categoryId" in contact:
+            contact["categoryIds"].append(contact["categoryId"])
+
+    # Check if contact has a department category
+    department = contact.get("department", "")
+    department_category_id = None
+
+    if department:
+        # Find the department category
+        department_category = db.categories.find_one({
+            "userId": ObjectId(user_id),
+            "name": department,
+            "isDepartmentCategory": True
+        })
+
+        if department_category:
+            department_category_id = department_category["_id"]
+
+    # Create a new categoryIds array with the department category (if any) and the new category
+    new_category_ids = []
+
+    # Add department category if it exists
+    if department_category_id:
+        new_category_ids.append(department_category_id)
+
+    # Add the new category if it's not already in the list and it's not the department category
+    if not category.get("isDepartmentCategory", False) and ObjectId(category_id) not in new_category_ids:
+        new_category_ids.append(ObjectId(category_id))
+
+    # Update contact with new categories array
     db.contacts.update_one(
         {
             "userId": ObjectId(user_id),
             "contactId": ObjectId(contact_id)
         },
-        {"$set": {"categoryId": ObjectId(category_id)}}
+        {
+            "$set": {
+                "categoryIds": new_category_ids,
+                "categoryId": ObjectId(category_id)  # Keep for backward compatibility
+            }
+        }
     )
 
     return jsonify({"message": "Contact category updated successfully"}), 200

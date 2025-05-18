@@ -6,13 +6,16 @@ import os
 import json
 import bcrypt
 import jwt
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
 from bson import ObjectId
 from task_routes import task_routes
 from file_upload import file_upload_bp
 from category_routes import category_routes
 from encryption import encrypt_message, decrypt_message, generate_encryption_key
+
+# Note: We're avoiding monkey patching due to compatibility issues with Python 3.13
+# Instead, we'll use a simpler configuration that works with the standard library
 
 # Load environment variables
 load_dotenv()
@@ -29,8 +32,16 @@ class JSONEncoder(json.JSONEncoder):
 # Initialize Flask app
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'default_secret_key')
-CORS(app, resources={r"/*": {"origins": "*"}})
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
+CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
+socketio = SocketIO(
+    app,
+    cors_allowed_origins="*",
+    async_mode='threading',  # Using threading mode for Python 3.13 compatibility
+    ping_timeout=120,  # Increased ping timeout to 120 seconds
+    ping_interval=25,  # Keep ping interval at 25 seconds
+    logger=True,  # Enable logging
+    engineio_logger=True  # Enable Engine.IO logging
+)
 
 # MongoDB connection
 client = MongoClient(os.getenv('MONGO_URI', 'mongodb://localhost:27017/'))
@@ -57,6 +68,11 @@ app.config['MAX_CONTENT_LENGTH'] = 25 * 1024 * 1024  # 25MB max file size
 
 # Import file utility functions from file_upload
 from file_upload import allowed_file, get_file_type_category
+
+# Helper function to get current UTC time (replacing deprecated datetime.utcnow())
+def get_utc_now():
+    """Get current UTC time using timezone-aware approach"""
+    return datetime.now(timezone.utc)
 
 # Helper function for file validation and saving (for socket.io)
 def validate_file_size(file_data, file_type):
@@ -184,9 +200,10 @@ active_users = {}
 # Helper functions
 def generate_token(user_id):
     """Generate JWT token for authenticated user"""
+    now = get_utc_now()
     payload = {
-        'exp': datetime.utcnow() + timedelta(days=1),
-        'iat': datetime.utcnow(),
+        'exp': now + timedelta(days=1),
+        'iat': now,
         'sub': str(user_id)
     }
     return jwt.encode(
@@ -258,6 +275,7 @@ def signup():
     # Create user document
     admin_role = data.get('adminRole', 'admin') if is_admin else None
     department = data.get('department', '')
+    now = get_utc_now()
     user = {
         "name": username,
         "email": email,
@@ -265,8 +283,8 @@ def signup():
         "isAdmin": is_admin,
         "adminRole": admin_role,
         "department": department,
-        "createdAt": datetime.utcnow(),
-        "lastActive": datetime.utcnow()
+        "createdAt": now,
+        "lastActive": now
     }
 
     # Insert user into database
@@ -311,7 +329,7 @@ def signin():
     # Update last active timestamp
     users_collection.update_one(
         {"_id": user["_id"]},
-        {"$set": {"lastActive": datetime.utcnow()}}
+        {"$set": {"lastActive": get_utc_now()}}
     )
 
     # Generate token
@@ -388,15 +406,25 @@ def get_contacts():
                 "email": contact_user["email"],
                 "department": contact_user.get("department", ""),
                 "isActive": str(contact_user["_id"]) in active_users,
-                "lastActivity": contact.get("lastActivity", contact.get("createdAt", datetime.utcnow())).isoformat()
+                "lastActivity": contact.get("lastActivity", contact.get("createdAt", get_utc_now())).isoformat()
             }
 
-            # Add categoryId if it exists in the contact document
-            if "categoryId" in contact:
+            # Add categoryIds array if it exists
+            if "categoryIds" in contact and contact["categoryIds"]:
+                contact_data["categoryIds"] = [str(cat_id) for cat_id in contact["categoryIds"]]
+                print(f"Contact {contact_data['name']} has categories: {contact_data['categoryIds']}")
+
+                # For backward compatibility, set the first category as the main categoryId
+                if contact["categoryIds"]:
+                    contact_data["categoryId"] = str(contact["categoryIds"][0])
+            # Fall back to single categoryId if categoryIds doesn't exist
+            elif "categoryId" in contact:
                 contact_data["categoryId"] = str(contact["categoryId"])
+                contact_data["categoryIds"] = [str(contact["categoryId"])]
                 print(f"Contact {contact_data['name']} has category: {contact_data['categoryId']}")
             else:
                 print(f"Contact {contact_data['name']} has no category")
+                contact_data["categoryIds"] = []
 
             contacts_list.append(contact_data)
 
@@ -438,13 +466,14 @@ def add_contact():
     department = contact_user.get("department", "")
 
     # Add the contact
-    current_time = datetime.utcnow()
+    current_time = get_utc_now()
     contact = {
         "userId": ObjectId(user_id),
         "contactId": contact_user["_id"],
         "department": department,
         "createdAt": current_time,
-        "lastActivity": current_time
+        "lastActivity": current_time,
+        "categoryIds": []  # Initialize empty categoryIds array
     }
 
     # Insert the contact first
@@ -473,28 +502,36 @@ def add_contact():
                 "name": department,
                 "color": color,
                 "isDepartmentCategory": True,
-                "createdAt": datetime.utcnow()
+                "createdAt": get_utc_now()
             }
 
             category_id = db.categories.insert_one(new_category).inserted_id
 
-            # Update the contact with the new category ID
+            # Update the contact with the new category ID in the categoryIds array
             contacts_collection.update_one(
                 {"_id": contact_id},
-                {"$set": {"categoryId": category_id}}
+                {
+                    "$set": {"categoryId": category_id},  # For backward compatibility
+                    "$push": {"categoryIds": category_id}
+                }
             )
 
             # Update our contact object for the response
             contact["categoryId"] = category_id
+            contact["categoryIds"] = [category_id]
         else:
-            # Update the contact with the existing category ID
+            # Update the contact with the existing category ID in the categoryIds array
             contacts_collection.update_one(
                 {"_id": contact_id},
-                {"$set": {"categoryId": department_category["_id"]}}
+                {
+                    "$set": {"categoryId": department_category["_id"]},  # For backward compatibility
+                    "$push": {"categoryIds": department_category["_id"]}
+                }
             )
 
             # Update our contact object for the response
             contact["categoryId"] = department_category["_id"]
+            contact["categoryIds"] = [department_category["_id"]]
 
     return jsonify({
         "id": str(contact_user["_id"]),
@@ -587,7 +624,7 @@ def messages_operations(contact_id):
 
         # Always update lastActivity for this conversation when messages are viewed
         # This ensures conversations move to the top when messages are received, not just when sent
-        current_time = datetime.utcnow()
+        current_time = get_utc_now()
 
         # Update lastActivity in contacts collection for both users
         contacts_collection.update_one(
@@ -1068,7 +1105,7 @@ def exchange_keys():
         "senderId": ObjectId(user_id),
         "recipientId": ObjectId(recipient_id),
         "publicKey": public_key,
-        "timestamp": datetime.utcnow()
+        "timestamp": get_utc_now()
     }
 
     # Check if a key exchange already exists
@@ -1081,7 +1118,7 @@ def exchange_keys():
         # Update the existing key
         db.key_exchanges.update_one(
             {"_id": existing["_id"]},
-            {"$set": {"publicKey": public_key, "timestamp": datetime.utcnow()}}
+            {"$set": {"publicKey": public_key, "timestamp": get_utc_now()}}
         )
     else:
         # Insert a new key exchange
@@ -1150,7 +1187,7 @@ def handle_connect():
     # Update user's online status in database
     users_collection.update_one(
         {"_id": ObjectId(user_id)},
-        {"$set": {"lastActive": datetime.utcnow(), "isOnline": True}}
+        {"$set": {"lastActive": get_utc_now(), "isOnline": True}}
     )
 
     # Broadcast user online status to all users
@@ -1166,11 +1203,29 @@ def handle_disconnect():
             # Update user's online status in database
             users_collection.update_one(
                 {"_id": ObjectId(user_id)},
-                {"$set": {"lastActive": datetime.utcnow(), "isOnline": False}}
+                {"$set": {"lastActive": get_utc_now(), "isOnline": False}}
             )
 
             # Broadcast user offline status to all users
             emit('user_status', {'userId': user_id, 'status': 'offline'}, broadcast=True)
+            break
+
+@socketio.on('heartbeat')
+def handle_heartbeat():
+    """Handle heartbeat messages from clients to keep connections alive"""
+    # Simply acknowledge the heartbeat
+    now = get_utc_now()
+    emit('heartbeat-ack', {'status': 'ok', 'timestamp': now.isoformat()})
+    print(f"Heartbeat received from {request.sid}")
+
+    # Update user's last active timestamp
+    for user_id, sid in active_users.items():
+        if sid == request.sid:
+            # Update user's last active timestamp in database
+            users_collection.update_one(
+                {"_id": ObjectId(user_id)},
+                {"$set": {"lastActive": now}}
+            )
             break
 
 @socketio.on('send_message')
@@ -1249,7 +1304,7 @@ def handle_send_message(data):
                 message_type = "file"
 
         # Get current timestamp
-        current_time = datetime.utcnow()
+        current_time = get_utc_now()
 
         # Create message record
         message = {
@@ -1389,7 +1444,7 @@ def handle_group_message(data):
 
         # Generate a unique message ID
         message_id = str(ObjectId())
-        timestamp = datetime.utcnow().isoformat()
+        timestamp = get_utc_now().isoformat()
 
         # Create message document
         message = {
@@ -1727,7 +1782,7 @@ def handle_send_group_message(data):
             "groupId": ObjectId(group_id),
             "senderId": ObjectId(user_id),
             "text": message_text,
-            "timestamp": datetime.utcnow(),
+            "timestamp": get_utc_now(),
             "fileUrl": file_url,
             "fileType": file_type,
             "fileName": file_name,
@@ -1952,11 +2007,12 @@ def create_group():
     members = []
     for mid in member_ids:
         try:
+            now = get_utc_now()
             member = {
                 "userId": ObjectId(mid),
                 "role": "admin" if mid == user_id else "member",
-                "joinedAt": datetime.utcnow(),
-                "lastRead": datetime.utcnow()
+                "joinedAt": now,
+                "lastRead": now
             }
             members.append(member)
         except:
@@ -1967,7 +2023,7 @@ def create_group():
         "name": name,
         "description": description,
         "createdBy": ObjectId(user_id),
-        "createdAt": datetime.utcnow(),
+        "createdAt": get_utc_now(),
         "members": members,
         "isDepartmentGroup": is_department_group
     }
@@ -2025,7 +2081,7 @@ def get_group_messages(group_id):
             "_id": ObjectId(group_id),
             "members.userId": ObjectId(user_id)
         },
-        {"$set": {"members.$.lastRead": datetime.utcnow()}}
+        {"$set": {"members.$.lastRead": get_utc_now()}}
     )
 
     # Format messages for the frontend
@@ -2281,11 +2337,12 @@ def invite_to_group(group_id):
         # Add new members
         new_members = []
         for mid in member_ids:
+            now = get_utc_now()
             member = {
                 "userId": ObjectId(mid),
                 "role": "member",
-                "joinedAt": datetime.utcnow(),
-                "lastRead": datetime.utcnow()
+                "joinedAt": now,
+                "lastRead": now
             }
             new_members.append(member)
 
@@ -2682,4 +2739,6 @@ def handle_delete_group_message(data):
         emit('error', {'message': 'Failed to delete message'})
 
 if __name__ == '__main__':
-    socketio.run(app, debug=True, host='0.0.0.0', port=5000)
+    # Use threading mode for Python 3.13 compatibility
+    socketio.run(app, debug=True, host='0.0.0.0', port=5000,
+                 log_output=True, use_reloader=False, allow_unsafe_werkzeug=True)

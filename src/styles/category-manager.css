@@ -578,7 +578,7 @@
   width: 250px;
   z-index: 9999; /* Increased z-index to ensure it's above everything */
   overflow: hidden; /* Hide overflow but don't add scrollbar here */
-  max-height: 400px;
+  max-height: 400px; /* Maximum height */
   animation: fadeIn 0.2s ease-out;
   margin-top: 5px;
   display: flex;
@@ -643,11 +643,31 @@
 }
 
 .category-dropdown-items {
-  max-height: 350px;
+  max-height: 300px; /* Reduced max height to ensure it fits on screen */
   overflow-y: auto; /* Only this container should have a scrollbar */
   padding: 5px 0;
   width: 100%; /* Ensure full width */
   flex: 1; /* Take up remaining space */
+  scrollbar-width: thin; /* For Firefox */
+  scrollbar-color: rgba(0, 0, 0, 0.2) transparent; /* For Firefox */
+}
+
+/* Custom scrollbar for WebKit browsers */
+.category-dropdown-items::-webkit-scrollbar {
+  width: 6px;
+}
+
+.category-dropdown-items::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.category-dropdown-items::-webkit-scrollbar-thumb {
+  background-color: rgba(0, 0, 0, 0.2);
+  border-radius: 3px;
+}
+
+.dark-mode .category-dropdown-items::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.2);
 }
 
 /* Only hide scroll buttons in dropdown menus */

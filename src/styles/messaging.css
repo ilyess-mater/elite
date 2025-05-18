@@ -323,10 +323,19 @@
 
 .contact-name-row {
   display: flex;
-  align-items: center;
+  flex-direction: row;
+  align-items: flex-start;
+  flex-wrap: nowrap;
   margin-bottom: 5px;
-  flex-wrap: wrap;
   gap: 6px;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.contact-name-row .contact-name {
+  flex: 1;
+  min-width: 0;
+  margin-right: auto;
 }
 
 .contact-name {
@@ -360,6 +369,7 @@
   max-width: 100px;
   position: relative;
   overflow: hidden;
+  height: 18px;
 }
 
 .dark-mode .contact-category-badge {
@@ -456,6 +466,46 @@
 
 .dark-mode .contact-category-name {
   color: #aaa;
+}
+
+/* Styles for multiple categories */
+.contact-additional-categories {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  flex-wrap: nowrap;
+  gap: 4px;
+  min-height: 16px; /* Ensure consistent height even when empty */
+  justify-content: center;
+}
+
+.contact-category-badge.additional {
+  padding: 1px 4px;
+  border-radius: 8px;
+  font-size: 0.65rem;
+  max-width: 80px;
+  height: 16px;
+  margin-right: 2px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.more-categories-badge {
+  font-size: 0.65rem;
+  color: #666;
+  background-color: rgba(0, 0, 0, 0.05);
+  padding: 1px 4px;
+  border-radius: 8px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-self: flex-end;
+}
+
+.dark-mode .more-categories-badge {
+  color: #aaa;
+  background-color: rgba(255, 255, 255, 0.1);
 }
 
 .contact-last-message {
