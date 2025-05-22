@@ -10,16 +10,22 @@ category_routes = Blueprint('category_routes', __name__)
 def verify_token(token):
     """Verify JWT token and return user_id if valid"""
     try:
-        from app import app
+        # Import app config directly to avoid circular imports
+        from flask import current_app
         payload = jwt.decode(
             token,
-            app.config.get('SECRET_KEY'),
+            current_app.config.get('SECRET_KEY'),
             algorithms=['HS256']
         )
         return payload['sub']
     except jwt.ExpiredSignatureError:
+        print("Token expired")
         return None
     except jwt.InvalidTokenError:
+        print("Invalid token")
+        return None
+    except Exception as e:
+        print(f"Error verifying token: {str(e)}")
         return None
 
 # Department color mapping
@@ -208,48 +214,77 @@ def get_categories():
 @category_routes.route('/api/categories', methods=['POST'])
 def create_category():
     """Create a new category"""
-    token = request.headers.get('Authorization', '').replace('Bearer ', '')
-    user_id = verify_token(token)
+    try:
+        print("Starting category creation process")
+        token = request.headers.get('Authorization', '').replace('Bearer ', '')
+        print(f"Token received: {token[:10]}..." if token else "No token received")
+        
+        user_id = verify_token(token)
+        print(f"User ID from token: {user_id}")
 
-    if not user_id:
-        return jsonify({"error": "Unauthorized"}), 401
+        if not user_id:
+            print("Authentication failed: Invalid or expired token")
+            return jsonify({"error": "Unauthorized"}), 401
 
-    data = request.get_json()
-    name = data.get('name')
-    color = data.get('color', '#4A76A8')  # Default color if not provided
+        data = request.get_json()
+        print(f"Request data: {data}")
+        
+        name = data.get('name')
+        color = data.get('color', '#4A76A8')  # Default color if not provided
 
-    if not name:
-        return jsonify({"error": "Category name is required"}), 400
+        if not name:
+            print("Validation error: Category name is required")
+            return jsonify({"error": "Category name is required"}), 400
 
-    # Get database reference
-    from app import db
+        # Get database reference - import at function level to avoid circular imports
+        try:
+            from app import db
+            print("Database reference obtained successfully")
+        except ImportError as ie:
+            print(f"Import error: {str(ie)}")
+            # Fallback to direct MongoDB connection if import fails
+            from pymongo import MongoClient
+            from dotenv import load_dotenv
+            import os
+            load_dotenv()
+            client = MongoClient(os.getenv('MONGO_URI', 'mongodb://localhost:27017/'))
+            db = client.elite_messaging
+            print("Using fallback database connection")
 
-    # Check if category with same name already exists for this user
-    existing = db.categories.find_one({
-        "userId": ObjectId(user_id),
-        "name": name
-    })
+        # Check if category with same name already exists for this user
+        existing = db.categories.find_one({
+            "userId": ObjectId(user_id),
+            "name": name
+        })
 
-    if existing:
-        return jsonify({"error": "A category with this name already exists"}), 409
+        if existing:
+            print(f"Conflict: Category '{name}' already exists for user {user_id}")
+            return jsonify({"error": "A category with this name already exists"}), 409
 
-    # Create category
-    category = {
-        "userId": ObjectId(user_id),
-        "name": name,
-        "color": color,
-        "createdAt": datetime.utcnow()
-    }
+        # Create category
+        category = {
+            "userId": ObjectId(user_id),
+            "name": name,
+            "color": color,
+            "createdAt": datetime.utcnow()
+        }
+        print(f"Category object created: {category}")
 
-    result = db.categories.insert_one(category)
-    category_id = result.inserted_id
+        result = db.categories.insert_one(category)
+        category_id = result.inserted_id
+        print(f"Category created with ID: {category_id}")
 
-    return jsonify({
-        "id": str(category_id),
-        "name": name,
-        "color": color,
-        "createdAt": category["createdAt"].isoformat()
-    }), 201
+        return jsonify({
+            "id": str(category_id),
+            "name": name,
+            "color": color,
+            "createdAt": category["createdAt"].isoformat()
+        }), 201
+    except Exception as e:
+        print(f"Error in create_category: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": f"Failed to create category: {str(e)}"}), 500
 
 @category_routes.route('/api/categories/<category_id>', methods=['PUT'])
 def update_category(category_id):

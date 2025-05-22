@@ -4,6 +4,8 @@ import "../styles/emoji-picker.css";
 import "../styles/search-results-list.css";
 import "../styles/category-manager.css";
 import "../styles/urgency-selector.css";
+import "../styles/giphy-picker.css";
+import "../styles/gif-button.css";
 
 import axios from "axios";
 import { useAuth } from "../contexts/AuthContext";
@@ -11,6 +13,7 @@ import { useEncryption } from "../contexts/EncryptionContext";
 import EmojiPicker from "emoji-picker-react";
 import CategoryManager from "./CategoryManager";
 import UrgencySelector from "./UrgencySelector";
+import GiphyPicker from "./GiphyPicker";
 
 function MessagingPage({ user, textSize }) {
   const [contacts, setContacts] = useState([]);
@@ -239,6 +242,7 @@ function MessagingPage({ user, textSize }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [messageToDelete, setMessageToDelete] = useState(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [showGiphyPicker, setShowGiphyPicker] = useState(false);
 
   // Category management
   const [categories, setCategories] = useState([]);
@@ -594,22 +598,10 @@ function MessagingPage({ user, textSize }) {
       // Close the dropdown
       setShowCategoryDropdown(null);
 
-      // Force a refresh of the contacts list to ensure the category filter works
+      // Instead of fetching all categories, call updateDepartmentCategories
+      // which will properly filter departments based on active conversations
       setTimeout(() => {
-        const fetchCategories = async () => {
-          try {
-            const response = await axios.get("/api/categories", {
-              headers: {
-                Authorization: `Bearer ${localStorage.getItem("token")}`,
-              },
-            });
-            setCategories(response.data);
-          } catch (error) {
-            console.error("Error refreshing categories:", error);
-          }
-        };
-
-        fetchCategories();
+        updateDepartmentCategories();
       }, 500);
     } catch (error) {
       console.error("Error setting contact category:", error);
@@ -1489,6 +1481,10 @@ function MessagingPage({ user, textSize }) {
       isUploading
     )
       return;
+
+    // Close pickers if open
+    setShowEmojiPicker(false);
+    setShowGiphyPicker(false);
 
     // Create a temporary ID for optimistic update
     const tempId = `temp-${messageIdCounter}`;
@@ -3002,6 +2998,26 @@ function MessagingPage({ user, textSize }) {
                   />
                 </div>
               )}
+
+              {showGiphyPicker && (
+                <GiphyPicker
+                  onGifSelect={(gif) => {
+                    // Handle GIF selection
+                    setSelectedFile({
+                      url: gif.url,
+                      type: "image/gif",
+                      name: gif.title || "GIF from GIPHY",
+                      uploaded: true,
+                    });
+                    setFilePreview({
+                      url: gif.url,
+                      type: "image/gif",
+                    });
+                    setShowGiphyPicker(false);
+                  }}
+                  onClose={() => setShowGiphyPicker(false)}
+                />
+              )}
               <div className="input-container">
                 <label
                   htmlFor="file-input"
@@ -3011,22 +3027,34 @@ function MessagingPage({ user, textSize }) {
                 >
                   <i className="fas fa-paperclip"></i>
                 </label>
-
                 <button
                   type="button"
                   className="emoji-button"
-                  onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                  onClick={() => {
+                    setShowEmojiPicker(!showEmojiPicker);
+                    if (showGiphyPicker) setShowGiphyPicker(false);
+                  }}
                   disabled={isUploading}
                 >
                   <i className="far fa-grin-alt"></i>
+                </button>{" "}
+                <button
+                  type="button"
+                  className="gif-button"
+                  onClick={() => {
+                    setShowGiphyPicker(!showGiphyPicker);
+                    if (showEmojiPicker) setShowEmojiPicker(false);
+                  }}
+                  disabled={isUploading}
+                  title="Add a GIF"
+                >
+                  <span>GIF</span>
                 </button>
-
                 <UrgencySelector
                   ref={urgencySelectorRef}
                   selectedUrgency={messageUrgency}
                   onUrgencyChange={setMessageUrgency}
                 />
-
                 <input
                   type="text"
                   value={message}

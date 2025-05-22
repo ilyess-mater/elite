@@ -2171,17 +2171,23 @@
 }
 
 .file-preview-container {
-  padding: 10px 15px;
+  padding: 8px 12px;
   background-color: #f5f5f5;
-  border-top: 1px solid #eee;
-  display: flex;
+  border: 1px solid #eee;
+  display: inline-flex;
   align-items: center;
   position: relative;
+  max-width: fit-content;
+  border-radius: 12px;
+  margin: 10px 0;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+  transition: all 0.2s ease;
 }
 
 .dark-mode .file-preview-container {
   background-color: #333;
-  border-top: 1px solid #444;
+  border: 1px solid #444;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
 }
 
 .image-preview,
@@ -2190,7 +2196,32 @@
   max-height: 150px;
   overflow: hidden;
   border-radius: 8px;
-  margin-right: 10px;
+  margin-right: 0;
+  position: relative;
+}
+
+.file-preview-container .close-preview {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 22px;
+  height: 22px;
+  background-color: #ff4757;
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 12px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  z-index: 2;
+  border: none;
+}
+
+.dark-mode .file-preview-container .close-preview {
+  background-color: #ff6b81;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .image-preview img {

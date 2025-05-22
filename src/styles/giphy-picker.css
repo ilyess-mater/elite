@@ -1,0 +1,296 @@
+.giphy-picker-container {
+  background-color: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  width: 400px;
+  max-width: 100%;
+  max-height: 500px;
+  display: flex;
+  flex-direction: column;
+  position: absolute;
+  bottom: 70px;
+  left: 10px;
+  z-index: 1500;
+  overflow: hidden;
+  /* Fix for transparency issue */
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid #e0e0e0;
+}
+
+.dark-mode .giphy-picker-container {
+  background-color: #18191a;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  border: 1px solid #333333;
+}
+
+.giphy-picker-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 5px 15px;
+  border-bottom: 1px solid #e0e0e0;
+  background-color: #ffffff;
+}
+
+.dark-mode .giphy-picker-header {
+  background-color: #18191a;
+  border-bottom: 1px solid #333333;
+}
+
+.giphy-tabs {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 5px;
+}
+
+.giphy-tab {
+  padding: 5px 10px;
+  background: none;
+  border: none;
+  color: #666666;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  border-radius: 4px;
+}
+
+.giphy-tab.active {
+  color: #333333;
+  background-color: #f0f0f0;
+}
+
+.dark-mode .giphy-tab {
+  color: #999999;
+}
+
+.dark-mode .giphy-tab.active {
+  color: #ffffff;
+  background-color: #2a2a2a;
+}
+
+.giphy-picker-header h3 {
+  margin: 0;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #333333;
+}
+
+.dark-mode .giphy-picker-header h3 {
+  color: #ffffff;
+}
+
+.giphy-close-button {
+  background: none;
+  border: none;
+  color: #666666;
+  cursor: pointer;
+  font-size: 16px;
+  padding: 5px;
+}
+
+.dark-mode .giphy-close-button {
+  color: #cccccc;
+}
+
+.giphy-search-form {
+  display: flex;
+  padding: 10px;
+  border-bottom: 1px solid #e0e0e0;
+  position: relative;
+  background-color: #ffffff;
+}
+
+.dark-mode .giphy-search-form {
+  background-color: #18191a;
+  border-bottom: 1px solid #333333;
+}
+
+.giphy-search-input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid #e0e0e0;
+  border-radius: 20px;
+  background-color: #f5f5f5;
+  color: #333333;
+  font-size: 14px;
+  width: 100%;
+  text-align: left;
+}
+
+.giphy-search-input::placeholder {
+  content: "Search for GIFs...";
+  color: #999999;
+  opacity: 0.8;
+  text-align: left;
+}
+
+.dark-mode .giphy-search-input {
+  border: 1px solid #333333;
+  background-color: #2a2a2a;
+  color: #ffffff;
+}
+
+.giphy-search-icon {
+  display: none;
+}
+
+.dark-mode .giphy-search-icon {
+  display: none;
+}
+
+.giphy-results {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px;
+  max-height: 300px;
+  background-color: #ffffff;
+}
+
+.dark-mode .giphy-results {
+  background-color: #18191a;
+}
+
+.giphy-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.giphy-categories {
+  display: flex;
+  padding: 10px;
+  gap: 10px;
+  overflow-x: auto;
+  background-color: #ffffff;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.dark-mode .giphy-categories {
+  background-color: #18191a;
+  border-bottom: 1px solid #333333;
+}
+
+.giphy-category {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 60px;
+}
+
+.giphy-category-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background-color: #f0f0f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 5px;
+}
+
+.dark-mode .giphy-category-icon {
+  background-color: #2a2a2a;
+}
+
+.giphy-category-name {
+  font-size: 12px;
+  color: #666666;
+  text-align: center;
+}
+
+.dark-mode .giphy-category-name {
+  color: #999999;
+}
+
+.giphy-item {
+  cursor: pointer;
+  border-radius: 8px;
+  overflow: hidden;
+  transition: transform 0.2s;
+  background-color: #f0f0f0;
+  position: relative;
+  aspect-ratio: 1/1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dark-mode .giphy-item {
+  background-color: #2a2a2a;
+}
+
+.giphy-item:hover {
+  transform: scale(1.05);
+}
+
+.giphy-item img {
+  max-width: 100%;
+  max-height: 100%;
+  display: block;
+  object-fit: contain;
+}
+
+.giphy-loading,
+.giphy-no-results,
+.giphy-error {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 150px;
+  color: #666666;
+  text-align: center;
+  padding: 0 20px;
+}
+
+.dark-mode .giphy-loading,
+.dark-mode .giphy-no-results,
+.dark-mode .giphy-error {
+  color: #999999;
+}
+
+.giphy-loading i {
+  margin-right: 8px;
+}
+
+.giphy-footer {
+  padding: 8px 15px;
+  border-top: 1px solid #e0e0e0;
+  font-size: 12px;
+  color: #666666;
+  text-align: center;
+  background-color: #ffffff;
+}
+
+.dark-mode .giphy-footer {
+  border-top: 1px solid #333333;
+  color: #999999;
+  background-color: #18191a;
+}
+
+.giphy-attribution {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 5px;
+}
+
+.giphy-logo {
+  font-weight: bold;
+  color: #00ccff;
+  letter-spacing: 1px;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+  .giphy-picker-container {
+    width: calc(100% - 20px);
+    left: 10px;
+    right: 10px;
+  }
+}
+
+/* Removed redundant dark mode adjustments as they're now integrated with each component */

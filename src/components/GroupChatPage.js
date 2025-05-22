@@ -3,12 +3,15 @@ import "../styles/groupchat.css";
 import "../styles/emoji-picker.css";
 import "../styles/search-results-list.css";
 import "../styles/urgency-selector.css";
+import "../styles/giphy-picker.css";
+import "../styles/gif-button.css";
 
 import axios from "axios";
 import { useAuth } from "../contexts/AuthContext";
 import TaskManagement from "./TaskManagement";
 import EmojiPicker from "emoji-picker-react";
 import UrgencySelector from "./UrgencySelector";
+import GiphyPicker from "./GiphyPicker";
 
 function GroupChatPage({ user, textSize }) {
   const [groups, setGroups] = useState([]);
@@ -57,6 +60,7 @@ function GroupChatPage({ user, textSize }) {
     useState(false);
   const [messageToDelete, setMessageToDelete] = useState(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [showGiphyPicker, setShowGiphyPicker] = useState(false);
   const [messageUrgency, setMessageUrgency] = useState("normal"); // Default to normal priority
   const urgencySelectorRef = useRef(null);
 
@@ -1215,6 +1219,10 @@ function GroupChatPage({ user, textSize }) {
       isUploading
     )
       return;
+
+    // Close pickers if open
+    setShowEmojiPicker(false);
+    setShowGiphyPicker(false);
 
     // Create a temporary ID for optimistic update
     const tempId = `temp-${messageIdCounter}`;
@@ -2637,6 +2645,26 @@ function GroupChatPage({ user, textSize }) {
                       />
                     </div>
                   )}
+
+                  {showGiphyPicker && (
+                    <GiphyPicker
+                      onGifSelect={(gif) => {
+                        // Handle GIF selection
+                        setSelectedFile({
+                          url: gif.url,
+                          type: "image/gif",
+                          name: gif.title || "GIF from GIPHY",
+                          uploaded: true,
+                        });
+                        setFilePreview({
+                          url: gif.url,
+                          type: "image/gif",
+                        });
+                        setShowGiphyPicker(false);
+                      }}
+                      onClose={() => setShowGiphyPicker(false)}
+                    />
+                  )}
                   <div className="input-container">
                     <label
                       htmlFor="group-file-input"
@@ -2652,10 +2680,26 @@ function GroupChatPage({ user, textSize }) {
                     <button
                       type="button"
                       className="emoji-button"
-                      onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                      onClick={() => {
+                        setShowEmojiPicker(!showEmojiPicker);
+                        if (showGiphyPicker) setShowGiphyPicker(false);
+                      }}
                       disabled={isUploading}
                     >
                       <i className="far fa-grin-alt"></i>
+                    </button>
+
+                    <button
+                      type="button"
+                      className="gif-button"
+                      onClick={() => {
+                        setShowGiphyPicker(!showGiphyPicker);
+                        if (showEmojiPicker) setShowEmojiPicker(false);
+                      }}
+                      disabled={isUploading}
+                      title="Add a GIF"
+                    >
+                      <i className="fas fa-images"></i>
                     </button>
                     <UrgencySelector
                       ref={urgencySelectorRef}
