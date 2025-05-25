@@ -19,19 +19,21 @@ module.exports = function (app) {
           "X-Requested-With,content-type,Authorization",
         "Access-Control-Allow-Credentials": "true",
       },
-      // Increase WebSocket timeout values
-      timeout: 120000, // 120 seconds (increased)
-      proxyTimeout: 120000, // 120 seconds (increased)
+      // Increase WebSocket timeout values - match server configuration
+      timeout: 120000, // 120 seconds
+      proxyTimeout: 120000, // 120 seconds
       // Prevent socket hangup by keeping connections alive
       keepAlive: true,
       // Increase buffer size to handle larger messages
       buffer: {
         pipe: true,
-        maxBuffer: 50 * 1024 * 1024, // 50MB buffer (increased)
+        maxBuffer: 50 * 1024 * 1024, // 50MB buffer
       },
+      // Important: Set proper websocket options
+      websocket: true,
       onProxyReqWs: (proxyReq, req, socket) => {
         // Set keep-alive on the socket with increased timeout
-        socket.setKeepAlive(true, 60000); // 60 seconds keep-alive (increased)
+        socket.setKeepAlive(true, 120000); // Match server timeout of 120 seconds
 
         // Increase socket timeout
         socket.setTimeout(120000); // 120 seconds timeout
@@ -39,41 +41,30 @@ module.exports = function (app) {
         // Disable Nagle's algorithm for better real-time performance
         socket.setNoDelay(true);
 
-        // Increase socket buffer size
-        if (socket.bufferSize !== undefined) {
-          socket.bufferSize = 64 * 1024; // 64KB buffer size
-        }
-
-        // Handle WebSocket proxy request
+        // Handle WebSocket proxy request errors
         socket.on("error", (err) => {
           console.log("WebSocket proxy error:", err);
 
-          // Don't immediately destroy the socket on error
-          if (socket && !socket.destroyed) {
-            console.log(
-              "Socket error occurred but keeping connection alive if possible"
-            );
-
-            // Attempt to recover from ECONNRESET errors
-            if (err.code === "ECONNRESET" || err.code === "ETIMEDOUT") {
-              console.log(
-                `Connection issue detected in proxy (${err.code}), attempting recovery...`
-              );
-
-              // Don't destroy the socket, let the client reconnect
-              return;
-            }
+          // Only log connection reset errors, don't attempt further handling here
+          // The socket.io client will handle reconnection
+          if (err.code === "ECONNRESET") {
+            console.log("WebSocket connection reset (ECONNRESET)");
+            return;
+          }
+          
+          if (err.code === "ERR_STREAM_WRITE_AFTER_END") {
+            console.log("WebSocket write after end error, this is expected during reconnection");
+            return;
           }
         });
 
-        // Add additional event handlers for better error detection
+        // Handle connection events
         socket.on("timeout", () => {
-          console.log("WebSocket proxy socket timeout");
-          // Don't destroy the socket on timeout, let reconnection handle it
+          console.log("WebSocket proxy socket timeout detected");
         });
 
         socket.on("end", () => {
-          console.log("WebSocket proxy socket ended");
+          console.log("WebSocket proxy socket ended normally");
         });
       },
       onError: (err, req, res) => {
@@ -99,7 +90,7 @@ module.exports = function (app) {
     createProxyMiddleware({
       target: "http://localhost:5000",
       changeOrigin: true,
-      ws: true, // Enable WebSocket support for API routes too
+      ws: false, // Disable WebSocket for regular API routes
       secure: false,
       xfwd: false,
       pathRewrite: {

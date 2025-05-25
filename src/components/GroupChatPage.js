@@ -17,6 +17,8 @@ function GroupChatPage({ user, textSize }) {
   const [groups, setGroups] = useState([]);
   const [contacts, setContacts] = useState([]);
   const [selectedGroup, setSelectedGroup] = useState(null);
+  // Add a ref to track if the component is currently visible/active
+  const isGroupChatPageActiveRef = useRef(true);
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState({});
   const [repliedMessages, setRepliedMessages] = useState(() => {
@@ -83,6 +85,44 @@ function GroupChatPage({ user, textSize }) {
     "Legal",
     "Executive",
   ];
+  
+  // Track visibility state of the component
+  useEffect(() => {
+    // Set component as active on mount
+    isGroupChatPageActiveRef.current = true;
+    
+    // Create function to handle visibility changes
+    const handleVisibilityChange = () => {
+      // When page becomes visible, mark as active
+      if (!document.hidden) {
+        console.log("GroupChatPage is now active");
+        isGroupChatPageActiveRef.current = true;
+      } else {
+        console.log("GroupChatPage is now inactive (hidden)");
+        isGroupChatPageActiveRef.current = false;
+      }
+    };
+    
+    // Handle routing/navigation within the app
+    const handleRouteChange = () => {
+      // Check if the current route contains the group chat page
+      const isOnGroupChatRoute = window.location.href.includes('group-chat') ||
+                                window.location.pathname === '/'; // Adjust based on your routing
+      isGroupChatPageActiveRef.current = isOnGroupChatRoute;
+      console.log("Route changed - GroupChatPage active:", isGroupChatPageActiveRef.current);
+    };
+    
+    // Listen for visibility changes
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('popstate', handleRouteChange);
+    
+    return () => {
+      // Mark as inactive when component unmounts
+      isGroupChatPageActiveRef.current = false;
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('popstate', handleRouteChange);
+    };
+  }, []);
 
   // Fetch groups, contacts, and all messages when component mounts
   useEffect(() => {
@@ -413,6 +453,8 @@ function GroupChatPage({ user, textSize }) {
     // Listen for message edits
     socket.on("message_edited", (editedMessage) => {
       if (!editedMessage?.groupId) return;
+      
+      console.log("Received edited group message:", editedMessage);
 
       setMessages((prevMessages) => {
         const groupId = editedMessage.groupId;
@@ -421,16 +463,23 @@ function GroupChatPage({ user, textSize }) {
           : [];
 
         const updatedMessages = existingMessages.map((msg) => {
-          if (msg.id === editedMessage.messageId) {
+          // Check for both msg.id and msg._id because MongoDB might return _id
+          const msgId = msg.id || msg._id;
+          const editedMsgId = editedMessage.messageId || editedMessage.id;
+          
+          if (msgId === editedMsgId) {
+            console.log(`Updating message ${msgId} with new text`);
             return {
               ...msg,
-              text: editedMessage.newText,
+              text: editedMessage.newText || editedMessage.text,
               isEdited: true,
             };
           }
           return msg;
         });
 
+        console.log(`Updated ${updatedMessages.length} messages in group ${groupId}`);
+        
         return {
           ...prevMessages,
           [groupId]: updatedMessages,
@@ -441,6 +490,8 @@ function GroupChatPage({ user, textSize }) {
     // Listen for message deletions
     socket.on("message_deleted", (deletedMessage) => {
       if (!deletedMessage?.groupId) return;
+      
+      console.log("Received deleted group message:", deletedMessage);
 
       setMessages((prevMessages) => {
         const groupId = deletedMessage.groupId;
@@ -449,7 +500,12 @@ function GroupChatPage({ user, textSize }) {
           : [];
 
         const updatedMessages = existingMessages.map((msg) => {
-          if (msg.id === deletedMessage.messageId) {
+          // Check for both msg.id and msg._id because MongoDB might return _id
+          const msgId = msg.id || msg._id;
+          const deletedMsgId = deletedMessage.messageId || deletedMessage.id;
+          
+          if (msgId === deletedMsgId) {
+            console.log(`Marking message ${msgId} as deleted`);
             return {
               ...msg,
               text: "This message was deleted",
@@ -462,6 +518,8 @@ function GroupChatPage({ user, textSize }) {
           return msg;
         });
 
+        console.log(`Updated ${updatedMessages.length} messages in group ${groupId} after deletion`);
+        
         return {
           ...prevMessages,
           [groupId]: updatedMessages,
@@ -628,8 +686,11 @@ function GroupChatPage({ user, textSize }) {
               const isCurrentlyViewingThisGroup =
                 selectedGroupRef.current &&
                 selectedGroupRef.current.id === newMessage.groupId;
-
-              if (!isCurrentlyViewingThisGroup) {
+              
+              // Check if the group chat page is active at all
+              // Only increment unread counter if user is NOT on group chat page
+              // OR they are on the page but not viewing this particular group
+              if (!isCurrentlyViewingThisGroup || !isGroupChatPageActiveRef.current) {
                 // Increment the unread count in the local state
                 // The backend will track the actual unread count based on lastRead timestamp
                 const newUnreadCount = (group.unreadCount || 0) + 1;

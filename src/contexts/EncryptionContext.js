@@ -44,11 +44,33 @@ export const EncryptionProvider = ({ children }) => {
         localStorage.setItem('publicKey', newPublicKey);
       }
 
-      // Load encryption preference
+      // First load encryption preference from localStorage
       const encryptionPref = localStorage.getItem('encryptionEnabled');
       if (encryptionPref !== null) {
         setEncryptionEnabled(encryptionPref === 'true');
       }
+
+      // Then fetch user settings from the server
+      const fetchUserEncryptionSettings = async () => {
+        try {
+          const response = await axios.get('/api/user/settings', {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem('token')}`
+            }
+          });
+          
+          if (response.data && response.data.encryptionEnabled !== undefined) {
+            // Update state and localStorage with server value
+            setEncryptionEnabled(response.data.encryptionEnabled);
+            localStorage.setItem('encryptionEnabled', response.data.encryptionEnabled.toString());
+          }
+        } catch (error) {
+          console.error('Error fetching user settings:', error);
+          // If there's an error, keep using the localStorage value
+        }
+      };
+
+      fetchUserEncryptionSettings();
     }
   }, [user]);
 
@@ -163,10 +185,25 @@ export const EncryptionProvider = ({ children }) => {
   };
 
   // Toggle encryption
-  const toggleEncryption = () => {
+  const toggleEncryption = async () => {
     const newValue = !encryptionEnabled;
     setEncryptionEnabled(newValue);
     localStorage.setItem('encryptionEnabled', newValue.toString());
+    
+    // Send the updated encryption setting to the server
+    try {
+      await axios.post(
+        '/api/user/settings/encryption',
+        { encryptionEnabled: newValue },
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem('token')}`
+          }
+        }
+      );
+    } catch (error) {
+      console.error('Error updating encryption settings:', error);
+    }
   };
 
   const value = {

@@ -27,7 +27,7 @@ export const createSocketConnection = (token) => {
   cleanupExistingConnection();
 
   // Create socket with balanced configuration
-  const socket = io({
+  const socket = io("http://localhost:5000", {
     query: { token },
     path: "/socket.io",
     transports: ["polling", "websocket"], // Start with polling first, then try websocket
@@ -39,8 +39,8 @@ export const createSocketConnection = (token) => {
     forceNew: true,
     upgrade: true,
     rememberUpgrade: true,
-    pingTimeout: 60000, // 60 seconds (balanced)
-    pingInterval: 20000, // 20 seconds (slightly more frequent)
+    pingTimeout: 120000, // 120 seconds (increased for better stability)
+    pingInterval: 25000, // 25 seconds (matched with server)
     autoConnect: true,
     withCredentials: true, // Enable credentials
   });
@@ -102,7 +102,7 @@ const setupHeartbeat = (socket) => {
     clearInterval(heartbeatInterval);
   }
 
-  // Set up heartbeat to prevent ECONNRESET errors with error handling
+  // Set up heartbeat to prevent ECONNRESET errors with improved error handling
   heartbeatInterval = setInterval(() => {
     try {
       if (socket.connected) {
@@ -122,12 +122,28 @@ const setupHeartbeat = (socket) => {
         console.log(
           "Detected write after end in heartbeat, cleaning up connection"
         );
-        cleanupExistingConnection();
-
-        // Don't immediately reconnect here - let the application reconnect naturally
+        clearInterval(heartbeatInterval);
+        heartbeatInterval = null;
+        
+        // Destroy the problematic socket and create a new one after a delay
+        if (currentSocket) {
+          try {
+            currentSocket.removeAllListeners();
+            currentSocket.disconnect();
+          } catch (cleanupErr) {
+            console.error("Error during emergency cleanup:", cleanupErr);
+          }
+          currentSocket = null;
+        }
+        
+        // Allow time for resources to be released before attempting reconnection
+        setTimeout(() => {
+          isReconnecting = false;
+          // Application should handle reconnection on next operation
+        }, 2000);
       }
     }
-  }, 20000); // Send heartbeat every 20 seconds (reduced frequency)
+  }, 25000); // Match server's ping interval (25 seconds)
 };
 
 /**
@@ -213,6 +229,20 @@ export const setupEnhancedErrorHandling = (socket) => {
   socket.on("connect", () => {
     console.log("Socket connected successfully");
     isReconnecting = false; // Reset reconnection flag on successful connection
+    
+    // Get user ID from localStorage and join personal room
+    const user = localStorage.getItem("user");
+    if (user) {
+      try {
+        const userData = JSON.parse(user);
+        if (userData && userData.id) {
+          socket.emit("join_personal_room", { userId: userData.id });
+          console.log(`Joined personal room: ${userData.id}`);
+        }
+      } catch (err) {
+        console.error("Error joining personal room:", err);
+      }
+    }
   });
 
   // Connection error handling

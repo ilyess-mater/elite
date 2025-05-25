@@ -56,13 +56,28 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const setupSocketListeners = () => {
+    if (!socket) return;
+    
     // Add JWT expiration handling
     socket.on("connect_error", (err) => {
+      console.error("Socket connect error:", err.message);
+      
       // Handle token expiration
       if (err.message === "jwt expired") {
         console.error("JWT token expired, logging out");
         logout();
       }
+    });
+    
+    // Add reconnection success handling
+    socket.on("connect", () => {
+      console.log("Socket connection established successfully");
+    });
+    
+    // Add reconnection failure handling
+    socket.on("reconnect_failed", () => {
+      console.error("Socket reconnection failed after all attempts");
+      // We'll let the WebSocketErrorBoundary handle recovery
     });
 
     // Setup enhanced error handling from our utility
@@ -147,6 +162,17 @@ export const AuthProvider = ({ children }) => {
   };
 
   const getSocket = () => {
+    // If socket doesn't exist or isn't connected, try to reconnect
+    if (!socket || (socket && !socket.connected && !socket.connecting)) {
+      const token = localStorage.getItem("token");
+      if (token) {
+        console.log("Socket not connected, attempting to create new connection");
+        socket = createSocketConnection(token);
+        if (socket) {
+          setupSocketListeners();
+        }
+      }
+    }
     return socket;
   };
 

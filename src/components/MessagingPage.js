@@ -824,21 +824,31 @@ function MessagingPage({ user, textSize }) {
     socket.on("message_edited", (editedMessage) => {
       if (!editedMessage?.id) return;
 
+      console.log("Received edited message:", editedMessage);
+      
       setMessages((prevMessages) => {
-        const contactId =
-          editedMessage.sender === user.id
-            ? editedMessage.receiver
-            : editedMessage.sender;
-
+        // For direct messages, we need to handle both sides of the conversation
+        const contactId = editedMessage.sender === user.id
+          ? editedMessage.receiver
+          : editedMessage.sender;
+          
+        console.log("Using contactId for edited message:", contactId);
+        
+        // Make sure we have a messages array for this contact
         const contactMessages = prevMessages[contactId] || [];
+
+        // Update the message with the edited content
+        const updatedMessages = contactMessages.map((msg) =>
+          msg.id === editedMessage.id
+            ? { ...msg, text: editedMessage.text, isEdited: true }
+            : msg
+        );
+        
+        console.log("Updated messages count:", updatedMessages.length);
 
         return {
           ...prevMessages,
-          [contactId]: contactMessages.map((msg) =>
-            msg.id === editedMessage.id
-              ? { ...msg, text: editedMessage.text, isEdited: true }
-              : msg
-          ),
+          [contactId]: updatedMessages,
         };
       });
     });
@@ -847,21 +857,38 @@ function MessagingPage({ user, textSize }) {
     socket.on("message_deleted", (deletedMessage) => {
       if (!deletedMessage?.id) return;
 
+      console.log("Received deleted message:", deletedMessage);
+      
       setMessages((prevMessages) => {
-        const contactId =
-          deletedMessage.sender === user.id
-            ? deletedMessage.receiver
-            : deletedMessage.sender;
-
+        // For direct messages, we need to handle both sides of the conversation
+        const contactId = deletedMessage.sender === user.id
+          ? deletedMessage.receiver
+          : deletedMessage.sender;
+          
+        console.log("Using contactId for deleted message:", contactId);
+        
+        // Make sure we have a messages array for this contact
         const contactMessages = prevMessages[contactId] || [];
+
+        // Update the message as deleted
+        const updatedMessages = contactMessages.map((msg) =>
+          msg.id === deletedMessage.id
+            ? {
+                ...msg,
+                isDeleted: true,
+                text: "This message was deleted",
+                fileUrl: null,
+                fileData: null,
+                fileName: null
+              }
+            : msg
+        );
+        
+        console.log("Updated messages count after deletion:", updatedMessages.length);
 
         return {
           ...prevMessages,
-          [contactId]: contactMessages.map((msg) =>
-            msg.id === deletedMessage.id
-              ? { ...msg, isDeleted: true, text: "This message was deleted" }
-              : msg
-          ),
+          [contactId]: updatedMessages,
         };
       });
     });

@@ -382,6 +382,46 @@ def change_password():
 
     return jsonify({"message": "Password changed successfully"}), 200
 
+@app.route('/api/user/settings/encryption', methods=['POST'])
+def update_encryption_settings():
+    token = request.headers.get('Authorization', '').replace('Bearer ', '')
+    user_id = verify_token(token)
+    
+    if not user_id:
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    data = request.get_json()
+    encryption_enabled = data.get('encryptionEnabled')
+    
+    if encryption_enabled is None:
+        return jsonify({"error": "Encryption setting is required"}), 400
+    
+    # Update the user's encryption setting
+    users_collection.update_one(
+        {"_id": ObjectId(user_id)},
+        {"$set": {"encryptionEnabled": encryption_enabled}}
+    )
+    
+    return jsonify({"message": "Encryption settings updated successfully"}), 200
+
+@app.route('/api/user/settings', methods=['GET'])
+def get_user_settings():
+    token = request.headers.get('Authorization', '').replace('Bearer ', '')
+    user_id = verify_token(token)
+    
+    if not user_id:
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    # Get the user from the database
+    user = users_collection.find_one({"_id": ObjectId(user_id)})
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+    
+    # Return user settings
+    return jsonify({
+        "encryptionEnabled": user.get("encryptionEnabled", False)
+    }), 200
+
 # Contacts routes
 @app.route('/api/contacts', methods=['GET'])
 def get_contacts():
@@ -791,10 +831,14 @@ def get_all_messages():
         # Handle encrypted messages differently for regular admins vs admin masters
         message_text = msg["text"]
         is_encrypted = msg.get("encrypted", False)
-
-        # If message is encrypted, always show placeholder text regardless of who sent it
-        # This ensures admin's own messages are also shown as encrypted
-        if is_encrypted:
+        
+        # Check if the sender has encryption enabled in their settings
+        sender_id_obj = ObjectId(sender_id)
+        sender_user = users_collection.find_one({"_id": sender_id_obj})
+        
+        # If message is explicitly encrypted OR sender is admin master with encryption enabled
+        if is_encrypted or (sender_user and sender_user.get("adminRole") == "admin_master" and
+                         sender_user.get("encryptionEnabled", False)):
             message_text = "End-to-End Encrypted Message"
 
         messages_list.append({
@@ -1227,6 +1271,19 @@ def handle_heartbeat():
                 {"$set": {"lastActive": now}}
             )
             break
+
+@socketio.on('join_personal_room')
+def handle_join_personal_room(data):
+    try:
+        user_id = data.get('userId')
+        if not user_id:
+            return
+            
+        # Join the user's personal room (for private notifications)
+        join_room(user_id)
+        print(f"User {user_id} joined their personal room")
+    except Exception as e:
+        print(f"Error joining personal room: {e}")
 
 @socketio.on('send_message')
 def handle_send_message(data):
