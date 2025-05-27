@@ -1,10 +1,10 @@
 .gif-button {
   width: 36px;
   height: 36px;
-  background-color: var(--input-bg);
+  background-color: transparent;
   border: none;
   border-radius: 6px;
-  color: var(--text-secondary);
+  color: #4a89dc;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -23,17 +23,20 @@
 }
 
 .gif-button:hover {
-  background-color: var(--hover-bg);
+  background-color: rgba(74, 137, 220, 0.1);
+  color: #3a79cc;
+  transform: translateY(-2px);
 }
 
 /* Dark mode styles */
 .dark-mode .gif-button {
-  background-color: var(--input-bg);
-  color: var(--text-color);
+  background-color: transparent;
+  color: #5a99ec;
 }
 
 .dark-mode .gif-button:hover {
-  background-color: var(--hover-bg);
+  background-color: rgba(90, 153, 236, 0.15);
+  color: #7ab0ff;
 }
 
 /* Add this to both messaging.css and groupchat.css */

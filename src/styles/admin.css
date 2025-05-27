@@ -1156,6 +1156,9 @@
   padding: 16px;
   text-align: left;
   border-bottom: 1px solid #eaeaea;
+  vertical-align: middle;
+  height: 72px; /* Fixed height for consistent row alignment */
+  box-sizing: border-box;
 }
 
 .dark-mode .users-table th,
@@ -1170,6 +1173,7 @@
   font-weight: 500;
   color: #495057;
   background-color: #f8f9fa;
+  height: 60px; /* Fixed height for table headers */
 }
 
 .dark-mode .users-table th,
@@ -1193,6 +1197,8 @@
   display: flex;
   align-items: center;
   gap: 12px;
+  height: 100%;
+  min-height: 40px;
 }
 
 .user-avatar {
@@ -1683,6 +1689,10 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  display: flex;
+  align-items: center;
+  height: 100%;
+  line-height: 1.4;
 }
 
 .encrypted-message {
@@ -1690,6 +1700,8 @@
   font-style: italic;
   display: flex;
   align-items: center;
+  height: 100%;
+  width: 100%;
 }
 
 .encrypted-icon {
@@ -1703,6 +1715,16 @@
 
 .dark-mode .encrypted-icon {
   color: #ff8a80;
+}
+
+/* Message Actions Alignment */
+.message-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  min-height: 40px;
 }
 
 /* Analytics */

@@ -51,9 +51,11 @@ module.exports = function (app) {
             console.log("WebSocket connection reset (ECONNRESET)");
             return;
           }
-          
+
           if (err.code === "ERR_STREAM_WRITE_AFTER_END") {
-            console.log("WebSocket write after end error, this is expected during reconnection");
+            console.log(
+              "WebSocket write after end error, this is expected during reconnection"
+            );
             return;
           }
         });
