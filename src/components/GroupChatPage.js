@@ -2300,11 +2300,11 @@ function GroupChatPage({ user, textSize }) {
   return (
     <div className="group-chat-container">
       <div
-        className={`groups-sidebar ${
+        className={`groups-sidebar slide-in-left ${
           isMobileView && selectedGroup ? "mobile-hidden" : ""
         }`}
       >
-        <div className="groups-header">
+        <div className="groups-header fade-in">
           <h2>Group Chats</h2>
           <button
             className="create-group-btn"
@@ -2313,7 +2313,7 @@ function GroupChatPage({ user, textSize }) {
             <i className="fas fa-user-plus"></i> Create New Group
           </button>
         </div>
-        <div className="groups-search">
+        <div className="groups-search slide-up stagger-1">
           <div className="search-bar">
             <i className="fas fa-search"></i>
             <input
@@ -2324,7 +2324,7 @@ function GroupChatPage({ user, textSize }) {
             />
           </div>
         </div>
-        <div className="groups-list">
+        <div className="groups-list slide-up stagger-2">
           {sortedGroups.map((group) => {
             // Check if there are any priority messages in this group
             const groupMessages = messages[group.id] || [];
@@ -2353,7 +2353,10 @@ function GroupChatPage({ user, textSize }) {
             return (
               <div
                 key={group.id}
-                className={`group-item ${
+                className={`group-item slide-in-left stagger-${Math.min(
+                  sortedGroups.indexOf(group) + 1,
+                  6
+                )} ${
                   selectedGroup && selectedGroup.id === group.id ? "active" : ""
                 } ${priorityClass}`}
                 onClick={() => handleGroupSelect(group)}
@@ -2425,13 +2428,13 @@ function GroupChatPage({ user, textSize }) {
       </div>
 
       <div
-        className={`chat-area ${
+        className={`chat-area slide-in-right ${
           isMobileView && selectedGroup ? "mobile-visible" : ""
         }`}
       >
         {selectedGroup ? (
           <>
-            <div className="chat-header">
+            <div className="chat-header fade-in">
               <div className="chat-group-info">
                 {isMobileView && (
                   <button
@@ -2483,7 +2486,7 @@ function GroupChatPage({ user, textSize }) {
             </div>
 
             {/* Tab Navigation */}
-            <div className="group-tabs">
+            <div className="group-tabs slide-up stagger-1">
               <button
                 className={`tab-btn ${activeTab === "chat" ? "active" : ""}`}
                 onClick={() => setActiveTab("chat")}
@@ -2500,7 +2503,7 @@ function GroupChatPage({ user, textSize }) {
 
             {activeTab === "chat" ? (
               <>
-                <div className="chat-messages">
+                <div className="chat-messages slide-up stagger-2">
                   {messages[selectedGroup?.id]?.map((msg) => (
                     <div
                       key={msg.id}

@@ -1,6 +1,7 @@
 .group-chat-container {
   display: flex;
-  height: calc(100vh - 0px);
+  height: 100%;
+  flex: 1;
   background-color: #fff;
   border-radius: 20px;
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);

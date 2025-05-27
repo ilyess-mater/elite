@@ -232,9 +232,9 @@ function ContactsPage({ user }) {
 
   return (
     <div className="contacts-page-container">
-      <h2 className="contacts-title">Contacts</h2>
+      <h2 className="contacts-title fade-in">Contacts</h2>
 
-      <div className="contacts-header">
+      <div className="contacts-header slide-up stagger-1">
         <div className="contacts-actions">
           <div className="search-bar">
             <i className="fas fa-search"></i>
@@ -282,7 +282,7 @@ function ContactsPage({ user }) {
         </div>
       )}
 
-      <div className="contacts-list-container">
+      <div className="contacts-list-container slide-up stagger-2">
         <table className="contacts-table">
           <thead>
             <tr>
@@ -294,8 +294,11 @@ function ContactsPage({ user }) {
             </tr>
           </thead>
           <tbody>
-            {filteredContacts.map((contact) => (
-              <tr key={contact.id}>
+            {filteredContacts.map((contact, index) => (
+              <tr
+                key={contact.id}
+                className={`slide-in-left stagger-${Math.min(index + 1, 6)}`}
+              >
                 <td>
                   <div className="contact-name-cell">
                     <div

@@ -825,15 +825,16 @@ function MessagingPage({ user, textSize }) {
       if (!editedMessage?.id) return;
 
       console.log("Received edited message:", editedMessage);
-      
+
       setMessages((prevMessages) => {
         // For direct messages, we need to handle both sides of the conversation
-        const contactId = editedMessage.sender === user.id
-          ? editedMessage.receiver
-          : editedMessage.sender;
-          
+        const contactId =
+          editedMessage.sender === user.id
+            ? editedMessage.receiver
+            : editedMessage.sender;
+
         console.log("Using contactId for edited message:", contactId);
-        
+
         // Make sure we have a messages array for this contact
         const contactMessages = prevMessages[contactId] || [];
 
@@ -843,7 +844,7 @@ function MessagingPage({ user, textSize }) {
             ? { ...msg, text: editedMessage.text, isEdited: true }
             : msg
         );
-        
+
         console.log("Updated messages count:", updatedMessages.length);
 
         return {
@@ -858,15 +859,16 @@ function MessagingPage({ user, textSize }) {
       if (!deletedMessage?.id) return;
 
       console.log("Received deleted message:", deletedMessage);
-      
+
       setMessages((prevMessages) => {
         // For direct messages, we need to handle both sides of the conversation
-        const contactId = deletedMessage.sender === user.id
-          ? deletedMessage.receiver
-          : deletedMessage.sender;
-          
+        const contactId =
+          deletedMessage.sender === user.id
+            ? deletedMessage.receiver
+            : deletedMessage.sender;
+
         console.log("Using contactId for deleted message:", contactId);
-        
+
         // Make sure we have a messages array for this contact
         const contactMessages = prevMessages[contactId] || [];
 
@@ -879,12 +881,15 @@ function MessagingPage({ user, textSize }) {
                 text: "This message was deleted",
                 fileUrl: null,
                 fileData: null,
-                fileName: null
+                fileName: null,
               }
             : msg
         );
-        
-        console.log("Updated messages count after deletion:", updatedMessages.length);
+
+        console.log(
+          "Updated messages count after deletion:",
+          updatedMessages.length
+        );
 
         return {
           ...prevMessages,
@@ -2279,11 +2284,11 @@ function MessagingPage({ user, textSize }) {
   return (
     <div className="messaging-container">
       <div
-        className={`contacts-list ${
+        className={`contacts-list slide-in-left ${
           isMobileView && selectedContact ? "mobile-hidden" : ""
         }`}
       >
-        <div className="contacts-header">
+        <div className="contacts-header fade-in">
           <h2>Conversations</h2>
           <div className="category-button-container">
             <button
@@ -2295,7 +2300,7 @@ function MessagingPage({ user, textSize }) {
             </button>
           </div>
         </div>
-        <div className="contacts-search">
+        <div className="contacts-search slide-up stagger-1">
           <div className="search-bar">
             <i className="fas fa-search"></i>
             <input
@@ -2309,7 +2314,7 @@ function MessagingPage({ user, textSize }) {
 
         {/* Category filter */}
         {categories.length > 0 && (
-          <div className="category-filter-wrapper">
+          <div className="category-filter-wrapper slide-up stagger-2">
             <div className="category-filter-sections">
               {/* Department categories section */}
               {categories.some((c) => c.isDepartmentCategory) && (
@@ -2466,7 +2471,7 @@ function MessagingPage({ user, textSize }) {
           </div>
         )}
 
-        <div className="contacts-items">
+        <div className="contacts-items slide-up stagger-3">
           {sortedContacts
             .filter(
               (contact) =>
@@ -2475,14 +2480,14 @@ function MessagingPage({ user, textSize }) {
                   contact.categoryIds.includes(selectedCategory)) ||
                 contact.categoryId === selectedCategory
             )
-            .map((contact) => (
+            .map((contact, index) => (
               <div
                 key={contact.id}
-                className={`contact-item ${
+                className={`contact-item slide-in-left ${
                   selectedContact && selectedContact.id === contact.id
                     ? "active"
                     : ""
-                }`}
+                } stagger-${Math.min(index + 1, 6)}`}
                 onClick={() => handleContactSelect(contact)}
               >
                 <div className="contact-avatar-wrapper">
@@ -2753,13 +2758,13 @@ function MessagingPage({ user, textSize }) {
       </div>
 
       <div
-        className={`chat-area ${
+        className={`chat-area slide-in-right ${
           isMobileView && selectedContact ? "mobile-visible" : ""
         }`}
       >
         {selectedContact ? (
           <>
-            <div className="chat-header">
+            <div className="chat-header fade-in">
               {isMobileView && (
                 <button
                   className="back-button"
@@ -2846,7 +2851,7 @@ function MessagingPage({ user, textSize }) {
                 </button>
               </div>
             </div>
-            <div className="chat-messages">
+            <div className="chat-messages slide-up stagger-1">
               {messages[selectedContact.id]?.map((msg) => (
                 <div
                   key={msg.id}
@@ -3103,12 +3108,14 @@ function MessagingPage({ user, textSize }) {
             </form>
           </>
         ) : (
-          <div className="no-chat-selected">
-            <div className="no-chat-icon">
+          <div className="no-chat-selected scale-in">
+            <div className="no-chat-icon fade-in stagger-1">
               <i className="far fa-comment-dots"></i>
             </div>
-            <h3>Select a conversation</h3>
-            <p>Choose a contact to start messaging</p>
+            <h3 className="slide-up stagger-2">Select a conversation</h3>
+            <p className="slide-up stagger-3">
+              Choose a contact to start messaging
+            </p>
           </div>
         )}
       </div>

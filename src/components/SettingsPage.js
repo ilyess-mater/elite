@@ -70,7 +70,18 @@ function SettingsPage({ user, darkMode, textSize, applySettings }) {
 
   const handleThemeChange = (theme) => {
     setSettings({ ...settings, theme });
-    applySettings({ darkMode: theme === "dark" });
+
+    let isDarkMode;
+    if (theme === "system") {
+      // Check system preference
+      isDarkMode =
+        window.matchMedia &&
+        window.matchMedia("(prefers-color-scheme: dark)").matches;
+    } else {
+      isDarkMode = theme === "dark";
+    }
+
+    applySettings({ darkMode: isDarkMode });
     localStorage.setItem("theme", theme);
   };
 
@@ -132,12 +143,12 @@ function SettingsPage({ user, darkMode, textSize, applySettings }) {
 
   return (
     <div className="settings-container">
-      <div className="settings-header">
+      <div className="settings-header fade-in">
         <h1>Preferences</h1>
       </div>
 
       <div className="settings-grid">
-        <div className="settings-card">
+        <div className="settings-card slide-in-left stagger-1">
           <div className="settings-card-header">
             <h2>Security Preferences</h2>
           </div>
@@ -166,32 +177,84 @@ function SettingsPage({ user, darkMode, textSize, applySettings }) {
           </div>
         </div>
 
-        <div className="settings-card">
+        <div className="settings-card slide-in-right stagger-2">
           <div className="settings-card-header">
             <h2>Display Preferences</h2>
           </div>
           <div className="settings-card-body">
             <div className="setting-group">
               <h3>Theme</h3>
-              <div className="theme-options">
+              <p className="setting-description">
+                Choose the appearance of the user interface
+              </p>
+              <div className="theme-options-modern">
                 <div
-                  className={`theme-option ${
+                  className={`theme-option-modern ${
                     settings.theme === "light" ? "active" : ""
                   }`}
                   onClick={() => handleThemeChange("light")}
                 >
-                  <div className="theme-preview light-theme"></div>
-                  <div className="theme-label">Light</div>
+                  <div className="theme-icon">
+                    <i className="fas fa-sun"></i>
+                  </div>
+                  <div className="theme-content">
+                    <div className="theme-title">Light</div>
+                    <div className="theme-subtitle">Light theme</div>
+                  </div>
+                  {settings.theme === "light" && (
+                    <div className="theme-check">
+                      <i className="fas fa-check"></i>
+                    </div>
+                  )}
                 </div>
                 <div
-                  className={`theme-option ${
+                  className={`theme-option-modern ${
                     settings.theme === "dark" ? "active" : ""
                   }`}
                   onClick={() => handleThemeChange("dark")}
                 >
-                  <div className="theme-preview dark-theme"></div>
-                  <div className="theme-label">Dark</div>
+                  <div className="theme-icon">
+                    <i className="fas fa-moon"></i>
+                  </div>
+                  <div className="theme-content">
+                    <div className="theme-title">Dark</div>
+                    <div className="theme-subtitle">Dark theme</div>
+                  </div>
+                  {settings.theme === "dark" && (
+                    <div className="theme-check">
+                      <i className="fas fa-check"></i>
+                    </div>
+                  )}
                 </div>
+                <div
+                  className={`theme-option-modern ${
+                    settings.theme === "system" ? "active" : ""
+                  }`}
+                  onClick={() => handleThemeChange("system")}
+                >
+                  <div className="theme-icon">
+                    <i className="fas fa-desktop"></i>
+                  </div>
+                  <div className="theme-content">
+                    <div className="theme-title">System</div>
+                    <div className="theme-subtitle">Follow system</div>
+                  </div>
+                  {settings.theme === "system" && (
+                    <div className="theme-check">
+                      <i className="fas fa-check"></i>
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="current-theme">
+                <span>Current theme: </span>
+                <span className="current-theme-value">
+                  {settings.theme === "light"
+                    ? "Light"
+                    : settings.theme === "dark"
+                    ? "Dark"
+                    : "System"}
+                </span>
               </div>
             </div>
 

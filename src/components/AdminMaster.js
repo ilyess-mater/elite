@@ -611,7 +611,7 @@ function AdminMaster({ user }) {
         </div>
       )}
 
-      <div className="admin-tab-content">
+      <div key={activeTab} className="admin-tab-content">
         {activeTab === "users" && (
           <>
             <div className="stats-grid">

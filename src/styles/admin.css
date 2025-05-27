@@ -3,6 +3,10 @@
   padding: 24px;
   max-width: 1400px;
   margin: 0 auto;
+  height: 100%;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
 }
 
 .admin-header {
@@ -103,6 +107,202 @@
   gap: 15px;
   flex-wrap: wrap;
   margin-bottom: 20px;
+  justify-content: flex-start;
+  align-items: center;
+}
+
+.admin-tab-content {
+  min-height: 600px;
+  width: 100%;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Ensure all tab content takes full width */
+.admin-tab-content > * {
+  width: 100%;
+  max-width: 100%;
+}
+
+/* Stats grid full width */
+.stats-grid {
+  width: 100%;
+  max-width: 100%;
+}
+
+/* User table container full width */
+.users-table-container,
+.user-table-container {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+/* Messages container full width */
+.messages-container,
+.messages-container-admin {
+  width: 100%;
+  max-width: 100%;
+}
+
+/* Analytics container full width */
+.analytics-container {
+  width: 100%;
+  max-width: 100%;
+}
+
+/* Chart container full width */
+.chart-container {
+  width: 100%;
+  max-width: 100%;
+}
+
+/* Admin page animations */
+.admin-tab-content > * {
+  animation: adminContentSlideIn 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94)
+    forwards;
+  opacity: 0;
+  transform: translateY(20px);
+}
+
+@keyframes adminContentSlideIn {
+  0% {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Staggered animations for admin cards */
+.stats-grid .stat-card:nth-child(1) {
+  animation: adminCardSlideIn 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+  animation-delay: 0.1s;
+  opacity: 0;
+  transform: translateX(-30px);
+}
+
+.stats-grid .stat-card:nth-child(2) {
+  animation: adminCardSlideIn 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+  animation-delay: 0.2s;
+  opacity: 0;
+  transform: translateX(-30px);
+}
+
+.stats-grid .stat-card:nth-child(3) {
+  animation: adminCardSlideIn 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+  animation-delay: 0.3s;
+  opacity: 0;
+  transform: translateX(-30px);
+}
+
+.stats-grid .stat-card:nth-child(4) {
+  animation: adminCardSlideIn 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+  animation-delay: 0.4s;
+  opacity: 0;
+  transform: translateX(-30px);
+}
+
+@keyframes adminCardSlideIn {
+  0% {
+    opacity: 0;
+    transform: translateX(-30px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* User table animation */
+.user-table-container {
+  animation: adminTableSlideUp 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94)
+    forwards;
+  animation-delay: 0.5s;
+  opacity: 0;
+  transform: translateY(30px);
+}
+
+@keyframes adminTableSlideUp {
+  0% {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Messages container animation */
+.messages-container-admin {
+  animation: adminMessagesSlideIn 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94)
+    forwards;
+  animation-delay: 0.3s;
+  opacity: 0;
+  transform: translateY(20px);
+}
+
+@keyframes adminMessagesSlideIn {
+  0% {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Analytics container animation */
+.analytics-container {
+  animation: adminAnalyticsSlideIn 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94)
+    forwards;
+  animation-delay: 0.2s;
+  opacity: 0;
+  transform: translateY(20px);
+}
+
+@keyframes adminAnalyticsSlideIn {
+  0% {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Admin tab buttons drop-in animation */
+@keyframes adminButtonDropIn {
+  0% {
+    opacity: 0;
+    transform: translateY(-50px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Staggered delays for each admin tab button */
+.admin-tab-button:nth-child(1) {
+  animation-delay: 0.1s;
+}
+
+.admin-tab-button:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.admin-tab-button:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+.admin-tab-button:nth-child(4) {
+  animation-delay: 0.4s;
 }
 
 .admin-tab-button {
@@ -124,6 +324,11 @@
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
   position: relative;
   overflow: hidden;
+  /* Drop-in animation */
+  animation: adminButtonDropIn 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94)
+    forwards;
+  opacity: 0;
+  transform: translateY(-50px);
 }
 
 .dark-mode .admin-tab-button {
@@ -673,6 +878,8 @@
 .admin-panel-container {
   padding: 20px;
   max-width: 1400px;
+  min-height: 600px;
+  width: 100%;
   margin: 0 auto;
 }
 
