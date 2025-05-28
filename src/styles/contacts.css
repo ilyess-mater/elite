@@ -1,6 +1,6 @@
 .contacts-page-container {
   padding: 1px;
-  max-width: 1200px;
+  max-width: 1600px; /* Increased from 1200px */
   margin: 0 auto;
   height: 100%;
   flex: 1;
@@ -190,12 +190,13 @@
 }
 
 .contacts-table th {
-  padding: 15px 20px;
+  padding: 20px 25px; /* Increased from 15px 20px */
   text-align: left;
   font-weight: 600;
   color: #555;
   background-color: #f9f9f9;
   border-bottom: 1px solid #eee;
+  font-size: 1rem; /* Added for better readability */
 }
 
 .dark-mode .contacts-table th {
@@ -205,9 +206,10 @@
 }
 
 .contacts-table td {
-  padding: 15px 20px;
+  padding: 18px 25px; /* Increased from 15px 20px */
   border-bottom: 1px solid #eee;
   color: #333;
+  font-size: 0.95rem; /* Added for better readability */
 }
 
 .dark-mode .contacts-table td {
@@ -234,15 +236,15 @@
 }
 
 .contact-avatar {
-  width: 42px;
-  height: 42px;
-  border-radius: 14px;
+  width: 48px; /* Increased from 42px */
+  height: 48px; /* Increased from 42px */
+  border-radius: 16px; /* Increased from 14px */
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 500;
   color: white;
-  font-size: 1rem;
+  font-size: 1.1rem; /* Increased from 1rem */
   /* background-image removed to allow custom colors */
   box-shadow: 0 4px 10px rgba(68, 129, 235, 0.3),
     0 0 12px rgba(68, 129, 235, 0.2);
@@ -284,7 +286,7 @@
     rgba(255, 255, 255, 0.3) 0%,
     rgba(255, 255, 255, 0) 60%
   );
-  border-radius: 14px;
+  border-radius: 16px;
   z-index: 0;
   animation: contact-wave-ripple 10s ease-in-out infinite;
 }
@@ -535,13 +537,13 @@
 
 .contact-actions {
   display: flex;
-  gap: 8px;
+  gap: 12px; /* Increased from 8px */
 }
 
 .action-btn {
-  width: 38px;
-  height: 38px;
-  border-radius: 13px;
+  width: 42px; /* Increased from 38px */
+  height: 42px; /* Increased from 38px */
+  border-radius: 14px; /* Increased from 13px */
   border: none;
   display: flex;
   align-items: center;
@@ -550,7 +552,7 @@
   color: white;
   transition: all 0.3s ease;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  font-size: 1rem;
+  font-size: 1.1rem; /* Increased from 1rem */
 }
 
 .action-btn:hover {
