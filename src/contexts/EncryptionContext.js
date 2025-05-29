@@ -1,14 +1,14 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import axios from 'axios';
-import { useAuth } from './AuthContext';
+import React, { createContext, useContext, useState, useEffect } from "react";
+import axios from "axios";
+import { useAuth } from "./AuthContext";
 import {
   generateEncryptionKey,
   encryptMessage,
   decryptMessage,
   storeEncryptionKey,
   getEncryptionKey,
-  generateSharedSecret
-} from '../utils/encryption';
+  generateSharedSecret,
+} from "../utils/encryption";
 
 const EncryptionContext = createContext();
 
@@ -25,8 +25,8 @@ export const EncryptionProvider = ({ children }) => {
   useEffect(() => {
     if (user) {
       // Check if we already have keys in localStorage
-      const storedPrivateKey = localStorage.getItem('privateKey');
-      const storedPublicKey = localStorage.getItem('publicKey');
+      const storedPrivateKey = localStorage.getItem("privateKey");
+      const storedPublicKey = localStorage.getItem("publicKey");
 
       if (storedPrivateKey && storedPublicKey) {
         setPrivateKey(storedPrivateKey);
@@ -40,32 +40,35 @@ export const EncryptionProvider = ({ children }) => {
         setPublicKey(newPublicKey);
 
         // Store keys in localStorage
-        localStorage.setItem('privateKey', newPrivateKey);
-        localStorage.setItem('publicKey', newPublicKey);
+        localStorage.setItem("privateKey", newPrivateKey);
+        localStorage.setItem("publicKey", newPublicKey);
       }
 
       // First load encryption preference from localStorage
-      const encryptionPref = localStorage.getItem('encryptionEnabled');
+      const encryptionPref = localStorage.getItem("encryptionEnabled");
       if (encryptionPref !== null) {
-        setEncryptionEnabled(encryptionPref === 'true');
+        setEncryptionEnabled(encryptionPref === "true");
       }
 
       // Then fetch user settings from the server
       const fetchUserEncryptionSettings = async () => {
         try {
-          const response = await axios.get('/api/user/settings', {
+          const response = await axios.get("/api/user/settings", {
             headers: {
-              Authorization: `Bearer ${localStorage.getItem('token')}`
-            }
+              Authorization: `Bearer ${localStorage.getItem("token")}`,
+            },
           });
-          
+
           if (response.data && response.data.encryptionEnabled !== undefined) {
             // Update state and localStorage with server value
             setEncryptionEnabled(response.data.encryptionEnabled);
-            localStorage.setItem('encryptionEnabled', response.data.encryptionEnabled.toString());
+            localStorage.setItem(
+              "encryptionEnabled",
+              response.data.encryptionEnabled.toString()
+            );
           }
         } catch (error) {
-          console.error('Error fetching user settings:', error);
+          console.error("Error fetching user settings:", error);
           // If there's an error, keep using the localStorage value
         }
       };
@@ -80,15 +83,15 @@ export const EncryptionProvider = ({ children }) => {
       if (!publicKey) return null;
 
       const response = await axios.post(
-        '/api/keys/exchange',
+        "/api/keys/exchange",
         {
           recipientId: contactId,
-          publicKey: publicKey
+          publicKey: publicKey,
         },
         {
           headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`
-          }
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
         }
       );
 
@@ -103,9 +106,9 @@ export const EncryptionProvider = ({ children }) => {
         storeEncryptionKey(contactId, sharedSecret);
 
         // Update state
-        setContactKeys(prev => ({
+        setContactKeys((prev) => ({
           ...prev,
-          [contactId]: sharedSecret
+          [contactId]: sharedSecret,
         }));
 
         return sharedSecret;
@@ -113,7 +116,7 @@ export const EncryptionProvider = ({ children }) => {
 
       return null;
     } catch (error) {
-      console.error('Error exchanging keys:', error);
+      console.error("Error exchanging keys:", error);
       return null;
     }
   };
@@ -122,7 +125,7 @@ export const EncryptionProvider = ({ children }) => {
   const getContactKey = async (contactId) => {
     // Check if we already have a key for this contact
     let key = getEncryptionKey(contactId);
-    
+
     if (key) {
       return key;
     }
@@ -135,31 +138,47 @@ export const EncryptionProvider = ({ children }) => {
   // Encrypt a message
   const encrypt = async (message, contactId) => {
     if (!encryptionEnabled) {
+      console.log("Encryption disabled, sending unencrypted message");
       return { text: message, encrypted: false };
     }
 
     try {
-      const key = await getContactKey(contactId);
-      
+      console.log(`Attempting to encrypt message for contact ${contactId}`);
+
+      // Try to get or create a key for this contact
+      let key = await getContactKey(contactId);
+
       if (!key) {
-        // If we can't get a key, send unencrypted
-        return { text: message, encrypted: false };
+        console.log(
+          `No encryption key found for contact ${contactId}, generating a shared key`
+        );
+        // Generate a simple shared key for this contact
+        // In a real implementation, this would use proper key exchange
+        key = generateEncryptionKey(); // Generate a random key
+
+        // Store the key for this contact
+        storeEncryptionKey(contactId, key);
+        console.log(
+          `Generated and stored new encryption key for contact ${contactId}`
+        );
       }
 
       const encrypted = encryptMessage(message, key);
-      
+
       if (!encrypted) {
+        console.error("Encryption failed, sending unencrypted message");
         return { text: message, encrypted: false };
       }
 
+      console.log(`Message successfully encrypted for contact ${contactId}`);
       return {
         text: message, // Original text for display in the UI
         encrypted: true,
         encryptedData: encrypted.encryptedData,
-        iv: encrypted.iv
+        iv: encrypted.iv,
       };
     } catch (error) {
-      console.error('Encryption error:', error);
+      console.error("Encryption error:", error);
       return { text: message, encrypted: false };
     }
   };
@@ -172,14 +191,14 @@ export const EncryptionProvider = ({ children }) => {
 
     try {
       const key = getEncryptionKey(contactId);
-      
+
       if (!key) {
         return null;
       }
 
       return decryptMessage(encryptedData, iv, key);
     } catch (error) {
-      console.error('Decryption error:', error);
+      console.error("Decryption error:", error);
       return null;
     }
   };
@@ -188,21 +207,21 @@ export const EncryptionProvider = ({ children }) => {
   const toggleEncryption = async () => {
     const newValue = !encryptionEnabled;
     setEncryptionEnabled(newValue);
-    localStorage.setItem('encryptionEnabled', newValue.toString());
-    
+    localStorage.setItem("encryptionEnabled", newValue.toString());
+
     // Send the updated encryption setting to the server
     try {
       await axios.post(
-        '/api/user/settings/encryption',
+        "/api/user/settings/encryption",
         { encryptionEnabled: newValue },
         {
           headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`
-          }
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
         }
       );
     } catch (error) {
-      console.error('Error updating encryption settings:', error);
+      console.error("Error updating encryption settings:", error);
     }
   };
 
@@ -212,7 +231,7 @@ export const EncryptionProvider = ({ children }) => {
     encrypt,
     decrypt,
     exchangeKeys,
-    getContactKey
+    getContactKey,
   };
 
   return (

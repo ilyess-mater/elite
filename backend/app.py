@@ -434,11 +434,37 @@ def get_contacts():
     # Find all contacts for the user
     user_contacts = contacts_collection.find({"userId": ObjectId(user_id)})
 
-    # Get contact details
+    # Get contact details with last message timestamp
     contacts_list = []
     for contact in user_contacts:
         contact_user = users_collection.find_one({"_id": contact["contactId"]})
         if contact_user:
+            # Get the most recent message timestamp for this contact
+            last_message = messages_collection.find({
+                "$and": [
+                    {
+                        "$or": [
+                            {"senderId": ObjectId(user_id), "receiverId": contact["contactId"]},
+                            {"senderId": contact["contactId"], "receiverId": ObjectId(user_id)}
+                        ]
+                    },
+                    {
+                        "$or": [
+                            {"deletedBy": {"$exists": False}},
+                            {"deletedBy": {"$not": {"$elemMatch": {"$eq": ObjectId(user_id)}}}}
+                        ]
+                    }
+                ]
+            }).sort("timestamp", -1).limit(1)
+
+            last_message_time = None
+            for msg in last_message:
+                last_message_time = msg["timestamp"]
+                break
+
+            # Use last message time if available, otherwise use lastActivity
+            sort_timestamp = last_message_time if last_message_time else contact.get("lastActivity", contact.get("createdAt", get_utc_now()))
+
             # Include categoryId if it exists
             contact_data = {
                 "id": str(contact_user["_id"]),
@@ -446,7 +472,8 @@ def get_contacts():
                 "email": contact_user["email"],
                 "department": contact_user.get("department", ""),
                 "isActive": str(contact_user["_id"]) in active_users,
-                "lastActivity": contact.get("lastActivity", contact.get("createdAt", get_utc_now())).isoformat()
+                "lastActivity": contact.get("lastActivity", contact.get("createdAt", get_utc_now())).isoformat(),
+                "lastMessageTime": sort_timestamp.isoformat() if sort_timestamp else None
             }
 
             # Add categoryIds array if it exists
@@ -468,8 +495,8 @@ def get_contacts():
 
             contacts_list.append(contact_data)
 
-    # Sort contacts by lastActivity (most recent first)
-    contacts_list.sort(key=lambda x: x["lastActivity"], reverse=True)
+    # Sort contacts by most recent message timestamp (most recent first)
+    contacts_list.sort(key=lambda x: x["lastMessageTime"] if x["lastMessageTime"] else x["lastActivity"], reverse=True)
 
     print(f"Returning {len(contacts_list)} contacts")
     return jsonify(contacts_list), 200
@@ -828,17 +855,12 @@ def get_all_messages():
                         "name": deleted_user["name"]
                     })
 
-        # Handle encrypted messages differently for regular admins vs admin masters
+        # Handle encrypted messages - only hide messages that are actually encrypted
         message_text = msg["text"]
         is_encrypted = msg.get("encrypted", False)
-        
-        # Check if the sender has encryption enabled in their settings
-        sender_id_obj = ObjectId(sender_id)
-        sender_user = users_collection.find_one({"_id": sender_id_obj})
-        
-        # If message is explicitly encrypted OR sender is admin master with encryption enabled
-        if is_encrypted or (sender_user and sender_user.get("adminRole") == "admin_master" and
-                         sender_user.get("encryptionEnabled", False)):
+
+        # Only hide messages that are actually encrypted (not just because user has encryption enabled)
+        if is_encrypted:
             message_text = "End-to-End Encrypted Message"
 
         messages_list.append({
@@ -1768,19 +1790,14 @@ def handle_send_group_message(data):
         file_data = data.get('fileData')
         file_url = data.get('fileUrl')  # Get fileUrl directly from data
 
-        # Get encryption data if available
-        encrypted = data.get('encrypted', False)
-        encrypted_data = data.get('encryptedData')
-        iv = data.get('iv')
-
         # Get urgency level if available
         urgency_level = data.get('urgencyLevel', 'normal')  # Default to normal if not specified
 
         print(f"Group message data received: groupId={group_id}, hasText={bool(message_text.strip())}, "
               f"fileType={file_type}, fileName={file_name}, hasFileData={bool(file_data)}, fileUrl={file_url}, "
-              f"encrypted={encrypted}, urgencyLevel={urgency_level}")
+              f"urgencyLevel={urgency_level}")
 
-        if not group_id or (not message_text.strip() and not file_data and not file_url and not encrypted_data):
+        if not group_id or (not message_text.strip() and not file_data and not file_url):
             print("Missing required data for group message")
             return
 
@@ -1844,20 +1861,19 @@ def handle_send_group_message(data):
             "fileType": file_type,
             "fileName": file_name,
             "messageType": message_type,
-            "encrypted": encrypted,
             "urgencyLevel": urgency_level
         }
-
-        # Add encryption data if message is encrypted
-        if encrypted and encrypted_data:
-            message["encryptedData"] = encrypted_data
-            message["iv"] = iv
-            # If the message is encrypted, we still store the original text for admin viewing
-            # but mark it as encrypted so clients know to decrypt it
 
         # Save message to database (in a group_messages collection)
         result = db.group_messages.insert_one(message)
         message_id = result.inserted_id
+
+        # Update group's lastActivity for proper sorting
+        current_time = get_utc_now()
+        groups_collection.update_one(
+            {"_id": ObjectId(group_id)},
+            {"$set": {"lastActivity": current_time}}
+        )
 
         # Get sender info
         user = users_collection.find_one({"_id": ObjectId(user_id)})
@@ -1874,14 +1890,8 @@ def handle_send_group_message(data):
             "fileType": file_type,
             "fileName": file_name,
             "messageType": message_type,
-            "encrypted": encrypted,
             "urgencyLevel": urgency_level
         }
-
-        # Add encryption data if message is encrypted
-        if encrypted and encrypted_data:
-            message_data["encryptedData"] = encrypted_data
-            message_data["iv"] = iv
 
         print(f"Sending group message to room group_{group_id}: {message_data}")
         # Send to the group room
@@ -2005,6 +2015,9 @@ def get_groups():
                 "timestamp": {"$gt": user_last_read}
             })
 
+        # Use last message time for sorting, fallback to group creation time
+        sort_timestamp = last_message["timestamp"] if last_message else group.get("createdAt", get_utc_now())
+
         groups_list.append({
             "id": str(group["_id"]),
             "name": group["name"],
@@ -2012,10 +2025,13 @@ def get_groups():
             "createdBy": str(group["createdBy"]),
             "members": members,
             "lastMessage": last_message["text"] if last_message else "",
-            "lastMessageTime": last_message["timestamp"].isoformat() if last_message else None,
+            "lastMessageTime": sort_timestamp.isoformat(),
             "unreadCount": unread_count,
             "memberCount": len(members)
         })
+
+    # Sort groups by most recent message timestamp (most recent first)
+    groups_list.sort(key=lambda x: x["lastMessageTime"], reverse=True)
 
     return jsonify(groups_list), 200
 

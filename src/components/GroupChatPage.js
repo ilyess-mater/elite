@@ -153,53 +153,46 @@ function GroupChatPage({ user, textSize }) {
         });
         setGroupMemberCounts(counts);
 
-        // Fetch all messages for all groups to ensure proper sorting
-        const allMessagesPromises = groupsWithAvatars.map(async (group) => {
+        // Groups are already sorted by lastMessageTime from the backend
+        console.log("Groups from backend (already sorted):", groupsWithAvatars);
+
+        // Check if we have a stored group order from localStorage
+        const storedGroupOrder = localStorage.getItem("groupOrder");
+        let finalGroups = groupsWithAvatars;
+
+        if (storedGroupOrder) {
           try {
-            const response = await axios.get(
-              `/api/groups/${group.id}/messages`,
-              {
-                headers: {
-                  Authorization: `Bearer ${localStorage.getItem("token")}`,
-                },
+            const orderMap = JSON.parse(storedGroupOrder);
+            // Sort groups based on stored order, maintaining backend order for new groups
+            finalGroups = [...groupsWithAvatars].sort((a, b) => {
+              const aOrder = orderMap[a.id] || 0;
+              const bOrder = orderMap[b.id] || 0;
+
+              // If both have stored order, use that
+              if (aOrder && bOrder) {
+                return bOrder - aOrder; // Higher timestamp = more recent = first
               }
-            );
-            return { groupId: group.id, messages: response.data };
+
+              // If only one has stored order, prioritize it
+              if (aOrder && !bOrder) return -1;
+              if (!aOrder && bOrder) return 1;
+
+              // If neither has stored order, use backend order (lastMessageTime)
+              const aTime = a.lastMessageTime
+                ? new Date(a.lastMessageTime).getTime()
+                : 0;
+              const bTime = b.lastMessageTime
+                ? new Date(b.lastMessageTime).getTime()
+                : 0;
+              return bTime - aTime;
+            });
           } catch (error) {
-            console.error(
-              `Error fetching messages for group ${group.id}:`,
-              error
-            );
-            return { groupId: group.id, messages: [] };
+            console.error("Error parsing stored group order:", error);
+            finalGroups = groupsWithAvatars;
           }
-        });
+        }
 
-        // Wait for all message requests to complete
-        const allMessagesResults = await Promise.all(allMessagesPromises);
-
-        // Create a new messages object with all fetched messages
-        const allMessages = {};
-        allMessagesResults.forEach((result) => {
-          allMessages[result.groupId] = result.messages;
-        });
-
-        // Update the messages state with all fetched messages
-        setMessages(allMessages);
-
-        // Update groups with lastMessageTime based on the latest message
-        const updatedGroups = groupsWithAvatars.map((group) => {
-          const groupMessages = allMessages[group.id] || [];
-          if (groupMessages.length > 0) {
-            const lastMessage = groupMessages[groupMessages.length - 1];
-            return {
-              ...group,
-              lastMessageTime: lastMessage.timestamp,
-            };
-          }
-          return group;
-        });
-
-        setGroups(updatedGroups);
+        setGroups(finalGroups);
       } catch (error) {
         console.error("Error fetching groups:", error);
         setError("Failed to load groups");
@@ -217,6 +210,24 @@ function GroupChatPage({ user, textSize }) {
 
     fetchGroups();
     fetchContacts();
+  }, []);
+
+  // Function to update group order in localStorage
+  const updateGroupOrder = useCallback((groupId) => {
+    const currentTime = Date.now();
+    const storedOrder = localStorage.getItem("groupOrder");
+    let orderMap = {};
+
+    if (storedOrder) {
+      try {
+        orderMap = JSON.parse(storedOrder);
+      } catch (error) {
+        console.error("Error parsing stored group order:", error);
+      }
+    }
+
+    orderMap[groupId] = currentTime;
+    localStorage.setItem("groupOrder", JSON.stringify(orderMap));
   }, []);
 
   // Show browser notification
@@ -726,6 +737,9 @@ function GroupChatPage({ user, textSize }) {
         });
       });
 
+      // Update group order in localStorage
+      updateGroupOrder(newMessage.groupId);
+
       // Sort groups by most recent message timestamp
       setGroups((prevGroups) => {
         return [...prevGroups].sort((a, b) => {
@@ -875,7 +889,14 @@ function GroupChatPage({ user, textSize }) {
       socket.off("message_edited");
       socket.off("message_deleted");
     };
-  }, [socket, user?.id, showNotification, groups, updateTitle]);
+  }, [
+    socket,
+    user?.id,
+    showNotification,
+    groups,
+    updateTitle,
+    updateGroupOrder,
+  ]);
 
   // Add socket listener for user status updates
   useEffect(() => {
@@ -1335,9 +1356,11 @@ function GroupChatPage({ user, textSize }) {
       ],
     }));
 
-    // Update the group's lastMessageTime to move it to the top
+    // Update group order in localStorage and move to top
+    updateGroupOrder(selectedGroup.id);
+
     setGroups((prevGroups) => {
-      return prevGroups.map((group) => {
+      const updatedGroups = prevGroups.map((group) => {
         if (group.id === selectedGroup.id) {
           return {
             ...group,
@@ -1345,6 +1368,17 @@ function GroupChatPage({ user, textSize }) {
           };
         }
         return group;
+      });
+
+      // Sort groups to move the updated group to the top
+      return updatedGroups.sort((a, b) => {
+        const aTime = a.lastMessageTime
+          ? new Date(a.lastMessageTime).getTime()
+          : 0;
+        const bTime = b.lastMessageTime
+          ? new Date(b.lastMessageTime).getTime()
+          : 0;
+        return bTime - aTime;
       });
     });
 
@@ -2009,18 +2043,8 @@ function GroupChatPage({ user, textSize }) {
         group.description.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
-  // Sort groups by urgency level first, then by most recent message timestamp
+  // Only sort by urgency level, maintain backend order for groups with same urgency level
   const sortedGroups = [...filteredGroups].sort((a, b) => {
-    // Get the latest message for each group
-    const aLastMessage =
-      messages[a.id]?.length > 0
-        ? messages[a.id][messages[a.id].length - 1]
-        : null;
-    const bLastMessage =
-      messages[b.id]?.length > 0
-        ? messages[b.id][messages[b.id].length - 1]
-        : null;
-
     // Check if there are any urgent or high priority messages in these groups
     const aMessages = messages[a.id] || [];
     const bMessages = messages[b.id] || [];
@@ -2057,22 +2081,13 @@ function GroupChatPage({ user, textSize }) {
     const aUrgencyPriority = getUrgencyPriority(aHasUrgent, aHasHigh);
     const bUrgencyPriority = getUrgencyPriority(bHasUrgent, bHasHigh);
 
-    // First sort by urgency level
-    const urgencyDiff = bUrgencyPriority - aUrgencyPriority;
-    if (urgencyDiff !== 0) {
-      return urgencyDiff; // Sort by urgency level first
+    // Only sort by urgency level if different, otherwise maintain backend order
+    if (aUrgencyPriority !== bUrgencyPriority) {
+      return bUrgencyPriority - aUrgencyPriority;
     }
 
-    // If urgency levels are the same, sort by timestamp
-    const aTimestamp = aLastMessage?.timestamp
-      ? new Date(aLastMessage.timestamp).getTime()
-      : 0;
-    const bTimestamp = bLastMessage?.timestamp
-      ? new Date(bLastMessage.timestamp).getTime()
-      : 0;
-
-    // Sort in descending order (newest first)
-    return bTimestamp - aTimestamp;
+    // If urgency levels are the same, maintain backend order (already sorted by lastMessageTime)
+    return 0;
   });
 
   // Filter contacts for group creation

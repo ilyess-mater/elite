@@ -1,8 +1,10 @@
 import React, { useState } from "react";
 import axios from "axios";
 import "../styles/security.css";
+import { useEncryption } from "../contexts/EncryptionContext";
 
 function SecurityPage({ user }) {
+  const { encryptionEnabled, toggleEncryption } = useEncryption();
   const [passwordForm, setPasswordForm] = useState({
     currentPassword: "",
     newPassword: "",
@@ -160,7 +162,7 @@ function SecurityPage({ user }) {
     <div className="security-container">
       <div className="security-header">
         <h1>Security Settings</h1>
-        <p>Change your password to keep your account secure</p>
+        <p>Manage your security preferences and account settings</p>
       </div>
 
       {successMessage && (
@@ -175,72 +177,100 @@ function SecurityPage({ user }) {
         </div>
       )}
 
-      <div className="security-card">
-        <div className="security-card-header">
-          <div className="security-card-title">
-            <i className="fas fa-key"></i> Password
+      <div className="settings-grid">
+        <div className="settings-card slide-in-left stagger-1">
+          <div className="settings-card-header">
+            <h2>Password Security</h2>
+          </div>
+          <div className="settings-card-body">
+            <form className="password-form" onSubmit={handlePasswordFormSubmit}>
+              <div className="form-group">
+                <label>Current Password</label>
+                <input
+                  type="password"
+                  name="currentPassword"
+                  value={passwordForm.currentPassword}
+                  onChange={handlePasswordChange}
+                  placeholder="Enter your current password"
+                />
+              </div>
+
+              <div className="form-group">
+                <label>New Password</label>
+                <input
+                  type="password"
+                  name="newPassword"
+                  value={passwordForm.newPassword}
+                  onChange={handlePasswordChange}
+                  placeholder="Enter your new password"
+                />
+                {passwordForm.newPassword && (
+                  <div className="password-strength">
+                    <div className="strength-bar-container">
+                      <div
+                        className="strength-bar"
+                        style={{
+                          width: `${(passwordStrength.score / 6) * 100}%`,
+                          backgroundColor: getPasswordStrengthColor(),
+                        }}
+                      ></div>
+                    </div>
+                    <div
+                      className="strength-text"
+                      style={{ color: getPasswordStrengthColor() }}
+                    >
+                      {passwordStrength.label}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="form-group">
+                <label>Confirm New Password</label>
+                <input
+                  type="password"
+                  name="confirmPassword"
+                  value={passwordForm.confirmPassword}
+                  onChange={handlePasswordChange}
+                  placeholder="Confirm your new password"
+                />
+              </div>
+
+              <div className="form-actions">
+                <button type="submit" className="btn btn-primary">
+                  Change Password
+                </button>
+              </div>
+            </form>
           </div>
         </div>
-        <div className="security-card-content">
-          <form className="password-form" onSubmit={handlePasswordFormSubmit}>
-            <div className="form-group">
-              <label>Current Password</label>
-              <input
-                type="password"
-                name="currentPassword"
-                value={passwordForm.currentPassword}
-                onChange={handlePasswordChange}
-                placeholder="Enter your current password"
-              />
-            </div>
 
-            <div className="form-group">
-              <label>New Password</label>
-              <input
-                type="password"
-                name="newPassword"
-                value={passwordForm.newPassword}
-                onChange={handlePasswordChange}
-                placeholder="Enter your new password"
-              />
-              {passwordForm.newPassword && (
-                <div className="password-strength">
-                  <div className="strength-bar-container">
-                    <div
-                      className="strength-bar"
-                      style={{
-                        width: `${(passwordStrength.score / 6) * 100}%`,
-                        backgroundColor: getPasswordStrengthColor(),
-                      }}
-                    ></div>
-                  </div>
-                  <div
-                    className="strength-text"
-                    style={{ color: getPasswordStrengthColor() }}
-                  >
-                    {passwordStrength.label}
-                  </div>
-                </div>
-              )}
+        <div className="settings-card slide-in-right stagger-2">
+          <div className="settings-card-header">
+            <h2>End-to-End Encryption</h2>
+          </div>
+          <div className="settings-card-body">
+            <div className="setting-group">
+              <div className="setting-option">
+                <label className="switch">
+                  <input
+                    type="checkbox"
+                    checked={encryptionEnabled}
+                    onChange={toggleEncryption}
+                  />
+                  <span className="slider"></span>
+                </label>
+                <span className="setting-label">
+                  Enable end-to-end encryption
+                </span>
+              </div>
+              <p className="setting-description">
+                When enabled, your messages will be encrypted and can only be
+                read by you and the recipient. This provides an additional layer
+                of security for your communications.
+              </p>
             </div>
-
-            <div className="form-group">
-              <label>Confirm New Password</label>
-              <input
-                type="password"
-                name="confirmPassword"
-                value={passwordForm.confirmPassword}
-                onChange={handlePasswordChange}
-                placeholder="Confirm your new password"
-              />
-            </div>
-
-            <div className="form-actions">
-              <button type="submit" className="btn btn-primary">
-                Change Password
-              </button>
-            </div>
-          </form>
+          </div>
         </div>
       </div>
     </div>

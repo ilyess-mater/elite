@@ -236,6 +236,24 @@ function MessagingPage({ user, textSize }) {
     [contacts, setSelectedContact]
   );
 
+  // Function to update contact order in localStorage
+  const updateContactOrder = useCallback((contactId) => {
+    const currentTime = Date.now();
+    const storedOrder = localStorage.getItem("contactOrder");
+    let orderMap = {};
+
+    if (storedOrder) {
+      try {
+        orderMap = JSON.parse(storedOrder);
+      } catch (error) {
+        console.error("Error parsing stored contact order:", error);
+      }
+    }
+
+    orderMap[contactId] = currentTime;
+    localStorage.setItem("contactOrder", JSON.stringify(orderMap));
+  }, []);
+
   // Search functionality
   const [searchResults, setSearchResults] = useState([]);
   const [currentSearchIndex, setCurrentSearchIndex] = useState(0);
@@ -414,53 +432,44 @@ function MessagingPage({ user, textSize }) {
         console.log("Filtered categories on mount:", filteredCategories);
         setCategories(filteredCategories);
 
-        // Set contacts after filtering categories
-        setContacts(contactsWithAvatars);
+        // Check if we have a stored conversation order from localStorage
+        const storedContactOrder = localStorage.getItem("contactOrder");
+        let finalContacts = contactsWithAvatars;
 
-        // Fetch all messages for all contacts to ensure proper sorting
-        const allMessagesPromises = contactsWithAvatars.map(async (contact) => {
+        if (storedContactOrder) {
           try {
-            const response = await axios.get(`/api/messages/${contact.id}`, {
-              headers: {
-                Authorization: `Bearer ${localStorage.getItem("token")}`,
-              },
+            const orderMap = JSON.parse(storedContactOrder);
+            // Sort contacts based on stored order, maintaining backend order for new contacts
+            finalContacts = [...contactsWithAvatars].sort((a, b) => {
+              const aOrder = orderMap[a.id] || 0;
+              const bOrder = orderMap[b.id] || 0;
+
+              // If both have stored order, use that
+              if (aOrder && bOrder) {
+                return bOrder - aOrder; // Higher timestamp = more recent = first
+              }
+
+              // If only one has stored order, prioritize it
+              if (aOrder && !bOrder) return -1;
+              if (!aOrder && bOrder) return 1;
+
+              // If neither has stored order, use backend order (lastMessageTime)
+              const aTime = a.lastMessageTime
+                ? new Date(a.lastMessageTime).getTime()
+                : new Date(a.lastActivity).getTime();
+              const bTime = b.lastMessageTime
+                ? new Date(b.lastMessageTime).getTime()
+                : new Date(b.lastActivity).getTime();
+              return bTime - aTime;
             });
-            return { contactId: contact.id, messages: response.data };
           } catch (error) {
-            console.error(
-              `Error fetching messages for contact ${contact.id}:`,
-              error
-            );
-            return { contactId: contact.id, messages: [] };
+            console.error("Error parsing stored contact order:", error);
+            finalContacts = contactsWithAvatars;
           }
-        });
+        }
 
-        // Wait for all message requests to complete
-        const allMessagesResults = await Promise.all(allMessagesPromises);
-
-        // Create a new messages object with all fetched messages
-        const allMessages = {};
-        allMessagesResults.forEach((result) => {
-          allMessages[result.contactId] = result.messages;
-        });
-
-        // Update the messages state with all fetched messages
-        setMessages(allMessages);
-
-        // Update contacts with lastMessageTime based on the latest message
-        const updatedContacts = contactsWithAvatars.map((contact) => {
-          const contactMessages = allMessages[contact.id] || [];
-          if (contactMessages.length > 0) {
-            const lastMessage = contactMessages[contactMessages.length - 1];
-            return {
-              ...contact,
-              lastMessageTime: lastMessage.timestamp,
-            };
-          }
-          return contact;
-        });
-
-        setContacts(updatedContacts);
+        console.log("Final contacts with order applied:", finalContacts);
+        setContacts(finalContacts);
       } catch (error) {
         console.error("Error fetching data:", error);
       }
@@ -723,8 +732,11 @@ function MessagingPage({ user, textSize }) {
           // Increment unread count if the message is from someone else and not the selected contact
           // Use a flag to prevent double counting
           if (!newMessage._counted) {
+            // Update contact order in localStorage
+            updateContactOrder(contactId);
+
             setContacts((prevContacts) => {
-              return prevContacts.map((contact) => {
+              const updatedContacts = prevContacts.map((contact) => {
                 if (
                   contact.id === contactId &&
                   (!selectedContact || selectedContact.id !== contactId)
@@ -752,6 +764,17 @@ function MessagingPage({ user, textSize }) {
                 }
                 return contact;
               });
+
+              // Sort contacts to move the updated contact to the top
+              return updatedContacts.sort((a, b) => {
+                const aTime = a.lastMessageTime
+                  ? new Date(a.lastMessageTime).getTime()
+                  : new Date(a.lastActivity).getTime();
+                const bTime = b.lastMessageTime
+                  ? new Date(b.lastMessageTime).getTime()
+                  : new Date(b.lastActivity).getTime();
+                return bTime - aTime;
+              });
             });
             // Mark this message as counted to prevent double counting
             newMessage._counted = true;
@@ -759,7 +782,7 @@ function MessagingPage({ user, textSize }) {
         } else {
           // Update the contact's lastMessageTime to move it to the top for our own messages
           setContacts((prevContacts) => {
-            return prevContacts.map((contact) => {
+            const updatedContacts = prevContacts.map((contact) => {
               if (contact.id === contactId) {
                 return {
                   ...contact,
@@ -767,6 +790,17 @@ function MessagingPage({ user, textSize }) {
                 };
               }
               return contact;
+            });
+
+            // Sort contacts to move the updated contact to the top
+            return updatedContacts.sort((a, b) => {
+              const aTime = a.lastMessageTime
+                ? new Date(a.lastMessageTime).getTime()
+                : new Date(a.lastActivity).getTime();
+              const bTime = b.lastMessageTime
+                ? new Date(b.lastMessageTime).getTime()
+                : new Date(b.lastActivity).getTime();
+              return bTime - aTime;
             });
           });
         }
@@ -905,7 +939,15 @@ function MessagingPage({ user, textSize }) {
       socket.off("message_edited");
       socket.off("message_deleted");
     };
-  }, [socket, user, contacts, selectedContact, showNotification, updateTitle]);
+  }, [
+    socket,
+    user,
+    contacts,
+    selectedContact,
+    showNotification,
+    updateTitle,
+    updateContactOrder,
+  ]);
 
   // Handle delete chat
   const handleDeleteChat = (e, contact) => {
@@ -1557,9 +1599,11 @@ function MessagingPage({ user, textSize }) {
       ],
     }));
 
-    // Update the contact's lastMessageTime to move it to the top
+    // Update contact order in localStorage and move to top
+    updateContactOrder(selectedContact.id);
+
     setContacts((prevContacts) => {
-      return prevContacts.map((contact) => {
+      const updatedContacts = prevContacts.map((contact) => {
         if (contact.id === selectedContact.id) {
           return {
             ...contact,
@@ -1567,6 +1611,17 @@ function MessagingPage({ user, textSize }) {
           };
         }
         return contact;
+      });
+
+      // Sort contacts to move the updated contact to the top
+      return updatedContacts.sort((a, b) => {
+        const aTime = a.lastMessageTime
+          ? new Date(a.lastMessageTime).getTime()
+          : new Date(a.lastActivity).getTime();
+        const bTime = b.lastMessageTime
+          ? new Date(b.lastMessageTime).getTime()
+          : new Date(b.lastActivity).getTime();
+        return bTime - aTime;
       });
     });
 
@@ -1944,16 +1999,9 @@ function MessagingPage({ user, textSize }) {
   );
 
   // Sort contacts by urgency level first, then by most recent message timestamp
+  // Backend already provides contacts sorted by lastMessageTime, so we only need to handle urgency sorting
   const sortedContacts = [...filteredContacts].sort((a, b) => {
-    // First check if contacts have lastMessageTime property (from new messages)
-    const aLastMessageTime = a.lastMessageTime
-      ? new Date(a.lastMessageTime).getTime()
-      : 0;
-    const bLastMessageTime = b.lastMessageTime
-      ? new Date(b.lastMessageTime).getTime()
-      : 0;
-
-    // Get the latest message for each contact
+    // Get the latest message for each contact to check urgency
     const aLastMessage =
       messages[a.id]?.length > 0
         ? messages[a.id][messages[a.id].length - 1]
@@ -1982,21 +2030,8 @@ function MessagingPage({ user, textSize }) {
       return urgencyDiff; // Sort by urgency level first
     }
 
-    // If urgency levels are the same, sort by timestamp
-    // Use lastMessageTime if available, otherwise use message timestamp
-    const aTimestamp =
-      aLastMessageTime ||
-      (aLastMessage?.timestamp
-        ? new Date(aLastMessage.timestamp).getTime()
-        : 0);
-    const bTimestamp =
-      bLastMessageTime ||
-      (bLastMessage?.timestamp
-        ? new Date(bLastMessage.timestamp).getTime()
-        : 0);
-
-    // Sort in descending order (newest first)
-    return bTimestamp - aTimestamp;
+    // If urgency levels are the same, maintain backend order (already sorted by lastMessageTime)
+    return 0;
   });
 
   // Render file content based on type
