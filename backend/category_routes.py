@@ -43,12 +43,41 @@ DEPARTMENT_COLORS = {
     "Executive": "#475f7b"
 }
 
+# Helper function to clean orphaned department categories
+def clean_orphaned_department_categories(user_id):
+    """Remove department categories that have no active contacts"""
+    print(f"Cleaning orphaned department categories for user: {user_id}")
+
+    # Get database reference
+    from app import db, contacts_collection
+
+    # Get all department categories for this user
+    department_categories = db.categories.find({
+        "userId": ObjectId(user_id),
+        "isDepartmentCategory": True
+    })
+
+    for category in department_categories:
+        # Check if there are any contacts in this department
+        active_contacts = contacts_collection.find({
+            "userId": ObjectId(user_id),
+            "department": category["name"]
+        }).limit(1)
+
+        # If no active contacts, delete the category
+        if not list(active_contacts):
+            print(f"Removing orphaned department category: {category['name']}")
+            db.categories.delete_one({"_id": category["_id"]})
+
 # Helper function to create department categories
 def ensure_department_categories(user_id):
     """Create department categories for a user if they don't exist"""
     from app import db, users_collection, contacts_collection
 
     print(f"Ensuring department categories for user {user_id}")
+
+    # First clean up orphaned categories
+    clean_orphaned_department_categories(user_id)
 
     # Get user's department
     user = users_collection.find_one({"_id": ObjectId(user_id)})
@@ -251,15 +280,35 @@ def create_category():
             db = client.elite_messaging
             print("Using fallback database connection")
 
-        # Check if category with same name already exists for this user
+        # Check if category with same name already exists for this user (excluding department categories)
         existing = db.categories.find_one({
             "userId": ObjectId(user_id),
-            "name": name
+            "name": name,
+            "isDepartmentCategory": {"$ne": True}  # Exclude department categories
         })
 
         if existing:
             print(f"Conflict: Category '{name}' already exists for user {user_id}")
             return jsonify({"error": "A category with this name already exists"}), 409
+
+        # Also check if there's a department category with the same name that has active contacts
+        department_category = db.categories.find_one({
+            "userId": ObjectId(user_id),
+            "name": name,
+            "isDepartmentCategory": True
+        })
+
+        if department_category:
+            # Check if this department has active contacts
+            from app import contacts_collection
+            active_contacts = contacts_collection.find({
+                "userId": ObjectId(user_id),
+                "department": name
+            }).limit(1)
+
+            if list(active_contacts):
+                print(f"Conflict: Department category '{name}' already exists with active contacts")
+                return jsonify({"error": "A category with this name already exists"}), 409
 
         # Create category
         category = {
@@ -313,6 +362,36 @@ def update_category(category_id):
 
     if not category:
         return jsonify({"error": "Category not found"}), 404
+
+    # Check if another category with the same name exists (excluding department categories and current category)
+    existing = db.categories.find_one({
+        "userId": ObjectId(user_id),
+        "name": name,
+        "_id": {"$ne": ObjectId(category_id)},
+        "isDepartmentCategory": {"$ne": True}
+    })
+
+    if existing:
+        return jsonify({"error": "A category with this name already exists"}), 409
+
+    # Also check if there's a department category with the same name that has active contacts
+    department_category = db.categories.find_one({
+        "userId": ObjectId(user_id),
+        "name": name,
+        "_id": {"$ne": ObjectId(category_id)},
+        "isDepartmentCategory": True
+    })
+
+    if department_category:
+        # Check if this department has active contacts
+        from app import contacts_collection
+        active_contacts = contacts_collection.find({
+            "userId": ObjectId(user_id),
+            "department": name
+        }).limit(1)
+
+        if list(active_contacts):
+            return jsonify({"error": "A category with this name already exists"}), 409
 
     # Update category
     update_data = {"name": name}

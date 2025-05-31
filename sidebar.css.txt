@@ -1032,13 +1032,13 @@
 }
 
 .btn-confirm {
-  background-color: #4481eb;
+  background-color: #dc3545 1eb;
   color: white;
   transition: 0.5s;
 }
 
 .btn-confirm:hover {
-  background-color: #04befe;
+  background-color: #dc3545;
   transform: translateY(-2px) scale(1.05);
   box-shadow: 0 5px 15px rgba(4, 190, 254, 0.3);
 }

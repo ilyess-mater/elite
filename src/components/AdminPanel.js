@@ -425,41 +425,44 @@ function AdminPanel({ user }) {
       {confirmAction && (
         <div className="confirm-dialog-overlay">
           <div className="confirm-dialog">
-            <div className="confirm-dialog-header">
-              <h3>Confirm Action</h3>
-            </div>
-            <div className="confirm-dialog-content">
-              {confirmAction.action === "promote_options" ? (
-                <div className="promote-options">
-                  <p>Select admin role for {confirmAction.user.name}:</p>
-                  <div className="admin-role-buttons">
-                    <button
-                      className="btn btn-primary"
-                      onClick={() => {
-                        setConfirmAction({
-                          ...confirmAction,
-                          action: "promote",
-                        });
-                        confirmUserAction();
-                      }}
-                    >
-                      Regular Admin
-                    </button>
-                    <button
-                      className="btn btn-primary admin-master-btn"
-                      onClick={() => {
-                        setConfirmAction({
-                          ...confirmAction,
-                          action: "promote_admin_master",
-                        });
-                        confirmUserAction();
-                      }}
-                    >
-                      Admin Master
-                    </button>
-                  </div>
+            <h3>Confirm Action</h3>
+            {confirmAction.action === "promote_options" ? (
+              <div className="promote-options">
+                <p>Select admin role for {confirmAction.user.name}:</p>
+                <div className="admin-role-buttons">
+                  <button
+                    className="btn btn-primary"
+                    onClick={() => {
+                      setConfirmAction({
+                        ...confirmAction,
+                        action: "promote",
+                      });
+                      confirmUserAction();
+                    }}
+                  >
+                    Regular Admin
+                  </button>
+                  <button
+                    className="btn btn-primary admin-master-btn"
+                    onClick={() => {
+                      setConfirmAction({
+                        ...confirmAction,
+                        action: "promote_admin_master",
+                      });
+                      confirmUserAction();
+                    }}
+                  >
+                    Admin Master
+                  </button>
                 </div>
-              ) : (
+                <div className="confirm-dialog-actions">
+                  <button className="btn-cancel" onClick={cancelConfirmation}>
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
                 <p>
                   {confirmAction.action === "ban"
                     ? `Are you sure you want to ban user ${confirmAction.user.name}? This action cannot be undone.`
@@ -471,37 +474,20 @@ function AdminPanel({ user }) {
                     ? `Are you sure you want to make ${confirmAction.user.name} a regular user?`
                     : `Are you sure you want to ${confirmAction.action} ${confirmAction.user.name}?`}
                 </p>
-              )}
-            </div>
-            {confirmAction.action !== "promote_options" && (
-              <div className="confirm-dialog-actions">
-                <button
-                  className="btn btn-secondary"
-                  onClick={cancelConfirmation}
-                >
-                  Cancel
-                </button>
-                <button
-                  className={`btn ${
-                    confirmAction.action === "ban"
-                      ? "btn-danger"
-                      : "btn-primary"
-                  }`}
-                  onClick={confirmUserAction}
-                >
-                  {confirmAction.action === "ban" ? "Ban" : "Confirm"}
-                </button>
-              </div>
-            )}
-            {confirmAction.action === "promote_options" && (
-              <div className="confirm-dialog-actions">
-                <button
-                  className="btn btn-secondary"
-                  onClick={cancelConfirmation}
-                >
-                  Cancel
-                </button>
-              </div>
+                <div className="confirm-dialog-actions">
+                  <button className="btn-cancel" onClick={cancelConfirmation}>
+                    Cancel
+                  </button>
+                  <button
+                    className={`btn-confirm ${
+                      confirmAction.action === "ban" ? "btn-danger" : ""
+                    }`}
+                    onClick={confirmUserAction}
+                  >
+                    {confirmAction.action === "ban" ? "Ban" : "Confirm"}
+                  </button>
+                </div>
+              </>
             )}
           </div>
         </div>
