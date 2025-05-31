@@ -674,6 +674,102 @@
   transform: translateX(5px);
 }
 
+/* Sidebar hover expansion animations */
+.sidebar:hover {
+  width: 220px;
+}
+
+.sidebar:hover .sidebar-text {
+  display: block;
+  animation: slide-in-right 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.sidebar:hover .logo-text {
+  display: flex;
+  opacity: 1;
+  transform: translateY(0);
+  animation: slide-in-right 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.sidebar:hover .logo-short {
+  display: none;
+  opacity: 0;
+}
+
+.sidebar:hover .user-name {
+  display: block;
+  animation: slide-in-right 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.sidebar:hover .nav-group-title {
+  opacity: 1;
+  height: auto;
+  margin-bottom: 5px;
+  padding-left: 25px;
+  animation: slide-in-right 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.sidebar:hover .sidebar-nav ul {
+  align-items: flex-start;
+  padding-left: 15px;
+  padding-right: 15px;
+}
+
+.sidebar:hover .sidebar-icon {
+  width: 100%;
+  border-radius: 16px;
+  padding-left: 15px;
+  justify-content: flex-start;
+}
+
+.sidebar:hover .sidebar-icon i {
+  min-width: 24px;
+}
+
+.sidebar:hover .sidebar-footer {
+  justify-content: flex-start;
+  padding-left: 15px;
+}
+
+.sidebar:hover .logout-button {
+  width: auto;
+  padding: 0 20px 0 15px;
+  justify-content: flex-start;
+}
+
+.sidebar:hover .logout-button i {
+  min-width: 24px;
+}
+
+.sidebar:hover .user-profile {
+  flex-direction: row;
+  justify-content: flex-start;
+  padding-left: 20px;
+}
+
+/* Slide-in animations */
+@keyframes slide-in-right {
+  0% {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slide-in-left {
+  0% {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
 .dark-mode .sidebar-icon:hover {
   background-color: rgba(48, 48, 77, 0.9);
   color: #04befe;
@@ -1047,7 +1143,7 @@
 
 @media (max-width: 576px) {
   /* Split the sidebar into two parts: top header and bottom navigation */
-  
+
   /* Hide section titles completely on mobile */
   .nav-group-title {
     display: none !important;
@@ -1055,7 +1151,7 @@
     margin: 0 !important;
     padding: 0 !important;
   }
-  
+
   /* Adjust nav group spacing to bring icons closer together */
   .nav-group {
     gap: 5px;
@@ -1160,7 +1256,7 @@
     /* Set a consistent gap between all items */
     gap: 0;
   }
-  
+
   /* Make all nav groups consistent width and spacing */
   .nav-group {
     margin: 0;
@@ -1169,7 +1265,7 @@
     display: flex;
     justify-content: center;
   }
-  
+
   .sidebar-nav ul {
     flex-direction: row;
     justify-content: center;
@@ -1180,7 +1276,7 @@
     height: 100%;
     align-items: center;
   }
-  
+
   /* Set uniform spacing for all sidebar icons */
   .sidebar-icon {
     margin: 0;
