@@ -446,15 +446,10 @@
   overflow: hidden;
   text-overflow: ellipsis;
   display: none;
-  transform: translateX(-10px);
-  opacity: 0;
-  transition: all 0.6s ease-out;
 }
 
 .sidebar.expanded .user-name {
   display: block;
-  transform: translateX(0);
-  opacity: 1;
 }
 
 .dark-mode .user-name {
@@ -576,7 +571,7 @@
   border-radius: 18px;
   cursor: pointer;
   color: #555;
-  transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   background-color: rgba(248, 249, 250, 0.7);
   backdrop-filter: blur(5px);
@@ -584,9 +579,6 @@
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.15);
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.03);
-  /* Default state - visible and in position */
-  transform: translateX(0);
-  opacity: 1;
 }
 
 .sidebar-icon::before {
@@ -650,106 +642,6 @@
   }
 }
 
-/* Professional slide-in-left animation */
-@keyframes slideInLeft {
-  0% {
-    transform: translateX(-30px);
-    opacity: 0;
-  }
-  100% {
-    transform: translateX(0);
-    opacity: 1;
-  }
-}
-
-/* Professional slide-in-left animation for each icon when hovering */
-/* First nav-group (Messaging) - Messages */
-.sidebar.expanded:hover .nav-group:nth-child(1) ul li:nth-child(1) {
-  animation: slideInLeft 0.4s ease-out 0.05s forwards;
-}
-
-/* First nav-group (Messaging) - Contacts */
-.sidebar.expanded:hover .nav-group:nth-child(1) ul li:nth-child(2) {
-  animation: slideInLeft 0.4s ease-out 0.1s forwards;
-}
-
-/* First nav-group (Messaging) - Groups */
-.sidebar.expanded:hover .nav-group:nth-child(1) ul li:nth-child(3) {
-  animation: slideInLeft 0.4s ease-out 0.15s forwards;
-}
-
-/* Second nav-group (Settings) - Preferences */
-.sidebar.expanded:hover .nav-group:nth-child(2) ul li:nth-child(1) {
-  animation: slideInLeft 0.4s ease-out 0.2s forwards;
-}
-
-/* Second nav-group (Settings) - Security */
-.sidebar.expanded:hover .nav-group:nth-child(2) ul li:nth-child(2) {
-  animation: slideInLeft 0.4s ease-out 0.25s forwards;
-}
-
-/* Third nav-group (Admin) - Admin Panel */
-.sidebar.expanded:hover .nav-group:nth-child(3) ul li:nth-child(1) {
-  animation: slideInLeft 0.4s ease-out 0.3s forwards;
-}
-
-/* Professional text animation that appears with each bubble */
-/* First nav-group (Messaging) - Messages text */
-.sidebar.expanded:hover
-  .nav-group:nth-child(1)
-  ul
-  li:nth-child(1)
-  .sidebar-text {
-  animation: slideInText 0.4s ease-out 0.05s forwards;
-}
-
-/* First nav-group (Messaging) - Contacts text */
-.sidebar.expanded:hover
-  .nav-group:nth-child(1)
-  ul
-  li:nth-child(2)
-  .sidebar-text {
-  animation: slideInText 0.4s ease-out 0.1s forwards;
-}
-
-/* First nav-group (Messaging) - Groups text */
-.sidebar.expanded:hover
-  .nav-group:nth-child(1)
-  ul
-  li:nth-child(3)
-  .sidebar-text {
-  animation: slideInText 0.4s ease-out 0.15s forwards;
-}
-
-/* Second nav-group (Settings) - Preferences text */
-.sidebar.expanded:hover
-  .nav-group:nth-child(2)
-  ul
-  li:nth-child(1)
-  .sidebar-text {
-  animation: slideInText 0.4s ease-out 0.2s forwards;
-}
-
-/* Second nav-group (Settings) - Security text */
-.sidebar.expanded:hover
-  .nav-group:nth-child(2)
-  ul
-  li:nth-child(2)
-  .sidebar-text {
-  animation: slideInText 0.4s ease-out 0.25s forwards;
-}
-
-/* Third nav-group (Admin) - Admin Panel text */
-.sidebar.expanded:hover
-  .nav-group:nth-child(3)
-  ul
-  li:nth-child(1)
-  .sidebar-text {
-  animation: slideInText 0.4s ease-out 0.3s forwards;
-}
-
-/* Logout button - no animation, just normal expansion */
-
 .sidebar.expanded .sidebar-icon {
   width: 100%;
   border-radius: 16px;
@@ -780,102 +672,6 @@
 
 .sidebar.expanded .sidebar-icon:hover {
   transform: translateX(5px);
-}
-
-/* Sidebar hover expansion animations - only when hover is enabled */
-.sidebar.hover-enabled:hover {
-  width: 220px;
-}
-
-.sidebar.hover-enabled:hover .sidebar-text {
-  display: block;
-  animation: slide-in-right 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-}
-
-.sidebar.hover-enabled:hover .logo-text {
-  display: flex;
-  opacity: 1;
-  transform: translateY(0);
-  animation: slide-in-right 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-}
-
-.sidebar.hover-enabled:hover .logo-short {
-  display: none;
-  opacity: 0;
-}
-
-.sidebar.hover-enabled:hover .user-name {
-  display: block;
-  animation: slide-in-right 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-}
-
-.sidebar.hover-enabled:hover .nav-group-title {
-  opacity: 1;
-  height: auto;
-  margin-bottom: 5px;
-  padding-left: 25px;
-  animation: slide-in-right 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-}
-
-.sidebar.hover-enabled:hover .sidebar-nav ul {
-  align-items: flex-start;
-  padding-left: 15px;
-  padding-right: 15px;
-}
-
-.sidebar.hover-enabled:hover .sidebar-icon {
-  width: 100%;
-  border-radius: 16px;
-  padding-left: 15px;
-  justify-content: flex-start;
-}
-
-.sidebar.hover-enabled:hover .sidebar-icon i {
-  min-width: 24px;
-}
-
-.sidebar.hover-enabled:hover .sidebar-footer {
-  justify-content: flex-start;
-  padding-left: 15px;
-}
-
-.sidebar.hover-enabled:hover .logout-button {
-  width: auto;
-  padding: 0 20px 0 15px;
-  justify-content: flex-start;
-}
-
-.sidebar.hover-enabled:hover .logout-button i {
-  min-width: 24px;
-}
-
-.sidebar.hover-enabled:hover .user-profile {
-  flex-direction: row;
-  justify-content: flex-start;
-  padding-left: 20px;
-}
-
-/* Slide-in animations */
-@keyframes slide-in-right {
-  0% {
-    opacity: 0;
-    transform: translateX(-20px);
-  }
-  100% {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-@keyframes slide-in-left {
-  0% {
-    opacity: 0;
-    transform: translateX(20px);
-  }
-  100% {
-    opacity: 1;
-    transform: translateX(0);
-  }
 }
 
 .dark-mode .sidebar-icon:hover {
@@ -927,53 +723,13 @@
   white-space: nowrap;
   font-weight: 500;
   display: none;
-  color: #333;
   position: relative;
   z-index: 2;
-  transform: translateX(-15px);
-  opacity: 0;
-  transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 .sidebar.expanded .sidebar-text {
   display: block;
-  transform: translateX(0);
-  opacity: 1;
 }
-
-/* Smooth animation for sidebar text */
-@keyframes slideInText {
-  0% {
-    transform: translateX(-15px);
-    opacity: 0;
-  }
-  60% {
-    transform: translateX(2px);
-    opacity: 0.8;
-  }
-  100% {
-    transform: translateX(0);
-    opacity: 1;
-  }
-}
-
-/* Smooth slide-out animation when sidebar collapses */
-@keyframes slideOutToLeft {
-  0% {
-    transform: translateX(0);
-    opacity: 1;
-  }
-  40% {
-    transform: translateX(-5px);
-    opacity: 0.6;
-  }
-  100% {
-    transform: translateX(-30px);
-    opacity: 0;
-  }
-}
-
-/* Remove slide-out animation - bubbles should always be visible */
 
 /* Hide sidebar text on mobile regardless of expanded state */
 @media (max-width: 576px) {
@@ -1016,9 +772,6 @@
   -webkit-backdrop-filter: blur(5px);
   position: relative;
   overflow: hidden;
-  /* Default state - visible and in position */
-  transform: translateX(0);
-  opacity: 1;
 }
 
 .logout-button::after {
@@ -1294,7 +1047,7 @@
 
 @media (max-width: 576px) {
   /* Split the sidebar into two parts: top header and bottom navigation */
-
+  
   /* Hide section titles completely on mobile */
   .nav-group-title {
     display: none !important;
@@ -1302,7 +1055,7 @@
     margin: 0 !important;
     padding: 0 !important;
   }
-
+  
   /* Adjust nav group spacing to bring icons closer together */
   .nav-group {
     gap: 5px;
@@ -1407,7 +1160,7 @@
     /* Set a consistent gap between all items */
     gap: 0;
   }
-
+  
   /* Make all nav groups consistent width and spacing */
   .nav-group {
     margin: 0;
@@ -1416,7 +1169,7 @@
     display: flex;
     justify-content: center;
   }
-
+  
   .sidebar-nav ul {
     flex-direction: row;
     justify-content: center;
@@ -1427,14 +1180,7 @@
     height: 100%;
     align-items: center;
   }
-
-  /* Ensure admin group also follows the same layout */
-  .admin-group {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-  }
-
+  
   /* Set uniform spacing for all sidebar icons */
   .sidebar-icon {
     margin: 0;
@@ -1522,11 +1268,6 @@
 
   .dark-mode .sidebar-item.active span:not(.sidebar-text) {
     color: #7a9fff;
-  }
-
-  /* Hide sidebar text on mobile */
-  .sidebar-text {
-    display: none !important;
   }
 
   /* Hide user profile completely on mobile */

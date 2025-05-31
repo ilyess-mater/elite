@@ -11,8 +11,7 @@ function SettingsPage({ user, darkMode, textSize, applySettings }) {
   const [settings, setSettings] = useState({
     theme: darkMode ? "dark" : "light",
     fontSize: textSize || "medium",
-    sidebarHoverExpand:
-      localStorage.getItem("sidebarHoverExpand") === "true" || false,
+    sidebarHoverExpand: localStorage.getItem("sidebarHoverExpand") === "true",
   });
 
   // Predefined avatar colors
