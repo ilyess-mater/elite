@@ -1456,8 +1456,17 @@ function GroupChatPage({ user, textSize }) {
         avatar: generateGroupAvatar(response.data.name),
       };
 
+      // Calculate the initial member count (1 for the creator + number of selected members)
+      const initialMemberCount = 1 + (newGroup.isDepartmentGroup ? 0 : selectedMembers.length);
+      
       // Add new group to the state
       setGroups([...groups, newGroupWithAvatar]);
+      
+      // Update the member count for the new group
+      setGroupMemberCounts(prev => ({
+        ...prev,
+        [response.data.id]: initialMemberCount
+      }));
 
       // Clear form and close modal
       setNewGroup({
@@ -1470,7 +1479,13 @@ function GroupChatPage({ user, textSize }) {
       setShowCreateGroup(false);
 
       // Select the new group
-      setSelectedGroup(newGroupWithAvatar);
+      setSelectedGroup({
+        ...newGroupWithAvatar,
+        members: [
+          { id: user.id, name: user.name },
+          ...(newGroup.isDepartmentGroup ? [] : selectedMembers)
+        ]
+      });
     } catch (error) {
       console.error("Error creating group:", error);
       setError("Failed to create group. Please try again.");

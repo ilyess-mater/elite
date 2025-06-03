@@ -8,7 +8,7 @@ function AdminMaster({ user }) {
   const [activeTab, setActiveTab] = useState("users");
   const [users, setUsers] = useState([]);
   const [allMessages, setAllMessages] = useState([]);
-  const [groupMessages, setGroupMessages] = useState([]); // Nouvel état pour les messages de groupe
+  const [groupMessages, setGroupMessages] = useState([]);
   const [stats, setStats] = useState({
     totalUsers: 0,
     activeUsers: 0,
@@ -22,7 +22,6 @@ function AdminMaster({ user }) {
   const [successMessage, setSuccessMessage] = useState(""); // Add success message state
   const [currentPage, setCurrentPage] = useState(1);
   const [usersPerPage] = useState(10);
-  const [confirmAction, setConfirmAction] = useState(null);
   const [userSearchTerm, setUserSearchTerm] = useState("");
   const [messageSearchTerm, setMessageSearchTerm] = useState("");
   const [groupMessageSearchTerm, setGroupMessageSearchTerm] = useState("");
@@ -297,126 +296,71 @@ function AdminMaster({ user }) {
     return colors[colorIndex];
   }
 
-  const handleUserAction = (action, userData) => {
-    // Admin masters can promote users to regular admin
-    if (action === "promote") {
-      setConfirmAction({
-        action: "promote",
-        user: userData,
-      });
-      return;
-    }
-
-    setConfirmAction({
-      action,
-      user: userData,
-    });
-  };
-
-  const confirmUserAction = async () => {
-    if (!confirmAction) return;
-
-    const { action, user: userData, adminRoleType } = confirmAction;
-
-    try {
-      if (action === "ban") {
-        const response = await axios.delete(`/api/admin/users/${userData.id}`);
-
-        if (response.status === 200) {
-          // Update local state
-          setUsers(users.filter((u) => u.id !== userData.id));
-          // Show success message
-          setSuccessMessage(`${userData.name} has been successfully banned`);
-          // Clear success message after 3 seconds
-          setTimeout(() => {
-            setSuccessMessage("");
-          }, 3000);
-          setError("");
-        }
-      } else if (action === "promote") {
-        try {
-          console.log(`Promoting user ${userData.id} to admin`);
-          console.log("User data:", userData);
-
-          // Make sure we have a valid user ID
-          if (!userData.id) {
-            setError("Invalid user ID");
-            return;
-          }
-
-          const response = await axios.post(
-            `/api/admin/users/${userData.id}/promote`
-          );
-          console.log("Promotion response:", response);
-
-          if (response.status === 200) {
-            // Update local state
-            setUsers(
-              users.map((u) =>
-                u.id === userData.id
-                  ? { ...u, isAdmin: true, adminRole: "admin" }
-                  : u
-              )
-            );
-            setSuccessMessage(`${userData.name} has been promoted to admin`);
-            setTimeout(() => {
-              setSuccessMessage("");
-            }, 3000);
-          }
-        } catch (error) {
-          console.error("Error promoting user:", error);
-          setError(error.response?.data?.error || "Failed to promote user");
-          setTimeout(() => {
-            setError("");
-          }, 3000);
-        }
-      } else if (action === "promote_admin_master") {
-        await axios.post(
-          `/api/admin-master/users/${userData.id}/promote-master`
-        );
-        setUsers(
-          users.map((u) =>
-            u.id === userData.id
-              ? { ...u, isAdmin: true, adminRole: "admin_master" }
-              : u
-          )
-        );
-        setSuccessMessage(`${userData.name} has been promoted to admin master`);
-        setTimeout(() => {
-          setSuccessMessage("");
-        }, 3000);
-      } else if (action === "demote") {
-        await axios.post(`/api/admin/users/${userData.id}/demote`);
-        setUsers(
-          users.map((u) =>
-            u.id === userData.id ? { ...u, isAdmin: false, adminRole: null } : u
-          )
-        );
-        setSuccessMessage(`${userData.name} has been made a regular user`);
-        setTimeout(() => {
-          setSuccessMessage("");
-        }, 3000);
-      }
-    } catch (error) {
-      console.error(`Error ${action} user:`, error);
-      const errorMessage =
-        error.response?.data?.error ||
-        `Failed to ${action} user. Please try again.`;
-      setError(errorMessage);
-      setSuccessMessage("");
-    } finally {
-      setConfirmAction(null);
-    }
-  };
-
-  const cancelConfirmation = () => {
-    setConfirmAction(null);
-  };
-
   // Format date for chart labels
   const formatChartDate = (dateString) => {
     const date = new Date(dateString);
     return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  };
+
+  // Individual action handlers
+  const handleUserAction = async (action, userData) => {
+    try {
+      if (action === "ban") {
+        if (userData.id === user.id) {
+          setError("Cannot ban yourself");
+          return;
+        }
+
+        const response = await axios.delete(`/api/admin/users/${userData.id}`);
+        if (response.status === 200) {
+          setUsers(users.filter((u) => u.id !== userData.id));
+          setSuccessMessage(`${userData.name} has been successfully banned`);
+          setTimeout(() => setSuccessMessage(""), 3000);
+        }
+      } else if (action === "promote") {
+        const response = await axios.post(
+          `/api/admin/users/${userData.id}/promote`
+        );
+        if (response.status === 200) {
+          setUsers(
+            users.map((u) =>
+              u.id === userData.id
+                ? { ...u, isAdmin: true, adminRole: "admin" }
+                : u
+            )
+          );
+          setSuccessMessage(`${userData.name} has been promoted to admin`);
+          setTimeout(() => setSuccessMessage(""), 3000);
+        }
+      } else if (action === "demote") {
+        if (userData.id === user.id) {
+          setError("Cannot demote yourself");
+          return;
+        }
+
+        const response = await axios.post(
+          `/api/admin/users/${userData.id}/demote`
+        );
+        if (response.status === 200) {
+          setUsers(
+            users.map((u) =>
+              u.id === userData.id
+                ? { ...u, isAdmin: false, adminRole: null }
+                : u
+            )
+          );
+          setSuccessMessage(`${userData.name} has been made a regular user`);
+          setTimeout(() => setSuccessMessage(""), 3000);
+        }
+      }
+    } catch (error) {
+      console.error(`Error performing action ${action}:`, error);
+      setError(
+        error.response?.data?.error ||
+          `Failed to ${action} user. Please try again.`
+      );
+      setTimeout(() => setError(""), 3000);
+    }
   };
 
   if (loading) {
@@ -442,36 +386,8 @@ function AdminMaster({ user }) {
 
   return (
     <div className="admin-panel-container">
-      {confirmAction && (
-        <div className="confirm-dialog-overlay">
-          <div className="confirm-dialog">
-            <h3>Confirm Action</h3>
-            <p>
-              {confirmAction.action === "ban"
-                ? `Are you sure you want to ban user ${confirmAction.user.name}? This action cannot be undone.`
-                : confirmAction.action === "promote"
-                ? `Are you sure you want to make ${confirmAction.user.name} a regular admin?`
-                : confirmAction.action === "demote"
-                ? `Are you sure you want to make ${confirmAction.user.name} a regular user?`
-                : `Are you sure you want to ${confirmAction.action} ${confirmAction.user.name}?`}
-            </p>
-            <div className="confirm-dialog-actions">
-              <button className="btn-cancel" onClick={cancelConfirmation}>
-                Cancel
-              </button>
-              <button
-                className={`btn-confirm ${
-                  confirmAction.action === "ban" ? "btn-danger" : ""
-                }`}
-                onClick={confirmUserAction}
-              >
-                {confirmAction.action === "ban" ? "Ban" : "Confirm"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
+      {" "}
+      {/* Confirmation dialogs moved to individual action handlers */}
       <div className="admin-panel-header">
         <div className="header-content">
           <h1>Admin Master Page</h1>
@@ -480,79 +396,74 @@ function AdminMaster({ user }) {
             system-wide control
           </p>
         </div>
-        <button
-          className="btn-modern refresh-button"
-          onClick={() => {
-            setLoading(true);
-            // Fetch data again
-            const token = localStorage.getItem("token");
-            if (!token) {
-              setError("Authentication required");
-              setLoading(false);
-              return;
-            }
-
-            // Configure axios
-            axios.defaults.baseURL = "http://localhost:5000";
-            axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
-
-            const fetchData = async () => {
-              try {
-                setError("");
-
-                const [
-                  usersResponse,
-                  messagesResponse,
-                  groupMessagesResponse,
-                  statsResponse,
-                ] = await Promise.all([
-                  axios.get("/api/admin/users"),
-                  axios.get("/api/admin/messages"),
-                  axios.get("/api/admin/group-messages"),
-                  axios.get("/api/stats"),
-                ]);
-
-                setUsers(usersResponse.data);
-                setAllMessages(messagesResponse.data);
-                setGroupMessages(groupMessagesResponse.data);
-                setStats(statsResponse.data);
-
+        <div className="admin-header-actions">
+          <button
+            className="btn-modern refresh-button"
+            onClick={() => {
+              setLoading(true);
+              // Fetch data again
+              const token = localStorage.getItem("token");
+              if (!token) {
+                setError("Authentication required");
                 setLoading(false);
-                setSuccessMessage("Data refreshed successfully");
-                setTimeout(() => {
-                  setSuccessMessage("");
-                }, 3000);
-              } catch (error) {
-                console.error(
-                  "Error fetching admin data:",
-                  error.response?.data || error.message
-                );
-                setError("Failed to refresh data. Please try again.");
-                setLoading(false);
+                return;
               }
-            };
 
-            fetchData();
-          }}
-          title="Refresh data"
-        >
-          <i className="fas fa-sync-alt"></i>
-          <span>Refresh</span>
-        </button>
+              // Configure axios and fetch data
+              const fetchData = async () => {
+                try {
+                  setError("");
+                  const [
+                    usersResponse,
+                    messagesResponse,
+                    groupMessagesResponse,
+                    statsResponse,
+                  ] = await Promise.all([
+                    axios.get("/api/admin/users"),
+                    axios.get("/api/admin/messages"),
+                    axios.get("/api/admin/group-messages"),
+                    axios.get("/api/stats"),
+                  ]);
+
+                  setUsers(usersResponse.data);
+                  setAllMessages(messagesResponse.data);
+                  setGroupMessages(groupMessagesResponse.data);
+                  setStats(statsResponse.data);
+
+                  setLoading(false);
+                  setSuccessMessage("Data refreshed successfully");
+                  setTimeout(() => {
+                    setSuccessMessage("");
+                  }, 3000);
+                } catch (error) {
+                  console.error(
+                    "Error fetching admin data:",
+                    error.response?.data || error.message
+                  );
+                  setError("Failed to refresh data. Please try again.");
+                  setLoading(false);
+                }
+              };
+
+              fetchData();
+            }}
+            title="Refresh data"
+          >
+            <i className="fas fa-sync-alt"></i>
+            <span>Refresh</span>
+          </button>
+        </div>
       </div>
-
       {successMessage && (
         <div className="success-message">
           <i className="fas fa-check-circle"></i> {successMessage}
         </div>
       )}
-
       {error && (
         <div className="admin-error">
           <i className="fas fa-exclamation-circle"></i> {error}
         </div>
       )}
-
       <div className="admin-tabs-container">
         <div className="admin-tabs">
           <button
@@ -597,13 +508,11 @@ function AdminMaster({ user }) {
           </button>
         </div>
       </div>
-
       {error && (
         <div className="admin-error">
           <i className="fas fa-exclamation-circle"></i> {error}
         </div>
       )}
-
       <div key={activeTab} className="admin-tab-content">
         {activeTab === "users" && (
           <>
@@ -719,39 +628,38 @@ function AdminMaster({ user }) {
                       <td>{getTimeSince(user.lastActive)}</td>
                       <td>
                         <div className="user-actions">
-                          <button
-                            className="user-action-button edit"
-                            title="Edit User"
-                          >
-                            <i className="fas fa-edit"></i>
-                          </button>
-                          {user.isAdmin ? (
-                            // Only show demote button for admin masters and not for themselves
-                            user.id !== window.user?.id ? (
+                          {user.id !== window.user?.id && (
+                            <>
+                              {user.isAdmin ? (
+                                <button
+                                  className="user-action-button"
+                                  title="Make Regular User"
+                                  onClick={() =>
+                                    handleUserAction("demote", user)
+                                  }
+                                >
+                                  <i className="fas fa-level-down-alt"></i>
+                                </button>
+                              ) : (
+                                <button
+                                  className="user-action-button"
+                                  title="Make Admin"
+                                  onClick={() =>
+                                    handleUserAction("promote", user)
+                                  }
+                                >
+                                  <i className="fas fa-level-up-alt"></i>
+                                </button>
+                              )}
                               <button
-                                className="user-action-button"
-                                title="Make User"
-                                onClick={() => handleUserAction("demote", user)}
+                                className="user-action-button delete"
+                                title="Ban User"
+                                onClick={() => handleUserAction("ban", user)}
                               >
-                                <i className="fas fa-level-down-alt"></i>
+                                <i className="fas fa-ban"></i>
                               </button>
-                            ) : null
-                          ) : (
-                            <button
-                              className="user-action-button"
-                              title="Make Admin"
-                              onClick={() => handleUserAction("promote", user)}
-                            >
-                              <i className="fas fa-level-up-alt"></i>
-                            </button>
+                            </>
                           )}
-                          <button
-                            className="user-action-button delete"
-                            title="Ban User"
-                            onClick={() => handleUserAction("ban", user)}
-                          >
-                            <i className="fas fa-ban"></i>
-                          </button>
                         </div>
                       </td>
                     </tr>
@@ -760,6 +668,7 @@ function AdminMaster({ user }) {
               </table>
             </div>
 
+            {/* Pagination code */}
             <div className="pagination">
               <div className="pagination-info">
                 Showing {indexOfFirstUser + 1}-

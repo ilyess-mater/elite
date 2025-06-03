@@ -25,10 +25,12 @@ function Sidebar({ activePage, setActivePage, isAdmin, onLogout, userName }) {
         userAvatar.style.background = event.detail.color;
         userAvatar.style.backgroundImage = "none";
       }
-    };
-
-    const handleSidebarHoverSetting = (event) => {
+    };    const handleSidebarHoverSetting = (event) => {
       setHoverEnabled(event.detail.enabled);
+      // When hover is disabled, ensure the sidebar is collapsed
+      if (!event.detail.enabled) {
+        setExpanded(false);
+      }
     };
 
     // Add event listeners
@@ -47,9 +49,7 @@ function Sidebar({ activePage, setActivePage, isAdmin, onLogout, userName }) {
       userAvatar.style.backgroundColor = storedColor;
       userAvatar.style.backgroundImage = "none";
       userAvatar.innerHTML = userName ? userName.charAt(0).toUpperCase() : "U";
-    }
-
-    // Setup storage event listener to detect changes from other tabs/windows
+    }    // Setup storage event listener to detect changes from other tabs/windows
     const handleStorageChange = (e) => {
       if (e.key === "avatarColor" && e.newValue) {
         setAvatarColor(e.newValue);
@@ -61,6 +61,13 @@ function Sidebar({ activePage, setActivePage, isAdmin, onLogout, userName }) {
           userAvatar.innerHTML = userName
             ? userName.charAt(0).toUpperCase()
             : "U";
+        }
+      } else if (e.key === "sidebarHoverExpand") {
+        const enabled = e.newValue === "true";
+        setHoverEnabled(enabled);
+        // When hover is disabled, ensure the sidebar is collapsed
+        if (!enabled) {
+          setExpanded(false);
         }
       }
     };
@@ -120,10 +127,8 @@ function Sidebar({ activePage, setActivePage, isAdmin, onLogout, userName }) {
   };
 
   const handleMouseLeave = () => {
-    // Only enable hover collapse if hover is enabled AND not on mobile
-    if (hoverEnabled && window.innerWidth > 576) {
-      setExpanded(false);
-    }
+    // Always collapse when mouse leaves, regardless of hover setting
+    setExpanded(false);
   };
 
   // Check if we're on mobile
@@ -174,7 +179,7 @@ function Sidebar({ activePage, setActivePage, isAdmin, onLogout, userName }) {
       )}
 
       <div
-        className={`sidebar ${expanded ? "expanded" : ""}`}
+        className={`sidebar ${expanded ? "expanded" : ""} ${hoverEnabled ? "hover-enabled" : ""}`}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
       >

@@ -309,7 +309,7 @@ function SignUpForm({ onSignUp }) {
           rel="noopener noreferrer"
           className="social-icon"
         >
-          <i className="fab fa-twitter"></i>
+          <i className="fa-brands fa-x-twitter"></i>
         </a>
         <a
           href="https://accounts.google.com/"

@@ -8,7 +8,7 @@ function AdminPanel({ user }) {
   const [activeTab, setActiveTab] = useState("users");
   const [users, setUsers] = useState([]);
   const [allMessages, setAllMessages] = useState([]);
-  const [groupMessages, setGroupMessages] = useState([]); // Nouvel état pour les messages de groupe
+  const [groupMessages, setGroupMessages] = useState([]);
   const [stats, setStats] = useState({
     totalUsers: 0,
     activeUsers: 0,
@@ -19,7 +19,7 @@ function AdminPanel({ user }) {
   const [timeRange, setTimeRange] = useState("7days");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [successMessage, setSuccessMessage] = useState(""); // Add success message state
+  const [successMessage, setSuccessMessage] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [usersPerPage] = useState(10);
   const [confirmAction, setConfirmAction] = useState(null);
@@ -29,9 +29,9 @@ function AdminPanel({ user }) {
   const { getSocket } = useAuth();
   const socket = getSocket();
 
-  // Fetch admin data
+  // Add safety check to prevent unauthorized operations
   useEffect(() => {
-    if (!user || !user.isAdmin || user.adminRole === "admin_master") {
+    if (!user || !user.isAdmin) {
       setError("You don't have permission to access this page");
       setLoading(false);
       return;
@@ -495,68 +495,64 @@ function AdminPanel({ user }) {
 
       <div className="admin-panel-header">
         <div className="header-content">
-          <h1>Admin Panel Page</h1>
-          <p>Manage users, messages, and analytics</p>
+          <h1>Admin Panel</h1>
+          <p>Manage users and monitor system activity</p>
         </div>
-        <button
-          className="btn-modern refresh-button"
-          onClick={() => {
-            setLoading(true);
-            // Fetch data again
-            const token = localStorage.getItem("token");
-            if (!token) {
-              setError("Authentication required");
-              setLoading(false);
-              return;
-            }
-
-            // Configure axios
-            axios.defaults.baseURL = "http://localhost:5000";
-            axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
-
-            const fetchData = async () => {
-              try {
-                setError("");
-
-                const [
-                  usersResponse,
-                  messagesResponse,
-                  groupMessagesResponse,
-                  statsResponse,
-                ] = await Promise.all([
-                  axios.get("/api/admin/users"),
-                  axios.get("/api/admin/messages"),
-                  axios.get("/api/admin/group-messages"),
-                  axios.get("/api/stats"),
-                ]);
-
-                setUsers(usersResponse.data);
-                setAllMessages(messagesResponse.data);
-                setGroupMessages(groupMessagesResponse.data);
-                setStats(statsResponse.data);
-
+        <div className="admin-header-actions">
+          <button
+            className="btn-modern refresh-button"
+            onClick={() => {
+              setLoading(true);
+              const token = localStorage.getItem("token");
+              if (!token) {
+                setError("Authentication required");
                 setLoading(false);
-                setSuccessMessage("Data refreshed successfully");
-                setTimeout(() => {
-                  setSuccessMessage("");
-                }, 3000);
-              } catch (error) {
-                console.error(
-                  "Error fetching admin data:",
-                  error.response?.data || error.message
-                );
-                setError("Failed to refresh data. Please try again.");
-                setLoading(false);
+                return;
               }
-            };
 
-            fetchData();
-          }}
-          title="Refresh data"
-        >
-          <i className="fas fa-sync-alt"></i>
-          <span>Refresh</span>
-        </button>
+              const fetchData = async () => {
+                try {
+                  setError("");
+                  const [
+                    usersResponse,
+                    messagesResponse,
+                    groupMessagesResponse,
+                    statsResponse,
+                  ] = await Promise.all([
+                    axios.get("/api/admin/users"),
+                    axios.get("/api/admin/messages"),
+                    axios.get("/api/admin/group-messages"),
+                    axios.get("/api/stats"),
+                  ]);
+
+                  setUsers(usersResponse.data);
+                  setAllMessages(messagesResponse.data);
+                  setGroupMessages(groupMessagesResponse.data);
+                  setStats(statsResponse.data);
+
+                  setLoading(false);
+                  setSuccessMessage("Data refreshed successfully");
+                  setTimeout(() => {
+                    setSuccessMessage("");
+                  }, 3000);
+                } catch (error) {
+                  console.error(
+                    "Error fetching admin data:",
+                    error.response?.data || error.message
+                  );
+                  setError("Failed to refresh data. Please try again.");
+                  setLoading(false);
+                }
+              };
+
+              fetchData();
+            }}
+            title="Refresh data"
+          >
+            <i className="fas fa-sync-alt"></i>
+            <span>Refresh</span>
+          </button>
+        </div>
       </div>
 
       {successMessage && (
