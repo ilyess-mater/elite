@@ -3365,7 +3365,7 @@
 .btn-cancel,
 .btn-danger {
   padding: 8px 16px;
-  border-radius: 4px;
+  border-radius: 49px;
   border: none;
   cursor: pointer;
   font-weight: 500;
@@ -3450,7 +3450,7 @@
 
 .department-select {
   width: 100%;
-  padding: 10px 15px;
+  padding: 10px 30px;
   border-radius: 8px;
   border: 1px solid #ddd;
   background-color: #fff;
@@ -3531,7 +3531,7 @@
   color: white;
   border: none;
   padding: 8px 16px;
-  border-radius: 4px;
+  border-radius: 49px;
   cursor: pointer;
 }
 

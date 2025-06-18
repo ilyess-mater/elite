@@ -2556,7 +2556,7 @@
 .btn-cancel,
 .btn-danger {
   padding: 10px 20px;
-  border-radius: 6px;
+  border-radius: 49px;
   font-weight: 500;
   border: none;
   cursor: pointer;
@@ -2604,7 +2604,7 @@
   margin: 5px 0;
   background-color: #fff3f3;
   border: 1px solid #fcc;
-  border-radius: 6px;
+  border-radius: 49px;
   color: #d32f2f;
   font-size: 0.85rem;
   display: flex;

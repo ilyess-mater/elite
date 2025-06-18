@@ -846,7 +846,7 @@
 .btn-cancel,
 .btn-confirm {
   padding: 12px 24px;
-  border-radius: 12px;
+  border-radius: 49px;
   border: none;
   font-weight: 600;
   cursor: pointer;
