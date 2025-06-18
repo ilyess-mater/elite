@@ -732,13 +732,8 @@ function AdminPanel({ user }) {
                       </td>
                       <td>{getTimeSince(user.lastActive)}</td>
                       <td>
+                        {" "}
                         <div className="user-actions">
-                          <button
-                            className="user-action-button edit"
-                            title="Edit User"
-                          >
-                            <i className="fas fa-edit"></i>
-                          </button>
                           {user.isAdmin ? (
                             // Show demote button only if:
                             // 1. Not the current user AND
